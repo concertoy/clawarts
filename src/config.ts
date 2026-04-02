@@ -26,26 +26,35 @@ function loadConfigFile(): LegacyConfigFile {
   return JSON.parse(raw) as LegacyConfigFile;
 }
 
-const AGENT_DEFAULTS: Required<AgentDefaults> = {
+const AGENT_DEFAULTS = {
   provider: "openai-codex",
   model: "gpt-5.4",
   maxTokens: 8192,
   systemPrompt: "You are a helpful assistant in a Slack workspace.",
-  skillsDirs: ["~/.clawarts/workspace/skills"],
   sessionTtlMinutes: 120,
-  workspaceDir: path.join(os.homedir(), ".clawarts", "workspace"),
 };
 
 function expandTilde(p: string): string {
   return p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p;
 }
 
+/** Resolve a value that may be a $ENV_VAR reference. */
+function resolveEnvRef(value: string): string {
+  if (value.startsWith("$")) {
+    const envName = value.slice(1);
+    const envValue = process.env[envName];
+    if (!envValue) throw new Error(`Environment variable ${envName} is not set (referenced in config.json)`);
+    return envValue;
+  }
+  return value;
+}
+
 function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults): AgentConfig {
+  const agentBase = path.join(os.homedir(), ".clawarts", "agents", entry.id);
   const workspaceDir = expandTilde(
-    entry.workspaceDir
-      ?? defaults.workspaceDir
-      ?? path.join(os.homedir(), ".clawarts", "agents", entry.id, "workspace"),
+    entry.workspaceDir ?? defaults.workspaceDir ?? path.join(agentBase, "workspace"),
   );
+  const defaultSkillsDirs = [path.join(workspaceDir, "skills")];
 
   return {
     id: entry.id,
@@ -53,11 +62,11 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults): AgentCo
     model: entry.model ?? defaults.model ?? AGENT_DEFAULTS.model,
     maxTokens: entry.maxTokens ?? defaults.maxTokens ?? AGENT_DEFAULTS.maxTokens,
     systemPrompt: entry.systemPrompt ?? defaults.systemPrompt ?? AGENT_DEFAULTS.systemPrompt,
-    skillsDirs: (entry.skillsDirs ?? defaults.skillsDirs ?? AGENT_DEFAULTS.skillsDirs).map(expandTilde),
+    skillsDirs: (entry.skillsDirs ?? defaults.skillsDirs ?? defaultSkillsDirs).map(expandTilde),
     sessionTtlMinutes: entry.sessionTtlMinutes ?? defaults.sessionTtlMinutes ?? AGENT_DEFAULTS.sessionTtlMinutes,
     workspaceDir,
-    slackBotToken: entry.slackBotToken,
-    slackAppToken: entry.slackAppToken,
+    slackBotToken: resolveEnvRef(entry.slackBotToken),
+    slackAppToken: resolveEnvRef(entry.slackAppToken),
   };
 }
 
@@ -86,6 +95,10 @@ export function loadAllAgentConfigs(): AgentConfig[] {
     throw new Error("Missing SLACK_BOT_TOKEN or SLACK_APP_TOKEN. Set them in .env or use multi-agent config.");
   }
 
+  const agentBase = path.join(os.homedir(), ".clawarts", "agents", "default");
+  const workspaceDir = expandTilde(file.workspaceDir ?? path.join(agentBase, "workspace"));
+  const defaultSkillsDirs = [path.join(workspaceDir, "skills")];
+
   return [
     {
       id: "default",
@@ -93,9 +106,9 @@ export function loadAllAgentConfigs(): AgentConfig[] {
       model: file.model ?? AGENT_DEFAULTS.model,
       maxTokens: file.maxTokens ?? AGENT_DEFAULTS.maxTokens,
       systemPrompt: file.systemPrompt ?? AGENT_DEFAULTS.systemPrompt,
-      skillsDirs: (file.skillsDirs ?? AGENT_DEFAULTS.skillsDirs).map(expandTilde),
+      skillsDirs: (file.skillsDirs ?? defaultSkillsDirs).map(expandTilde),
       sessionTtlMinutes: file.sessionTtlMinutes ?? AGENT_DEFAULTS.sessionTtlMinutes,
-      workspaceDir: expandTilde(file.workspaceDir ?? AGENT_DEFAULTS.workspaceDir),
+      workspaceDir,
       slackBotToken: botToken,
       slackAppToken: appToken,
     },

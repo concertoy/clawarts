@@ -11,9 +11,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "@slack/bolt": "^4.6.0",
     "dotenv": "^16.4.0",
-    "gray-matter": "^4.0.3"
+    "gray-matter": "^4.0.3",
+    "linkedom": "^0.18.12"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

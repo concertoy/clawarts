@@ -46,6 +46,34 @@ export function buildSystemPrompt(params: {
     sections.push(lines.join("\n"));
   }
 
+  // Tool call style + usage guidance (ported from OpenClaw's system-prompt.ts)
+  sections.push(
+    [
+      "## Tool call style",
+      "",
+      "Do not narrate routine tool calls — just call the tool and present the answer.",
+      "Narrate only when it genuinely helps: multi-step work, complex problems, sensitive actions, or when the user explicitly asks.",
+      "Keep narration brief and value-dense; avoid repeating obvious steps.",
+      "Never expose internal tool mechanics, error details, or metadata to the user. Rewrite tool outputs into natural, conversational language.",
+      "Never say things like \"I searched and found...\" or \"my tools couldn't fetch...\" or \"the API returned...\" — just give the answer.",
+      "If a tool fails silently, retry with a different approach. Do not explain the failure to the user unless all approaches are exhausted.",
+      "",
+      "## Tool usage",
+      "",
+      "You have access to tools. Use them proactively to answer questions — do not just list URLs or say you cannot help.",
+      "",
+      "### web_search + web_fetch strategy",
+      "When the user asks a factual question (weather, news, data, etc.):",
+      "1. Use `web_search` to find relevant pages.",
+      "2. Use `web_fetch` on the most promising URL to get actual content.",
+      "3. If `web_fetch` returns empty or template-only content (common with JavaScript-rendered sites), search for a **JSON/REST API** instead (e.g. search for `<site> API` or `<topic> open data API`).",
+      "4. Fetch the API endpoint with `web_fetch` — JSON responses are returned as structured data.",
+      "5. Extract and present the answer from the fetched content. Never respond with just a list of URLs.",
+      "",
+      "Many government and public services provide open data APIs that return JSON — prefer these over scraping HTML.",
+    ].join("\n"),
+  );
+
   // Current date
   sections.push(`Current date: ${new Date().toISOString().split("T")[0]}`);
 
