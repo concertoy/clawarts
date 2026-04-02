@@ -6,11 +6,9 @@
   "agents": [
     {
       "id": "tutor",
-      "slackBotToken": "TUTOR_SLACK_BOT_TOKEN",
-      "slackAppToken": "TUTOR_SLACK_APP_TOKEN",
-      "systemPrompt": "You are a course tutor assistant.",
-      "workspaceDir": "~/.clawarts/agents/tutor/workspace",
-      "skillsDirs": ["~/.clawarts/workspace/skills"]
+      "slackBotToken": "$TUTOR_SLACK_BOT_TOKEN",
+      "slackAppToken": "$TUTOR_SLACK_APP_TOKEN",
+      "systemPrompt": "You are a course tutor assistant managing students."
     }
   ]
 }

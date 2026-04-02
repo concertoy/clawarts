@@ -14,6 +14,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   });
 
   let botUserId: string | undefined;
+  const botDmChannels = new Set<string>(); // DM channels confirmed to be with the bot
 
   async function resolveBotId(client: any): Promise<string> {
     if (!botUserId) {
@@ -21,6 +22,22 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       botUserId = auth.user_id as string;
     }
     return botUserId;
+  }
+
+  /** Check if a DM channel is a 1:1 conversation with this bot. */
+  async function isBotDM(client: any, channel: string, myId: string): Promise<boolean> {
+    if (botDmChannels.has(channel)) return true;
+    try {
+      const resp = await client.conversations.members({ channel, limit: 10 });
+      const members = resp.members as string[] | undefined;
+      if (members?.includes(myId)) {
+        botDmChannels.add(channel);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
   }
 
   // Handle direct mentions in channels
@@ -68,6 +85,9 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
 
     const isDM = channel.startsWith("D");
     const isThreadReply = !!threadTs;
+
+    // Only respond in DMs where the bot is a participant
+    if (isDM && !(await isBotDM(client, channel, myId))) return;
 
     if (!isDM && !isThreadReply) {
       // Top-level channel message without @mention — skip

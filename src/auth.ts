@@ -14,7 +14,7 @@ const OPENAI_SCOPE = "openid profile email offline_access";
 const OPENAI_JWT_CLAIM_PATH = "https://api.openai.com/auth";
 
 
-const AUTH_DIR = path.join(os.homedir(), ".clawarts");
+const AUTH_DIR = path.join(os.homedir(), ".clawarts", "auth");
 const EXPIRY_BUFFER_MS = 5 * 60 * 1000;
 
 interface StoredAuth {
@@ -26,8 +26,7 @@ interface StoredAuth {
 }
 
 /**
- * Multi-provider PKCE OAuth token provider.
- * Supports OpenAI Codex (ChatGPT subscription) and Claude (Pro/Max subscription).
+ * PKCE OAuth token provider for OpenAI Codex (ChatGPT subscription).
  */
 export class TokenProvider {
   private accessToken: string | null = null;
@@ -38,7 +37,7 @@ export class TokenProvider {
   constructor(private provider: Provider) {}
 
   private get authFile(): string {
-    return path.join(AUTH_DIR, `auth-${this.provider}.json`);
+    return path.join(AUTH_DIR, `${this.provider}.json`);
   }
 
   /** Load stored credentials, or run interactive login if none exist. */
