@@ -34,6 +34,11 @@ const AGENT_DEFAULTS = {
   sessionTtlMinutes: 120,
 };
 
+const DEFAULT_MODELS: Record<string, string> = {
+  "openai-codex": "gpt-5.4",
+  "anthropic-claude": "claude-sonnet-4-20250514",
+};
+
 function expandTilde(p: string): string {
   return p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p;
 }
@@ -59,7 +64,7 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults): AgentCo
   return {
     id: entry.id,
     provider: (entry.provider ?? defaults.provider ?? AGENT_DEFAULTS.provider) as AgentConfig["provider"],
-    model: entry.model ?? defaults.model ?? AGENT_DEFAULTS.model,
+    model: entry.model ?? defaults.model ?? DEFAULT_MODELS[entry.provider ?? defaults.provider ?? AGENT_DEFAULTS.provider] ?? AGENT_DEFAULTS.model,
     maxTokens: entry.maxTokens ?? defaults.maxTokens ?? AGENT_DEFAULTS.maxTokens,
     systemPrompt: entry.systemPrompt ?? defaults.systemPrompt ?? AGENT_DEFAULTS.systemPrompt,
     skillsDirs: (entry.skillsDirs ?? defaults.skillsDirs ?? defaultSkillsDirs).map(expandTilde),

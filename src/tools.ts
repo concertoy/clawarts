@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { execSync } from "node:child_process";
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import type { ToolDefinition } from "./types.js";
+import { execAsync } from "./utils/exec-async.js";
 
 let workspaceRoot = "";
 
@@ -22,10 +22,11 @@ const readFileTool: ToolDefinition = {
     },
     required: ["path"],
   },
+  isReadOnly: true,
   async execute(input) {
     const filePath = resolveFilePath(input.path as string);
     try {
-      const content = fs.readFileSync(filePath, "utf-8");
+      const content = await fs.promises.readFile(filePath, "utf-8");
       const lines = content.split("\n");
       const offset = (input.offset as number) ?? 0;
       const limit = (input.limit as number) ?? lines.length;
@@ -67,8 +68,8 @@ const writeFileTool: ToolDefinition = {
 
     try {
       const dir = path.dirname(filePath);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(filePath, content, "utf-8");
+      await fs.promises.mkdir(dir, { recursive: true });
+      await fs.promises.writeFile(filePath, content, "utf-8");
       return `File written: ${filePath}`;
     } catch (err) {
       return `Error writing file: ${errMsg(err)}`;
@@ -102,16 +103,15 @@ const editTool: ToolDefinition = {
     }
 
     try {
-      const content = fs.readFileSync(filePath, "utf-8");
+      const content = await fs.promises.readFile(filePath, "utf-8");
       const idx = content.indexOf(oldText);
       if (idx === -1) return `Error: oldText not found in ${filePath}`;
 
-      // Check for multiple matches
       const secondIdx = content.indexOf(oldText, idx + 1);
       if (secondIdx !== -1) return `Error: oldText matches multiple locations in ${filePath}. Provide more context to make it unique.`;
 
       const updated = content.slice(0, idx) + newText + content.slice(idx + oldText.length);
-      fs.writeFileSync(filePath, updated, "utf-8");
+      await fs.promises.writeFile(filePath, updated, "utf-8");
 
       const lineNum = content.slice(0, idx).split("\n").length;
       return `Edited ${filePath} at line ${lineNum}`;
@@ -140,34 +140,41 @@ const bashTool: ToolDefinition = {
     const timeout = (input.timeout as number) ?? 30_000;
 
     try {
-      const output = execSync(command, {
-        cwd: workspaceRoot,
-        timeout,
-        maxBuffer: 1024 * 1024, // 1MB
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-      const result = (output ?? "").trim();
-      if (result.length > 100_000) {
-        return result.slice(0, 100_000) + "\n\n[Truncated]";
+      const result = await execAsync(command, { cwd: workspaceRoot, timeout });
+      const output = result.stdout || result.stderr || "(no output)";
+      const maxChars = 100_000;
+
+      if (result.exitCode !== 0 && result.exitCode !== null) {
+        const combined = `Exit code: ${result.exitCode}\n${result.stdout}\n${result.stderr}`.trim();
+        return combined.length > maxChars ? combined.slice(0, maxChars) + "\n\n[Truncated]" : combined;
       }
-      return result || "(no output)";
-    } catch (err: any) {
-      // execSync throws on non-zero exit code — include stdout + stderr
-      const stdout = (err.stdout as string) ?? "";
-      const stderr = (err.stderr as string) ?? "";
-      const exitCode = err.status ?? "unknown";
-      return `Exit code: ${exitCode}\n${stdout}\n${stderr}`.trim();
+
+      return output.length > maxChars ? output.slice(0, maxChars) + "\n\n[Truncated]" : output;
+    } catch (err) {
+      return `Error executing command: ${errMsg(err)}`;
     }
   },
 };
 
-// ─── grep ──────────────────────────────────────────────────────────────
+// ─── grep (ripgrep-based with fallback) ───────────────────────────────
+
+let hasRipgrep: boolean | null = null;
+
+async function detectRipgrep(): Promise<boolean> {
+  if (hasRipgrep !== null) return hasRipgrep;
+  try {
+    const result = await execAsync("which rg", { timeout: 5_000 });
+    hasRipgrep = result.exitCode === 0;
+  } catch {
+    hasRipgrep = false;
+  }
+  return hasRipgrep;
+}
 
 const grepTool: ToolDefinition = {
   name: "grep",
   description:
-    "Search file contents using a regex pattern. Searches in the workspace by default.",
+    "Search file contents using a regex pattern. Uses ripgrep if available, falls back to system grep. Supports output modes and pagination.",
   parameters: {
     type: "object",
     properties: {
@@ -175,48 +182,135 @@ const grepTool: ToolDefinition = {
       path: { type: "string", description: "Directory or file to search in. Default: workspace root." },
       glob: { type: "string", description: "Glob pattern to filter files (e.g. '*.ts')." },
       ignoreCase: { type: "boolean", description: "Case-insensitive search. Default: false." },
+      outputMode: {
+        type: "string",
+        description: 'Output mode: "content" (default, shows matching lines), "files_with_matches" (just file paths), "count" (match counts).',
+        enum: ["content", "files_with_matches", "count"],
+      },
+      headLimit: { type: "number", description: "Limit output to first N lines. Default: 250." },
+      type: { type: "string", description: "File type for ripgrep (e.g. 'ts', 'py', 'js')." },
+      multiline: { type: "boolean", description: "Enable multiline matching (ripgrep only). Default: false." },
     },
     required: ["pattern"],
   },
+  isReadOnly: true,
   async execute(input) {
     const pattern = input.pattern as string;
     const searchPath = input.path ? resolveFilePath(input.path as string) : workspaceRoot;
     const glob = input.glob as string | undefined;
     const ignoreCase = input.ignoreCase as boolean | undefined;
+    const outputMode = (input.outputMode as string) ?? "content";
+    const headLimit = (input.headLimit as number) ?? 250;
+    const fileType = input.type as string | undefined;
+    const multiline = input.multiline as boolean | undefined;
 
-    const args = ["grep", "-rn"];
-    if (ignoreCase) args.push("-i");
-    if (glob) args.push(`--include=${glob}`);
-    args.push("-E", pattern, searchPath);
+    const useRg = await detectRipgrep();
 
     try {
-      const output = execSync(args.join(" "), {
-        cwd: workspaceRoot,
-        timeout: 15_000,
-        maxBuffer: 1024 * 1024,
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-      const result = (output ?? "").trim();
-      if (!result) return "No matches found.";
-      const lines = result.split("\n");
-      if (lines.length > 200) {
-        return lines.slice(0, 200).join("\n") + `\n\n[Truncated: ${lines.length} total matches]`;
+      let command: string;
+
+      if (useRg) {
+        // Ripgrep command — ported from claude-code GrepTool
+        const args = ["rg"];
+        if (ignoreCase) args.push("-i");
+        if (multiline) args.push("-U", "--multiline-dotall");
+        if (fileType) args.push("--type", fileType);
+        if (glob) args.push("--glob", glob);
+
+        if (outputMode === "files_with_matches") {
+          args.push("-l");
+        } else if (outputMode === "count") {
+          args.push("-c");
+        } else {
+          args.push("-n"); // line numbers for content mode
+        }
+
+        args.push("--", JSON.stringify(pattern).slice(1, -1), searchPath);
+
+        if (headLimit > 0) {
+          command = args.join(" ") + ` | head -${headLimit}`;
+        } else {
+          command = args.join(" ");
+        }
+      } else {
+        // Fallback: system grep
+        const args = ["grep", "-rn"];
+        if (ignoreCase) args.push("-i");
+        if (glob) args.push(`--include=${glob}`);
+        if (outputMode === "files_with_matches") args.push("-l");
+        if (outputMode === "count") args.push("-c");
+        args.push("-E", JSON.stringify(pattern), searchPath);
+
+        if (headLimit > 0) {
+          command = args.join(" ") + ` | head -${headLimit}`;
+        } else {
+          command = args.join(" ");
+        }
       }
-      return result;
+
+      const result = await execAsync(command, { cwd: workspaceRoot, timeout: 15_000 });
+      const output = result.stdout.trim();
+
+      if (!output) return "No matches found.";
+
+      const lines = output.split("\n");
+      if (headLimit > 0 && lines.length >= headLimit) {
+        return output + `\n\n[Truncated at ${headLimit} lines]`;
+      }
+      return output;
     } catch (err: any) {
-      if (err.status === 1) return "No matches found.";
-      return `Error: ${(err.stderr as string) ?? errMsg(err)}`;
+      if (err?.exitCode === 1) return "No matches found.";
+      return `Error: ${errMsg(err)}`;
     }
   },
 };
 
-// ─── find ──────────────────────────────────────────────────────────────
+// ─── glob (replaces find) ─────────────────────────────────────────────
+
+const globTool: ToolDefinition = {
+  name: "glob",
+  description:
+    "Find files by glob pattern. Returns matching file paths. Searches in the workspace by default.",
+  parameters: {
+    type: "object",
+    properties: {
+      pattern: { type: "string", description: "Glob pattern to match (e.g. '**/*.ts', 'src/**/*.md')." },
+      path: { type: "string", description: "Directory to search in. Default: workspace root." },
+    },
+    required: ["pattern"],
+  },
+  isReadOnly: true,
+  async execute(input) {
+    const pattern = input.pattern as string;
+    const searchPath = input.path ? resolveFilePath(input.path as string) : workspaceRoot;
+
+    // Use find for basic name globs, or rg --files --glob for complex patterns
+    const useRg = await detectRipgrep();
+
+    try {
+      let command: string;
+      if (useRg) {
+        command = `rg --files --glob ${JSON.stringify(pattern)} ${JSON.stringify(searchPath)} 2>/dev/null | head -200`;
+      } else {
+        command = `find ${JSON.stringify(searchPath)} -name ${JSON.stringify(pattern)} -type f 2>/dev/null | head -200`;
+      }
+
+      const result = await execAsync(command, { cwd: workspaceRoot, timeout: 15_000 });
+      const output = result.stdout.trim();
+      if (!output) return "No files found.";
+      return output;
+    } catch (err) {
+      return `Error: ${errMsg(err)}`;
+    }
+  },
+};
+
+// ─── find (kept for backward compat, delegates to glob) ───────────────
 
 const findTool: ToolDefinition = {
   name: "find",
   description:
-    "Find files by name pattern (glob). Searches in the workspace by default.",
+    "Find files by name pattern. Searches in the workspace by default. (Alias for glob)",
   parameters: {
     type: "object",
     properties: {
@@ -225,23 +319,9 @@ const findTool: ToolDefinition = {
     },
     required: ["pattern"],
   },
+  isReadOnly: true,
   async execute(input) {
-    const pattern = input.pattern as string;
-    const searchPath = input.path ? resolveFilePath(input.path as string) : workspaceRoot;
-
-    try {
-      const output = execSync(`find ${JSON.stringify(searchPath)} -name ${JSON.stringify(pattern)} -type f 2>/dev/null | head -200`, {
-        cwd: workspaceRoot,
-        timeout: 15_000,
-        maxBuffer: 1024 * 1024,
-        encoding: "utf-8",
-      });
-      const result = (output ?? "").trim();
-      if (!result) return "No files found.";
-      return result;
-    } catch (err: any) {
-      return `Error: ${errMsg(err)}`;
-    }
+    return globTool.execute(input);
   },
 };
 
@@ -258,16 +338,16 @@ const lsTool: ToolDefinition = {
     },
     required: [],
   },
+  isReadOnly: true,
   async execute(input) {
     const dirPath = input.path ? resolveFilePath(input.path as string) : workspaceRoot;
 
     try {
-      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
       if (entries.length === 0) return "(empty directory)";
 
       const lines = entries
         .sort((a, b) => {
-          // Directories first, then files
           if (a.isDirectory() && !b.isDirectory()) return -1;
           if (!a.isDirectory() && b.isDirectory()) return 1;
           return a.name.localeCompare(b.name);
@@ -291,9 +371,8 @@ const DDG_USER_AGENT =
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 const DDG_TIMEOUT = 20_000;
 
-// Simple in-memory cache: query -> { results, expiresAt }
 const ddgCache = new Map<string, { results: string; expiresAt: number }>();
-const DDG_CACHE_TTL = 60 * 60 * 1000; // 60 minutes
+const DDG_CACHE_TTL = 60 * 60 * 1000;
 
 const webSearchTool: ToolDefinition = {
   name: "web_search",
@@ -307,6 +386,7 @@ const webSearchTool: ToolDefinition = {
     },
     required: ["query"],
   },
+  isReadOnly: true,
   async execute(input) {
     const query = input.query as string;
     const count = Math.min(Math.max((input.count as number) ?? 5, 1), 10);
@@ -335,7 +415,6 @@ const webSearchTool: ToolDefinition = {
 
       const html = await resp.text();
 
-      // Detect bot challenge
       if (
         /g-recaptcha|are you a human|id="challenge-form"|name="challenge"/i.test(html) &&
         !/result__a/i.test(html)
@@ -369,9 +448,7 @@ interface DdgResult {
 function parseDdgResults(html: string, count: number): DdgResult[] {
   const results: DdgResult[] = [];
 
-  // Match result links: <a class="result__a" href="...">title</a>
   const linkRegex = /<a\b(?=[^>]*\bclass="[^"]*\bresult__a\b[^"]*")([^>]*)>([\s\S]*?)<\/a>/gi;
-  // Match snippets: <a class="result__snippet" ...>snippet</a>
   const snippetRegex = /<a\b(?=[^>]*\bclass="[^"]*\bresult__snippet\b[^"]*")[^>]*>([\s\S]*?)<\/a>/gi;
 
   const links: { title: string; url: string; endIdx: number }[] = [];
@@ -393,7 +470,6 @@ function parseDdgResults(html: string, count: number): DdgResult[] {
     });
   }
 
-  // Collect all snippets
   const snippets: { text: string; idx: number }[] = [];
   while ((match = snippetRegex.exec(html)) !== null) {
     snippets.push({
@@ -402,7 +478,6 @@ function parseDdgResults(html: string, count: number): DdgResult[] {
     });
   }
 
-  // Pair each link with the nearest following snippet
   for (const link of links) {
     const snippet = snippets.find((s) => s.idx > link.endIdx);
     results.push({
@@ -424,7 +499,6 @@ function decodeDdgUrl(raw: string): string {
   } catch {
     // not a redirect URL
   }
-  // Protocol-relative
   if (raw.startsWith("//")) return `https:${raw}`;
   return raw;
 }
@@ -449,21 +523,20 @@ function stripHtml(text: string): string {
   return text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-// ─── web_fetch (Readability-based, ported from OpenClaw) ──────────────
+// ─── web_fetch (Readability-based) ────────────────────────────────────
 
 const WEB_FETCH_TIMEOUT = 30_000;
 const WEB_FETCH_MAX_CHARS = 50_000;
 const WEB_FETCH_MAX_HTML = 1_000_000;
 const WEB_FETCH_MAX_RESPONSE_BYTES = 2_000_000;
 
-// Cache: url:mode -> { result, expiresAt }
 const fetchCache = new Map<string, { result: string; expiresAt: number }>();
-const FETCH_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+const FETCH_CACHE_TTL = 15 * 60 * 1000;
 
 const webFetchTool: ToolDefinition = {
   name: "web_fetch",
   description:
-    "Fetch and extract readable content from a URL (HTML → markdown/text). Uses Mozilla Readability for intelligent content extraction. Works with articles, docs, and server-rendered pages. For JSON APIs, returns raw JSON.",
+    "Fetch and extract readable content from a URL (HTML -> markdown/text). Uses Mozilla Readability for intelligent content extraction.",
   parameters: {
     type: "object",
     properties: {
@@ -480,6 +553,7 @@ const webFetchTool: ToolDefinition = {
     },
     required: ["url"],
   },
+  isReadOnly: true,
   async execute(input) {
     const url = input.url as string;
     const extractMode = (input.extractMode as string) ?? "markdown";
@@ -522,26 +596,22 @@ const webFetchTool: ToolDefinition = {
       let result: string;
 
       if (contentType.includes("application/json")) {
-        // JSON: pretty-print
         try {
           result = JSON.stringify(JSON.parse(body), null, 2);
         } catch {
           result = body;
         }
       } else if (contentType.includes("text/html") || contentType.includes("application/xhtml")) {
-        // HTML: Readability → htmlToMarkdown fallback → basic strip
         result = extractHtmlContent(body, url, extractMode);
       } else {
-        // Plain text or other
         result = body;
       }
 
-      // Truncate
       if (result.length > maxChars) {
         result = result.slice(0, maxChars) + `\n\n[Truncated at ${maxChars} chars]`;
       }
 
-      if (!result.trim()) result = "(empty page — this site likely renders content via JavaScript. Try searching for a JSON/REST API endpoint for this site instead, e.g. web_search for '<site name> API' or '<site name> open data'.)";
+      if (!result.trim()) result = "(empty page — this site likely renders content via JavaScript.)";
 
       fetchCache.set(cacheKey, { result, expiresAt: Date.now() + FETCH_CACHE_TTL });
       return result;
@@ -551,19 +621,12 @@ const webFetchTool: ToolDefinition = {
   },
 };
 
-/**
- * Extract readable content from HTML using Readability (ported from OpenClaw's web-fetch-utils.ts).
- * Falls back to basic HTML-to-markdown conversion if Readability fails.
- */
 function extractHtmlContent(html: string, url: string, mode: string): string {
-  // Sanitize: remove hidden elements, scripts, styles
   const sanitized = sanitizeHtml(html);
 
-  // Try Readability first (like OpenClaw)
   if (sanitized.length <= WEB_FETCH_MAX_HTML) {
     try {
       const { document } = parseHTML(sanitized);
-      // Set base URI for relative link resolution
       try {
         (document as any).baseURI = url;
       } catch { /* linkedom may not support */ }
@@ -583,21 +646,14 @@ function extractHtmlContent(html: string, url: string, mode: string): string {
     }
   }
 
-  // Fallback: basic HTML → markdown conversion (from OpenClaw's extractBasicHtmlContent)
   const md = htmlToMarkdown(sanitized);
   const result = mode === "text" ? markdownToText(md) : md;
   return normalizeWhitespace(result);
 }
 
-/**
- * Sanitize HTML: remove scripts, styles, hidden elements, comments.
- * Ported from OpenClaw's web-fetch-visibility.ts.
- */
 function sanitizeHtml(html: string): string {
   return html
-    // Remove HTML comments
     .replace(/<!--[\s\S]*?-->/g, "")
-    // Remove script, style, noscript, svg, canvas, iframe, template blocks
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, "")
@@ -605,49 +661,34 @@ function sanitizeHtml(html: string): string {
     .replace(/<canvas[\s\S]*?<\/canvas>/gi, "")
     .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
     .replace(/<template[\s\S]*?<\/template>/gi, "")
-    // Remove hidden inputs
     .replace(/<input[^>]*type=["']hidden["'][^>]*>/gi, "")
-    // Remove elements with aria-hidden="true"
     .replace(/<[^>]+aria-hidden=["']true["'][^>]*>[\s\S]*?<\/[^>]+>/gi, "")
-    // Remove elements with display:none or visibility:hidden in inline styles
     .replace(/<[^>]+style="[^"]*display\s*:\s*none[^"]*"[^>]*>[\s\S]*?<\/[^>]+>/gi, "")
     .replace(/<[^>]+style="[^"]*visibility\s*:\s*hidden[^"]*"[^>]*>[\s\S]*?<\/[^>]+>/gi, "")
-    // Remove meta tags
     .replace(/<meta[^>]*>/gi, "");
 }
 
-/**
- * Convert HTML to markdown. Ported from OpenClaw's htmlToMarkdown().
- */
 function htmlToMarkdown(html: string): string {
   let title = "";
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   if (titleMatch) title = decodeHtmlEntities(stripHtml(titleMatch[1]));
 
   let md = html
-    // Remove leftover script/style
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
-    // Convert links
     .replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_, href, label) => {
       const text = stripHtml(label).trim();
       return text ? `[${text}](${href})` : "";
     })
-    // Convert headings
     .replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_, level, content) => {
       const prefix = "#".repeat(Number(level));
       return `\n${prefix} ${stripHtml(content).trim()}\n`;
     })
-    // Convert list items
     .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_, content) => `\n- ${stripHtml(content).trim()}`)
-    // Block element closings → newlines
     .replace(/<\/(p|div|section|article|header|footer|table|tr|ul|ol)>/gi, "\n")
-    // <br> and <hr>
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<hr\s*\/?>/gi, "\n---\n")
-    // Strip all remaining tags
     .replace(/<[^>]+>/g, " ")
-    // Decode entities
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
@@ -660,26 +701,17 @@ function htmlToMarkdown(html: string): string {
   return md;
 }
 
-/**
- * Strip markdown formatting to plain text. Ported from OpenClaw's markdownToText().
- */
 function markdownToText(md: string): string {
   return md
-    // Remove images
     .replace(/!\[[^\]]*]\([^)]+\)/g, "")
-    // Convert links to just text
     .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
-    // Remove code blocks
     .replace(/```[\s\S]*?```/g, "")
     .replace(/`([^`]+)`/g, "$1")
-    // Remove heading markers
     .replace(/^#{1,6}\s+/gm, "")
-    // Remove list bullets
     .replace(/^\s*[-*+]\s+/gm, "")
     .replace(/^\s*\d+\.\s+/gm, "");
 }
 
-/** Collapse whitespace: remove \\r, collapse spaces, reduce excessive newlines. */
 function normalizeWhitespace(text: string): string {
   return text
     .replace(/\r/g, "")
@@ -689,16 +721,11 @@ function normalizeWhitespace(text: string): string {
     .trim();
 }
 
-/** Remove invisible Unicode characters (zero-width, direction markers). */
-function stripInvisibleUnicode(text: string): string {
-  return text.replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2064\u206A-\u206F\uFEFF]/g, "");
-}
-
 // ─── Registry ──────────────────────────────────────────────────────────
 
 export function createToolRegistry(workspaceDir: string): ToolDefinition[] {
   workspaceRoot = workspaceDir;
-  return [readFileTool, writeFileTool, editTool, bashTool, grepTool, findTool, lsTool, webSearchTool, webFetchTool];
+  return [readFileTool, writeFileTool, editTool, bashTool, grepTool, globTool, findTool, lsTool, webSearchTool, webFetchTool];
 }
 
 export async function executeTool(

@@ -1,0 +1,154 @@
+import os from "node:os";
+import type { ToolDefinition } from "../types.js";
+import type { TokenProvider } from "../auth.js";
+import type { ModelProvider, ProviderCallParams, ProviderMessage, ProviderResponse, ToolCall } from "../provider.js";
+
+const CODEX_BASE_URL = "https://chatgpt.com/backend-api/codex/responses";
+
+// ─── Codex API types ──────────────────────────────────────────────────
+
+interface CodexResponseItem {
+  type: string;
+  id?: string;
+  name?: string;
+  call_id?: string;
+  arguments?: string;
+  role?: string;
+  content?: { type: string; text?: string }[];
+  status?: string;
+}
+
+interface CodexResponse {
+  id: string;
+  output: CodexResponseItem[];
+  status: string;
+}
+
+// ─── CodexProvider ────────────────────────────────────────────────────
+
+export class CodexProvider implements ModelProvider {
+  readonly name = "openai-codex";
+
+  constructor(private tokenProvider: TokenProvider) {}
+
+  formatTools(tools: ToolDefinition[]): unknown {
+    return tools.map((t) => ({
+      type: "function" as const,
+      name: t.name,
+      description: t.description,
+      parameters: t.parameters,
+      strict: false,
+    }));
+  }
+
+  async call(params: ProviderCallParams): Promise<ProviderResponse> {
+    const token = await this.tokenProvider.getToken();
+    const accountId = this.tokenProvider.getAccountIdSync();
+
+    const input = formatCodexMessages(params.messages);
+    const userAgent = `clawarts (${os.platform()} ${os.release()}; ${os.arch()})`;
+
+    const resp = await fetch(CODEX_BASE_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "chatgpt-account-id": accountId,
+        "originator": "clawarts",
+        "OpenAI-Beta": "responses=experimental",
+        "accept": "text/event-stream",
+        "Content-Type": "application/json",
+        "User-Agent": userAgent,
+      },
+      body: JSON.stringify({
+        model: params.model,
+        instructions: params.systemPrompt,
+        input,
+        tools: params.tools,
+        stream: true,
+        store: false,
+      }),
+      signal: params.signal,
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Codex API error (${resp.status}): ${text}`);
+    }
+
+    const text = await resp.text();
+    let result: CodexResponse | null = null;
+
+    for (const line of text.split("\n")) {
+      if (!line.startsWith("data: ")) continue;
+      const data = line.slice(6).trim();
+      if (data === "[DONE]") break;
+      try {
+        const event = JSON.parse(data);
+        if (event.type === "response.completed" && event.response) {
+          result = event.response as CodexResponse;
+        }
+      } catch {
+        // skip malformed SSE lines
+      }
+    }
+
+    if (!result) throw new Error("No response.completed event from Codex API");
+    return parseCodexResponse(result);
+  }
+}
+
+// ─── Message formatting ───────────────────────────────────────────────
+
+function formatCodexMessages(messages: ProviderMessage[]): unknown[] {
+  const out: unknown[] = [];
+  for (const msg of messages) {
+    if (msg.role === "user") {
+      out.push({ role: "user", content: msg.content });
+    } else if (msg.role === "assistant") {
+      if (msg.toolCalls && msg.toolCalls.length > 0) {
+        // Emit function_call items for each tool call
+        for (const tc of msg.toolCalls) {
+          out.push({ type: "function_call", call_id: tc.id, name: tc.name, arguments: tc.arguments });
+        }
+        // Also emit the text portion if present
+        if (msg.content) {
+          out.push({ type: "message", role: "assistant", content: [{ type: "output_text", text: msg.content }] });
+        }
+      } else {
+        out.push({ role: "assistant", content: msg.content });
+      }
+    } else if (msg.role === "tool_result") {
+      out.push({ type: "function_call_output", call_id: msg.callId, output: msg.output });
+    }
+  }
+  return out;
+}
+
+// ─── Response parsing ─────────────────────────────────────────────────
+
+function parseCodexResponse(result: CodexResponse): ProviderResponse {
+  const toolCalls: ToolCall[] = [];
+  const textParts: string[] = [];
+
+  for (const item of result.output) {
+    if (item.type === "function_call") {
+      toolCalls.push({
+        id: item.call_id ?? item.id ?? "",
+        name: item.name ?? "",
+        arguments: item.arguments ?? "{}",
+      });
+    } else if (item.type === "message" && item.role === "assistant") {
+      for (const c of item.content ?? []) {
+        if (c.type === "output_text" && c.text) textParts.push(c.text);
+      }
+    }
+  }
+
+  const hasToolCalls = toolCalls.length > 0;
+  return {
+    text: textParts.join("\n"),
+    toolCalls,
+    stopReason: hasToolCalls ? "tool_use" : "end_turn",
+    raw: result,
+  };
+}
