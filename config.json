@@ -1,7 +1,8 @@
 {
   "defaults": {
     "model": "gpt-5.4",
-    "sessionTtlMinutes": 120
+    "sessionTtlMinutes": 120,
+    "provider": "openai-codex"
   },
   "agents": [
     {
@@ -9,6 +10,22 @@
       "slackBotToken": "$TUTOR_SLACK_BOT_TOKEN",
       "slackAppToken": "$TUTOR_SLACK_APP_TOKEN",
       "systemPrompt": "You are a course tutor assistant managing students."
+    },
+    {
+      "id": "student1",
+      "slackBotToken": "$STUDENT1_SLACK_BOT_TOKEN",
+      "slackAppToken": "$STUDENT1_SLACK_APP_TOKEN",
+      "provider": "openai-codex",
+      "model": "gpt-5.4",
+      "maxTokens": 4096,
+      "sessionTtlMinutes": 60,
+      "systemPrompt": "You are a student learning assistant in a Slack workspace. Help the student practice problems, ask guiding questions, and encourage independent problem-solving. You can read files and search the web to find information, but you cannot modify files or run shell commands. Focus on understanding over answers. When a student asks for help, guide them to discover the solution rather than providing it directly.",
+      "disallowedTools": [
+        "bash",
+        "write_file",
+        "edit",
+        "multi_edit"
+      ]
     }
   ]
 }

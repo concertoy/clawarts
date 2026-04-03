@@ -16,7 +16,7 @@ export async function skillAddCommand(prompter: WizardPrompter, agentId: string)
     return;
   }
 
-  const workspaceDir = resolveWorkspaceDir(agent);
+  const workspaceDir = resolveWorkspaceDir(agent, config);
   const skillsDir = path.join(workspaceDir, "skills");
 
   // Prompt for skill metadata
@@ -91,7 +91,7 @@ export function skillListCommand(agentId?: string): void {
       console.log(`Agent "${agentId}" not found.`);
       return;
     }
-    listSkillsForAgent(agent.id, resolveWorkspaceDir(agent));
+    listSkillsForAgent(agent.id, resolveWorkspaceDir(agent, config));
   } else {
     // List skills for all agents
     if (config.agents.length === 0) {
@@ -100,7 +100,7 @@ export function skillListCommand(agentId?: string): void {
     }
     for (const agent of config.agents) {
       console.log(`\n  [${agent.id}]`);
-      listSkillsForAgent(agent.id, resolveWorkspaceDir(agent));
+      listSkillsForAgent(agent.id, resolveWorkspaceDir(agent, config));
     }
   }
 }
@@ -140,7 +140,7 @@ export async function skillRemoveCommand(
     return;
   }
 
-  const workspaceDir = resolveWorkspaceDir(agent);
+  const workspaceDir = resolveWorkspaceDir(agent, config);
   const agentBase = path.join(os.homedir(), ".clawarts", "agents", agentId);
   const sources = buildSkillSources(agentBase, workspaceDir);
 
