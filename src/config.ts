@@ -127,6 +127,7 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults, allEntri
     disallowedTools: entry.disallowedTools ?? defaults.disallowedTools,
     thinkingBudgetTokens: entry.thinkingBudgetTokens ?? defaults.thinkingBudgetTokens,
     linkedTutor: entry.linkedTutor,
+    allowedUsers: entry.allowedUsers ?? defaults.allowedUsers,
   };
 }
 

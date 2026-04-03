@@ -21,6 +21,8 @@ export interface AgentConfig {
   thinkingBudgetTokens?: number;
   /** For student agents: ID of the tutor agent whose workspace contains this student's workspace. */
   linkedTutor?: string;
+  /** If set, only these Slack user IDs can interact with this agent. Others are silently ignored. */
+  allowedUsers?: string[];
 }
 
 /** Top-level config file shape. */
@@ -41,6 +43,7 @@ export interface AgentDefaults {
   allowedTools?: string[];
   disallowedTools?: string[];
   thinkingBudgetTokens?: number;
+  allowedUsers?: string[];
 }
 
 export interface AgentEntry {
@@ -60,6 +63,8 @@ export interface AgentEntry {
   thinkingBudgetTokens?: number;
   /** For student agents: ID of the tutor agent whose workspace contains this student's workspace. */
   linkedTutor?: string;
+  /** If set, only these Slack user IDs can interact with this agent. */
+  allowedUsers?: string[];
 }
 
 export interface WorkspaceFile {
