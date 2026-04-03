@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import dotenv from "dotenv";
-import type { AgentConfig, AgentEntry, AgentDefaults, RootConfig } from "./types.js";
+import type { AgentConfig, AgentEntry, AgentDefaults, RootConfig, SkillSources } from "./types.js";
 
 dotenv.config();
 
@@ -26,7 +26,7 @@ function loadConfigFile(): LegacyConfigFile {
   return JSON.parse(raw) as LegacyConfigFile;
 }
 
-const AGENT_DEFAULTS = {
+export const AGENT_DEFAULTS = {
   provider: "openai-codex",
   model: "gpt-5.4",
   maxTokens: 8192,
@@ -34,7 +34,7 @@ const AGENT_DEFAULTS = {
   sessionTtlMinutes: 120,
 };
 
-const DEFAULT_MODELS: Record<string, string> = {
+export const DEFAULT_MODELS: Record<string, string> = {
   "openai-codex": "gpt-5.4",
   "anthropic-claude": "claude-sonnet-4-20250514",
 };
@@ -80,6 +80,15 @@ function validateAgentConfig(config: AgentConfig): void {
   }
 }
 
+export function buildSkillSources(agentBase: string, workspaceDir: string): SkillSources {
+  return {
+    bundledDir: path.resolve("skills"),
+    userGlobalDir: path.join(os.homedir(), ".clawarts", "skills"),
+    agentDir: path.join(agentBase, "skills"),
+    workspaceDir: path.join(workspaceDir, "skills"),
+  };
+}
+
 function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults): AgentConfig {
   const agentBase = path.join(os.homedir(), ".clawarts", "agents", entry.id);
   const workspaceDir = expandTilde(
@@ -94,6 +103,7 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults): AgentCo
     maxTokens: entry.maxTokens ?? defaults.maxTokens ?? AGENT_DEFAULTS.maxTokens,
     systemPrompt: entry.systemPrompt ?? defaults.systemPrompt ?? AGENT_DEFAULTS.systemPrompt,
     skillsDirs: (entry.skillsDirs ?? defaults.skillsDirs ?? defaultSkillsDirs).map(expandTilde),
+    skillSources: entry.skillSources ?? defaults.skillSources ?? buildSkillSources(agentBase, workspaceDir),
     sessionTtlMinutes: entry.sessionTtlMinutes ?? defaults.sessionTtlMinutes ?? AGENT_DEFAULTS.sessionTtlMinutes,
     workspaceDir,
     slackBotToken: resolveEnvRef(entry.slackBotToken),
@@ -142,6 +152,7 @@ export function loadAllAgentConfigs(): AgentConfig[] {
     maxTokens: file.maxTokens ?? AGENT_DEFAULTS.maxTokens,
     systemPrompt: file.systemPrompt ?? AGENT_DEFAULTS.systemPrompt,
     skillsDirs: (file.skillsDirs ?? defaultSkillsDirs).map(expandTilde),
+    skillSources: buildSkillSources(agentBase, workspaceDir),
     sessionTtlMinutes: file.sessionTtlMinutes ?? AGENT_DEFAULTS.sessionTtlMinutes,
     workspaceDir,
     slackBotToken: botToken,

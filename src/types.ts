@@ -7,6 +7,7 @@ export interface AgentConfig {
   model: string;
   maxTokens: number;
   skillsDirs: string[];
+  skillSources?: SkillSources;
   sessionTtlMinutes: number;
   systemPrompt: string;
   workspaceDir: string;
@@ -32,6 +33,7 @@ export interface AgentDefaults {
   maxTokens?: number;
   systemPrompt?: string;
   skillsDirs?: string[];
+  skillSources?: SkillSources;
   sessionTtlMinutes?: number;
   workspaceDir?: string;
   allowedTools?: string[];
@@ -48,6 +50,7 @@ export interface AgentEntry {
   maxTokens?: number;
   systemPrompt?: string;
   skillsDirs?: string[];
+  skillSources?: SkillSources;
   sessionTtlMinutes?: number;
   workspaceDir?: string;
   allowedTools?: string[];
@@ -64,6 +67,18 @@ export interface Skill {
   name: string;
   description: string;
   filePath: string;
+  source?: "bundled" | "user-global" | "agent" | "workspace" | "legacy";
+  allowedTools?: string[];
+  whenToUse?: string;
+  arguments?: string;
+}
+
+/** Directories for multi-source skill loading with precedence. */
+export interface SkillSources {
+  bundledDir?: string;
+  userGlobalDir?: string;
+  agentDir?: string;
+  workspaceDir?: string;
 }
 
 export interface ConversationMessage {
