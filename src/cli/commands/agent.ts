@@ -1,7 +1,7 @@
 import type { AgentEntry, Provider } from "../../types.js";
 import type { WizardPrompter } from "../prompter.js";
 import type { AgentType } from "../templates.js";
-import { readConfig, writeConfig, addAgent, removeAgent, findAgent, agentIdToEnvPrefix, resolveWorkspaceDir } from "../config-io.js";
+import { readConfig, writeConfig, addAgent, removeAgent, findAgent, findLinkedStudents, findTutors, agentIdToEnvPrefix, resolveWorkspaceDir } from "../config-io.js";
 import { getTemplate } from "../templates.js";
 import { scaffoldWorkspace } from "../scaffold.js";
 
@@ -31,10 +31,32 @@ export async function agentAddCommand(prompter: WizardPrompter): Promise<AgentEn
     message: "Agent type:",
     options: [
       { value: "tutor", label: "Tutor", hint: "Full tool access, teaching-oriented, higher-tier model" },
-      { value: "student", label: "Student", hint: "Restricted tools, learning-oriented, lighter model" },
+      { value: "student", label: "Student", hint: "Restricted tools, nested under a tutor's workspace" },
       { value: "custom", label: "Custom", hint: "Configure everything manually" },
     ],
   });
+
+  // Student agents must be linked to a tutor
+  let linkedTutor: string | undefined;
+  if (agentType === "student") {
+    const tutors = findTutors(config);
+    if (tutors.length === 0) {
+      await prompter.note(
+        "Student agents must be linked to a tutor agent.\nAdd a tutor agent first, then add the student.",
+        "No tutor agents found",
+      );
+      throw new Error("No tutor agents available. Create a tutor agent first.");
+    }
+
+    linkedTutor = await prompter.select<string>({
+      message: "Link to tutor:",
+      options: tutors.map((t) => ({
+        value: t.id,
+        label: t.id,
+        hint: `workspace: ${resolveWorkspaceDir(t)}`,
+      })),
+    });
+  }
 
   // Provider
   const provider = await prompter.select<Provider>({
@@ -61,6 +83,7 @@ export async function agentAddCommand(prompter: WizardPrompter): Promise<AgentEn
       systemPrompt: template.systemPrompt,
       disallowedTools: template.disallowedTools,
       thinkingBudgetTokens: template.thinkingBudgetTokens,
+      linkedTutor,
     };
   } else {
     // Custom: prompt for each field
@@ -81,6 +104,7 @@ export async function agentAddCommand(prompter: WizardPrompter): Promise<AgentEn
       provider,
       model,
       systemPrompt,
+      linkedTutor,
     };
   }
 
@@ -101,19 +125,16 @@ export async function agentAddCommand(prompter: WizardPrompter): Promise<AgentEn
   const updated = addAgent(config, entry);
   writeConfig(updated);
 
-  // Scaffold workspace
-  const workspaceDir = resolveWorkspaceDir(entry);
+  // Scaffold workspace (resolve with full config for nested student workspaces)
+  const workspaceDir = resolveWorkspaceDir(entry, updated);
   const result = scaffoldWorkspace(id, workspaceDir, agentType);
 
-  if (result.created.length > 0) {
-    await prompter.note(
-      `Workspace: ${workspaceDir}\nCreated: ${result.created.join(", ")}${result.skipped.length > 0 ? `\nSkipped (exist): ${result.skipped.join(", ")}` : ""}`,
-      `Agent "${id}" created`,
-    );
-  } else {
-    await prompter.note(`Workspace: ${workspaceDir}`, `Agent "${id}" created`);
-  }
+  const noteLines = [`Workspace: ${workspaceDir}`];
+  if (linkedTutor) noteLines.push(`Linked to tutor: ${linkedTutor}`);
+  if (result.created.length > 0) noteLines.push(`Created: ${result.created.join(", ")}`);
+  if (result.skipped.length > 0) noteLines.push(`Skipped (exist): ${result.skipped.join(", ")}`);
 
+  await prompter.note(noteLines.join("\n"), `Agent "${id}" created`);
   return entry;
 }
 
@@ -132,9 +153,14 @@ export function agentListCommand(): void {
     const provider = agent.provider ?? config.defaults.provider ?? "openai-codex";
     const model = agent.model ?? config.defaults.model ?? "—";
     const tools = agent.disallowedTools?.length ? `restricted (${agent.disallowedTools.length} denied)` : "full access";
-    console.log(`  ${agent.id}`);
+    const linked = agent.linkedTutor ? ` → tutor: ${agent.linkedTutor}` : "";
+    const students = findLinkedStudents(config, agent.id);
+    const studentInfo = students.length > 0 ? ` (${students.length} student${students.length > 1 ? "s" : ""}: ${students.map((s) => s.id).join(", ")})` : "";
+
+    console.log(`  ${agent.id}${linked}${studentInfo}`);
     console.log(`    provider: ${provider}  model: ${model}`);
     console.log(`    tools: ${tools}`);
+    console.log(`    workspace: ${resolveWorkspaceDir(agent, config)}`);
     console.log();
   }
 }
@@ -147,6 +173,14 @@ export async function agentRemoveCommand(prompter: WizardPrompter, id: string): 
 
   if (!agent) {
     console.log(`Agent "${id}" not found.`);
+    return;
+  }
+
+  // Block removing a tutor that still has linked students
+  const students = findLinkedStudents(config, id);
+  if (students.length > 0) {
+    console.log(`Cannot remove tutor "${id}" — it has ${students.length} linked student(s): ${students.map((s) => s.id).join(", ")}`);
+    console.log("Remove the student agents first.");
     return;
   }
 
@@ -165,7 +199,7 @@ export async function agentRemoveCommand(prompter: WizardPrompter, id: string): 
   console.log(`Agent "${id}" removed from config.json.`);
 
   // Optionally remove workspace
-  const workspaceDir = resolveWorkspaceDir(agent);
+  const workspaceDir = resolveWorkspaceDir(agent, config);
   const removeWorkspace = await prompter.confirm({
     message: `Also delete workspace at ${workspaceDir}?`,
     initialValue: false,

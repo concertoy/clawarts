@@ -19,6 +19,8 @@ export interface AgentConfig {
   disallowedTools?: string[];
   /** Extended thinking budget in tokens. Set > 0 to enable Claude's thinking/reasoning. */
   thinkingBudgetTokens?: number;
+  /** For student agents: ID of the tutor agent whose workspace contains this student's workspace. */
+  linkedTutor?: string;
 }
 
 /** Top-level config file shape. */
@@ -56,6 +58,8 @@ export interface AgentEntry {
   allowedTools?: string[];
   disallowedTools?: string[];
   thinkingBudgetTokens?: number;
+  /** For student agents: ID of the tutor agent whose workspace contains this student's workspace. */
+  linkedTutor?: string;
 }
 
 export interface WorkspaceFile {

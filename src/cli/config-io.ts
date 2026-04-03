@@ -65,12 +65,38 @@ export function agentIdToEnvPrefix(id: string): string {
 
 /**
  * Resolve workspace directory for an agent, matching config.ts logic.
+ * Student agents linked to a tutor get a nested workspace: <tutor_workspace>/students/<student_id>/
  */
-export function resolveWorkspaceDir(entry: AgentEntry): string {
+export function resolveWorkspaceDir(entry: AgentEntry, config?: RootConfig): string {
+  // Explicit workspaceDir always wins
   if (entry.workspaceDir) {
     return entry.workspaceDir.startsWith("~/")
       ? path.join(os.homedir(), entry.workspaceDir.slice(2))
       : path.resolve(entry.workspaceDir);
   }
+
+  // Student linked to a tutor → nested under tutor's workspace
+  if (entry.linkedTutor && config) {
+    const tutor = findAgent(config, entry.linkedTutor);
+    if (tutor) {
+      const tutorWorkspace = resolveWorkspaceDir(tutor);
+      return path.join(tutorWorkspace, "students", entry.id);
+    }
+  }
+
   return path.join(os.homedir(), ".clawarts", "agents", entry.id, "workspace");
+}
+
+/**
+ * Find all student agents linked to a given tutor.
+ */
+export function findLinkedStudents(config: RootConfig, tutorId: string): AgentEntry[] {
+  return config.agents.filter((a) => a.linkedTutor === tutorId);
+}
+
+/**
+ * Find all tutor agents (agents that have no linkedTutor and are not students).
+ */
+export function findTutors(config: RootConfig): AgentEntry[] {
+  return config.agents.filter((a) => !a.linkedTutor);
 }

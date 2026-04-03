@@ -89,11 +89,26 @@ export function buildSkillSources(agentBase: string, workspaceDir: string): Skil
   };
 }
 
-function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults): AgentConfig {
+function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults, allEntries?: AgentEntry[]): AgentConfig {
   const agentBase = path.join(os.homedir(), ".clawarts", "agents", entry.id);
-  const workspaceDir = expandTilde(
-    entry.workspaceDir ?? defaults.workspaceDir ?? path.join(agentBase, "workspace"),
-  );
+
+  // Resolve workspace: explicit > linked tutor nested > default
+  let workspaceDir: string;
+  if (entry.workspaceDir) {
+    workspaceDir = expandTilde(entry.workspaceDir);
+  } else if (entry.linkedTutor && allEntries) {
+    const tutor = allEntries.find((e) => e.id === entry.linkedTutor);
+    if (tutor) {
+      const tutorBase = path.join(os.homedir(), ".clawarts", "agents", tutor.id);
+      const tutorWorkspace = expandTilde(tutor.workspaceDir ?? defaults.workspaceDir ?? path.join(tutorBase, "workspace"));
+      workspaceDir = path.join(tutorWorkspace, "students", entry.id);
+    } else {
+      workspaceDir = expandTilde(defaults.workspaceDir ?? path.join(agentBase, "workspace"));
+    }
+  } else {
+    workspaceDir = expandTilde(defaults.workspaceDir ?? path.join(agentBase, "workspace"));
+  }
+
   const defaultSkillsDirs = [path.join(workspaceDir, "skills")];
 
   return {
@@ -111,6 +126,7 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults): AgentCo
     allowedTools: entry.allowedTools ?? defaults.allowedTools,
     disallowedTools: entry.disallowedTools ?? defaults.disallowedTools,
     thinkingBudgetTokens: entry.thinkingBudgetTokens ?? defaults.thinkingBudgetTokens,
+    linkedTutor: entry.linkedTutor,
   };
 }
 
@@ -129,7 +145,7 @@ export function loadAllAgentConfigs(): AgentConfig[] {
   // Multi-agent mode
   if (file.agents && file.agents.length > 0) {
     const defaults = file.defaults ?? {};
-    const configs = file.agents.map((entry) => resolveAgentConfig(entry, defaults));
+    const configs = file.agents.map((entry) => resolveAgentConfig(entry, defaults, file.agents));
     for (const config of configs) validateAgentConfig(config);
     return configs;
   }
