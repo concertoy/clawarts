@@ -1,10 +1,11 @@
-import type { Skill, WorkspaceFile } from "./types.js";
+import type { Skill, ToolDefinition, WorkspaceFile } from "./types.js";
 import { formatSkillsForPrompt } from "./skills.js";
 
 export function buildSystemPrompt(params: {
   identity: string;
   skills: Skill[];
   workspaceFiles: WorkspaceFile[];
+  tools?: ToolDefinition[];
 }): string {
   const sections: string[] = [];
 
@@ -71,11 +72,30 @@ export function buildSystemPrompt(params: {
       "5. Extract and present the answer from the fetched content. Never respond with just a list of URLs.",
       "",
       "Many government and public services provide open data APIs that return JSON — prefer these over scraping HTML.",
+      "",
+      "### cron (reminders & scheduled alerts)",
+      "When the user asks to be reminded about something or to schedule a recurring notification:",
+      '1. Use the `cron` tool with action="add" to create a scheduled reminder.',
+      "2. You MUST provide the `channelId` — use the Slack channel ID from the current conversation context.",
+      '3. For recurring reminders, use scheduleKind="every" with everyMs in milliseconds (60000=1min, 3600000=1hr, 86400000=1day).',
+      '4. For one-shot reminders, use scheduleKind="at" with atMs as epoch milliseconds. Compute from the current date.',
+      '5. Use action="list" to show existing reminders, action="remove" to delete one.',
     ].join("\n"),
   );
 
-  // Current date
-  sections.push(`Current date: ${new Date().toISOString().split("T")[0]}`);
+  // Available tools section — ported from claude-code's tool documentation injection
+  if (params.tools && params.tools.length > 0) {
+    const toolLines = params.tools.map((t) => {
+      const cat = t.category ? ` [${t.category}]` : "";
+      return `- \`${t.name}\`${cat}: ${t.description.split(".")[0]}.`;
+    });
+    sections.push(
+      ["## Available tools", "", ...toolLines].join("\n"),
+    );
+  }
+
+  // Note: Current date/time is injected per-turn in agent.ts (not here)
+  // to avoid stale timestamps on long-running processes.
 
   return sections.join("\n\n");
 }

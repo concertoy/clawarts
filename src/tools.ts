@@ -4,6 +4,8 @@ import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import type { ToolDefinition } from "./types.js";
 import { execAsync } from "./utils/exec-async.js";
+import type { CronService } from "./cron/service.js";
+import { createCronTool } from "./cron/tool.js";
 
 let workspaceRoot = "";
 
@@ -23,6 +25,7 @@ const readFileTool: ToolDefinition = {
     required: ["path"],
   },
   isReadOnly: true,
+  category: "filesystem",
   async execute(input) {
     const filePath = resolveFilePath(input.path as string);
     try {
@@ -57,6 +60,7 @@ const writeFileTool: ToolDefinition = {
     },
     required: ["path", "content"],
   },
+  category: "filesystem",
   async execute(input) {
     const filePath = resolveFilePath(input.path as string);
     const content = input.content as string;
@@ -92,6 +96,7 @@ const editTool: ToolDefinition = {
     },
     required: ["path", "oldText", "newText"],
   },
+  category: "filesystem",
   async execute(input) {
     const filePath = resolveFilePath(input.path as string);
     const oldText = input.oldText as string;
@@ -121,12 +126,110 @@ const editTool: ToolDefinition = {
   },
 };
 
+// ─── multi_edit (batch edits in one call) ─────────────────────────────
+
+const multiEditTool: ToolDefinition = {
+  name: "multi_edit",
+  description:
+    "Apply multiple edits to a single file in one call. Each edit replaces an exact text match. Edits are applied sequentially. More efficient than multiple edit calls.",
+  parameters: {
+    type: "object",
+    properties: {
+      path: { type: "string", description: "File path to edit." },
+      edits: {
+        type: "array",
+        description: "Array of edits to apply, each with oldText and newText.",
+        items: {
+          type: "object",
+          properties: {
+            oldText: { type: "string", description: "Exact text to find." },
+            newText: { type: "string", description: "Text to replace it with." },
+          },
+          required: ["oldText", "newText"],
+        },
+      },
+    },
+    required: ["path", "edits"],
+  },
+  category: "filesystem",
+  async execute(input) {
+    const filePath = resolveFilePath(input.path as string);
+    const edits = input.edits as Array<{ oldText: string; newText: string }>;
+
+    if (!edits || edits.length === 0) return "Error: edits array is empty.";
+
+    const resolvedWorkspace = path.resolve(workspaceRoot);
+    if (!filePath.startsWith(resolvedWorkspace + path.sep) && filePath !== resolvedWorkspace) {
+      return `Error: multi_edit is restricted to the workspace directory (${resolvedWorkspace}).`;
+    }
+
+    try {
+      let content = await fs.promises.readFile(filePath, "utf-8");
+      const results: string[] = [];
+
+      for (let i = 0; i < edits.length; i++) {
+        const { oldText, newText } = edits[i];
+        const idx = content.indexOf(oldText);
+        if (idx === -1) {
+          results.push(`Edit ${i + 1}: oldText not found — skipped`);
+          continue;
+        }
+
+        const secondIdx = content.indexOf(oldText, idx + 1);
+        if (secondIdx !== -1) {
+          results.push(`Edit ${i + 1}: oldText matches multiple locations — skipped`);
+          continue;
+        }
+
+        const lineNum = content.slice(0, idx).split("\n").length;
+        content = content.slice(0, idx) + newText + content.slice(idx + oldText.length);
+        results.push(`Edit ${i + 1}: applied at line ${lineNum}`);
+      }
+
+      await fs.promises.writeFile(filePath, content, "utf-8");
+      return `Multi-edit ${filePath}:\n${results.join("\n")}`;
+    } catch (err) {
+      return `Error in multi_edit: ${errMsg(err)}`;
+    }
+  },
+};
+
 // ─── bash ──────────────────────────────────────────────────────────────
+
+/**
+ * Dangerous command patterns — ported from claude-code's bashSecurity.ts.
+ * These patterns are blocked to prevent catastrophic operations.
+ */
+const DANGEROUS_PATTERNS: RegExp[] = [
+  /\brm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?\/\s*$/,     // rm -rf /
+  /\brm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?(\/|~\/)\*/, // rm -rf /* or ~/*
+  /\bmkfs\b/,                                       // mkfs (format disk)
+  /\bdd\s+.*\bof=\/dev\//,                          // dd to device
+  /\b(shutdown|reboot|halt|poweroff)\b/,             // system control
+  /\b(systemctl|service)\s+(stop|restart|disable)\b/, // service control
+  />\s*\/dev\/sd[a-z]/,                              // write to block device
+  /\bchmod\s+(-R\s+)?777\s+\//,                    // chmod 777 /
+  /\bchown\s+(-R\s+)?.*\s+\//,                     // chown -R on /
+  /:\(\)\s*\{\s*:\|:\s*&\s*\}\s*;?\s*:/,            // fork bomb
+  /\biptables\s+(-F|--flush)\b/,                    // flush firewall
+  /\bcurl\b.*\|\s*(sudo\s+)?(ba)?sh/,              // curl | sh
+  /\bwget\b.*\|\s*(sudo\s+)?(ba)?sh/,              // wget | sh
+];
+
+function isDangerousCommand(command: string): string | null {
+  const trimmed = command.trim();
+  for (const pattern of DANGEROUS_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      return `Blocked: command matches dangerous pattern (${pattern.source.slice(0, 40)}...). Use a safer alternative.`;
+    }
+  }
+  return null;
+}
 
 const bashTool: ToolDefinition = {
   name: "bash",
   description:
-    "Execute a shell command in the workspace directory. Returns stdout and stderr. Use timeout to limit long-running commands.",
+    "Execute a shell command in the workspace directory. Returns stdout and stderr. Use timeout to limit long-running commands. Some dangerous commands (rm -rf /, mkfs, dd to devices, curl|sh) are blocked.",
   parameters: {
     type: "object",
     properties: {
@@ -135,9 +238,14 @@ const bashTool: ToolDefinition = {
     },
     required: ["command"],
   },
+  category: "shell",
   async execute(input) {
     const command = input.command as string;
     const timeout = (input.timeout as number) ?? 30_000;
+
+    // Safety check — ported from claude-code's bashSecurity.ts
+    const blocked = isDangerousCommand(command);
+    if (blocked) return blocked;
 
     try {
       const result = await execAsync(command, { cwd: workspaceRoot, timeout });
@@ -194,6 +302,7 @@ const grepTool: ToolDefinition = {
     required: ["pattern"],
   },
   isReadOnly: true,
+  category: "search",
   async execute(input) {
     const pattern = input.pattern as string;
     const searchPath = input.path ? resolveFilePath(input.path as string) : workspaceRoot;
@@ -280,6 +389,7 @@ const globTool: ToolDefinition = {
     required: ["pattern"],
   },
   isReadOnly: true,
+  category: "search",
   async execute(input) {
     const pattern = input.pattern as string;
     const searchPath = input.path ? resolveFilePath(input.path as string) : workspaceRoot;
@@ -305,26 +415,6 @@ const globTool: ToolDefinition = {
   },
 };
 
-// ─── find (kept for backward compat, delegates to glob) ───────────────
-
-const findTool: ToolDefinition = {
-  name: "find",
-  description:
-    "Find files by name pattern. Searches in the workspace by default. (Alias for glob)",
-  parameters: {
-    type: "object",
-    properties: {
-      pattern: { type: "string", description: "Glob pattern to match file names (e.g. '*.md', 'src/**/*.ts')." },
-      path: { type: "string", description: "Directory to search in. Default: workspace root." },
-    },
-    required: ["pattern"],
-  },
-  isReadOnly: true,
-  async execute(input) {
-    return globTool.execute(input);
-  },
-};
-
 // ─── ls ────────────────────────────────────────────────────────────────
 
 const lsTool: ToolDefinition = {
@@ -339,6 +429,7 @@ const lsTool: ToolDefinition = {
     required: [],
   },
   isReadOnly: true,
+  category: "filesystem",
   async execute(input) {
     const dirPath = input.path ? resolveFilePath(input.path as string) : workspaceRoot;
 
@@ -387,6 +478,7 @@ const webSearchTool: ToolDefinition = {
     required: ["query"],
   },
   isReadOnly: true,
+  category: "web",
   async execute(input) {
     const query = input.query as string;
     const count = Math.min(Math.max((input.count as number) ?? 5, 1), 10);
@@ -554,6 +646,7 @@ const webFetchTool: ToolDefinition = {
     required: ["url"],
   },
   isReadOnly: true,
+  category: "web",
   async execute(input) {
     const url = input.url as string;
     const extractMode = (input.extractMode as string) ?? "markdown";
@@ -723,20 +816,28 @@ function normalizeWhitespace(text: string): string {
 
 // ─── Registry ──────────────────────────────────────────────────────────
 
-export function createToolRegistry(workspaceDir: string): ToolDefinition[] {
+export function createToolRegistry(
+  workspaceDir: string,
+  opts?: { cronService?: CronService; agentId?: string },
+): ToolDefinition[] {
   workspaceRoot = workspaceDir;
-  return [readFileTool, writeFileTool, editTool, bashTool, grepTool, globTool, findTool, lsTool, webSearchTool, webFetchTool];
+  const tools: ToolDefinition[] = [readFileTool, writeFileTool, editTool, multiEditTool, bashTool, grepTool, globTool, lsTool, webSearchTool, webFetchTool];
+  if (opts?.cronService && opts?.agentId) {
+    tools.push(createCronTool(opts.cronService, opts.agentId));
+  }
+  return tools;
 }
 
 export async function executeTool(
   tools: ToolDefinition[],
   name: string,
   input: Record<string, unknown>,
+  context?: import("./types.js").ToolUseContext,
 ): Promise<string> {
   const tool = tools.find((t) => t.name === name);
   if (!tool) return `Unknown tool: ${name}`;
   try {
-    return await tool.execute(input);
+    return await tool.execute(input, context);
   } catch (err) {
     return `Tool execution error: ${errMsg(err)}`;
   }

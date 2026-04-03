@@ -2,6 +2,7 @@ import os from "node:os";
 import type { ToolDefinition } from "../types.js";
 import type { TokenProvider } from "../auth.js";
 import type { ModelProvider, ProviderCallParams, ProviderMessage, ProviderResponse, ToolCall } from "../provider.js";
+import { withRetry } from "../utils/retry.js";
 
 const CODEX_BASE_URL = "https://chatgpt.com/backend-api/codex/responses";
 
@@ -42,54 +43,119 @@ export class CodexProvider implements ModelProvider {
   }
 
   async call(params: ProviderCallParams): Promise<ProviderResponse> {
-    const token = await this.tokenProvider.getToken();
-    const accountId = this.tokenProvider.getAccountIdSync();
+    return withRetry(
+      async () => {
+        const token = await this.tokenProvider.getToken();
+        const accountId = this.tokenProvider.getAccountIdSync();
 
-    const input = formatCodexMessages(params.messages);
-    const userAgent = `clawarts (${os.platform()} ${os.release()}; ${os.arch()})`;
+        const input = formatCodexMessages(params.messages);
+        const userAgent = `clawarts (${os.platform()} ${os.release()}; ${os.arch()})`;
 
-    const resp = await fetch(CODEX_BASE_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "chatgpt-account-id": accountId,
-        "originator": "clawarts",
-        "OpenAI-Beta": "responses=experimental",
-        "accept": "text/event-stream",
-        "Content-Type": "application/json",
-        "User-Agent": userAgent,
-      },
-      body: JSON.stringify({
-        model: params.model,
-        instructions: params.systemPrompt,
-        input,
-        tools: params.tools,
-        stream: true,
-        store: false,
-      }),
-      signal: params.signal,
-    });
+        const resp = await fetch(CODEX_BASE_URL, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "chatgpt-account-id": accountId,
+            "originator": "clawarts",
+            "OpenAI-Beta": "responses=experimental",
+            "accept": "text/event-stream",
+            "Content-Type": "application/json",
+            "User-Agent": userAgent,
+          },
+          body: JSON.stringify({
+            model: params.model,
+            instructions: params.systemPrompt,
+            input,
+            tools: params.tools,
+            stream: true,
+            store: false,
+          }),
+          signal: params.signal,
+        });
 
-    if (!resp.ok) {
-      const text = await resp.text();
-      throw new Error(`Codex API error (${resp.status}): ${text}`);
-    }
-
-    const text = await resp.text();
-    let result: CodexResponse | null = null;
-
-    for (const line of text.split("\n")) {
-      if (!line.startsWith("data: ")) continue;
-      const data = line.slice(6).trim();
-      if (data === "[DONE]") break;
-      try {
-        const event = JSON.parse(data);
-        if (event.type === "response.completed" && event.response) {
-          result = event.response as CodexResponse;
+        if (!resp.ok) {
+          const text = await resp.text();
+          const requestId = resp.headers.get("x-request-id") ?? "unknown";
+          throw new Error(`Codex API error (${resp.status}, req=${requestId}): ${text}`);
         }
-      } catch {
-        // skip malformed SSE lines
+
+        // If onText callback is provided, stream incrementally for progressive updates
+        if (params.onText && resp.body) {
+          return this.consumeStream(resp, params.onText);
+        }
+
+        // Non-streaming: read full response
+        const text = await resp.text();
+        let result: CodexResponse | null = null;
+
+        for (const line of text.split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") break;
+          try {
+            const event = JSON.parse(data);
+            if (event.type === "response.completed" && event.response) {
+              result = event.response as CodexResponse;
+            }
+          } catch {
+            // skip malformed SSE lines
+          }
+        }
+
+        if (!result) throw new Error("No response.completed event from Codex API");
+        return parseCodexResponse(result);
+      },
+      { maxRetries: 5 },
+    );
+  }
+
+  /**
+   * Consume Codex SSE stream incrementally, firing onText for text deltas.
+   * Codex SSE events include:
+   *   response.output_text.delta — incremental text
+   *   response.function_call_arguments.delta — tool call args
+   *   response.completed — final complete response
+   */
+  private async consumeStream(
+    resp: Response,
+    onText: (delta: string) => void,
+  ): Promise<ProviderResponse> {
+    const reader = resp.body!.getReader();
+    const decoder = new TextDecoder();
+
+    let result: CodexResponse | null = null;
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") continue;
+
+          try {
+            const event = JSON.parse(data);
+
+            if (event.type === "response.output_text.delta" && event.delta) {
+              onText(event.delta);
+            } else if (event.type === "response.completed" && event.response) {
+              result = event.response as CodexResponse;
+            }
+          } catch {
+            // skip malformed SSE lines
+          }
+        }
       }
+    } finally {
+      reader.releaseLock();
     }
 
     if (!result) throw new Error("No response.completed event from Codex API");
@@ -118,7 +184,9 @@ function formatCodexMessages(messages: ProviderMessage[]): unknown[] {
         out.push({ role: "assistant", content: msg.content });
       }
     } else if (msg.role === "tool_result") {
-      out.push({ type: "function_call_output", call_id: msg.callId, output: msg.output });
+      const item: Record<string, unknown> = { type: "function_call_output", call_id: msg.callId, output: msg.output };
+      if (msg.isError) item.status = "error";
+      out.push(item);
     }
   }
   return out;
