@@ -54,6 +54,32 @@ function resolveEnvRef(value: string): string {
   return value;
 }
 
+const VALID_PROVIDERS = new Set(["openai-codex", "anthropic-claude"]);
+
+function validateAgentConfig(config: AgentConfig): void {
+  const errors: string[] = [];
+
+  if (!config.id) errors.push("id is required");
+  if (!VALID_PROVIDERS.has(config.provider)) {
+    errors.push(`provider "${config.provider}" is not valid. Use: ${[...VALID_PROVIDERS].join(", ")}`);
+  }
+  if (!config.slackBotToken) errors.push("slackBotToken is required (or its $ENV_VAR must be set)");
+  if (!config.slackAppToken) errors.push("slackAppToken is required (or its $ENV_VAR must be set)");
+  if (config.maxTokens < 1) errors.push("maxTokens must be positive");
+  if (config.sessionTtlMinutes < 1) errors.push("sessionTtlMinutes must be positive");
+  if (config.thinkingBudgetTokens !== undefined && config.thinkingBudgetTokens < 0) {
+    errors.push("thinkingBudgetTokens must be non-negative");
+  }
+
+  if (config.provider === "anthropic-claude" && !process.env.ANTHROPIC_API_KEY) {
+    errors.push("ANTHROPIC_API_KEY environment variable is required for anthropic-claude provider");
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Invalid config for agent "${config.id}":\n  - ${errors.join("\n  - ")}`);
+  }
+}
+
 function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults): AgentConfig {
   const agentBase = path.join(os.homedir(), ".clawarts", "agents", entry.id);
   const workspaceDir = expandTilde(
@@ -72,6 +98,9 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults): AgentCo
     workspaceDir,
     slackBotToken: resolveEnvRef(entry.slackBotToken),
     slackAppToken: resolveEnvRef(entry.slackAppToken),
+    allowedTools: entry.allowedTools ?? defaults.allowedTools,
+    disallowedTools: entry.disallowedTools ?? defaults.disallowedTools,
+    thinkingBudgetTokens: entry.thinkingBudgetTokens ?? defaults.thinkingBudgetTokens,
   };
 }
 
@@ -90,7 +119,9 @@ export function loadAllAgentConfigs(): AgentConfig[] {
   // Multi-agent mode
   if (file.agents && file.agents.length > 0) {
     const defaults = file.defaults ?? {};
-    return file.agents.map((entry) => resolveAgentConfig(entry, defaults));
+    const configs = file.agents.map((entry) => resolveAgentConfig(entry, defaults));
+    for (const config of configs) validateAgentConfig(config);
+    return configs;
   }
 
   // Legacy single-agent mode (Slack tokens from env)
@@ -104,18 +135,18 @@ export function loadAllAgentConfigs(): AgentConfig[] {
   const workspaceDir = expandTilde(file.workspaceDir ?? path.join(agentBase, "workspace"));
   const defaultSkillsDirs = [path.join(workspaceDir, "skills")];
 
-  return [
-    {
-      id: "default",
-      provider: (file.provider ?? AGENT_DEFAULTS.provider) as AgentConfig["provider"],
-      model: file.model ?? AGENT_DEFAULTS.model,
-      maxTokens: file.maxTokens ?? AGENT_DEFAULTS.maxTokens,
-      systemPrompt: file.systemPrompt ?? AGENT_DEFAULTS.systemPrompt,
-      skillsDirs: (file.skillsDirs ?? defaultSkillsDirs).map(expandTilde),
-      sessionTtlMinutes: file.sessionTtlMinutes ?? AGENT_DEFAULTS.sessionTtlMinutes,
-      workspaceDir,
-      slackBotToken: botToken,
-      slackAppToken: appToken,
-    },
-  ];
+  const config: AgentConfig = {
+    id: "default",
+    provider: (file.provider ?? AGENT_DEFAULTS.provider) as AgentConfig["provider"],
+    model: file.model ?? AGENT_DEFAULTS.model,
+    maxTokens: file.maxTokens ?? AGENT_DEFAULTS.maxTokens,
+    systemPrompt: file.systemPrompt ?? AGENT_DEFAULTS.systemPrompt,
+    skillsDirs: (file.skillsDirs ?? defaultSkillsDirs).map(expandTilde),
+    sessionTtlMinutes: file.sessionTtlMinutes ?? AGENT_DEFAULTS.sessionTtlMinutes,
+    workspaceDir,
+    slackBotToken: botToken,
+    slackAppToken: appToken,
+  };
+  validateAgentConfig(config);
+  return [config];
 }
