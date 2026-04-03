@@ -1,4 +1,4 @@
-export type Provider = "openai-codex";
+export type Provider = "openai-codex" | "anthropic-claude";
 
 /** Per-agent configuration (resolved from defaults + agent overrides). */
 export interface AgentConfig {
@@ -71,4 +71,6 @@ export interface ToolDefinition {
   description: string;
   parameters: Record<string, unknown>;
   execute: (input: Record<string, unknown>) => Promise<string>;
+  /** If true, this tool only reads state and never mutates it. */
+  isReadOnly?: boolean;
 }
