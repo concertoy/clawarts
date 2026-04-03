@@ -60,7 +60,10 @@ async function main() {
     fs.mkdirSync(config.workspaceDir, { recursive: true });
 
     // Load skills and workspace files per agent
-    const skills = loadSkills(config.skillsDirs);
+    const skills = loadSkills({
+      ...config.skillSources,
+      legacyDirs: config.skillsDirs,
+    });
     console.log(`${label} Skills: ${skills.map((s) => s.name).join(", ") || "(none)"}`);
     const workspaceFiles = loadWorkspaceFiles(config.workspaceDir);
 
