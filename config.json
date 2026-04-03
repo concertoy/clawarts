@@ -9,12 +9,15 @@
       "id": "tutor",
       "slackBotToken": "$TUTOR_SLACK_BOT_TOKEN",
       "slackAppToken": "$TUTOR_SLACK_APP_TOKEN",
-      "systemPrompt": "You are a course tutor assistant managing students."
+      "systemPrompt": "You are a course tutor assistant managing students.",
+      "allowedUsers": [
+        "U07ERPSNP6X"
+      ]
     },
     {
-      "id": "student1",
-      "slackBotToken": "$STUDENT1_SLACK_BOT_TOKEN",
-      "slackAppToken": "$STUDENT1_SLACK_APP_TOKEN",
+      "id": "student-1",
+      "slackBotToken": "$STUDENT_SLACK_BOT_TOKEN",
+      "slackAppToken": "$STUDENT_SLACK_APP_TOKEN",
       "provider": "openai-codex",
       "model": "gpt-5.4",
       "maxTokens": 4096,
@@ -25,7 +28,8 @@
         "write_file",
         "edit",
         "multi_edit"
-      ]
+      ],
+      "linkedTutor": "tutor"
     }
   ]
 }

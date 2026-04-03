@@ -4,6 +4,10 @@ import type { Agent } from "./agent.js";
 import { SessionStore } from "./session.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
 import { downloadSlackImages } from "./utils/slack-images.js";
+import { KeyedAsyncQueue } from "./queue/keyed-async-queue.js";
+import { enqueueCommand } from "./queue/command-queue.js";
+import { CommandLane } from "./queue/lanes.js";
+import { enqueueFollowup, type FollowupItem } from "./queue/followup-queue.js";
 
 const SLACK_TEXT_LIMIT = 4000;
 const HISTORY_LIMIT = 20;
@@ -15,6 +19,13 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     appToken: config.slackAppToken,
     socketMode: true,
   });
+
+  const allowedUsers = config.allowedUsers ? new Set(config.allowedUsers) : null;
+
+  // Per-session serialization: messages for the same session are processed
+  // sequentially, but different sessions run in parallel.
+  // Ported from OpenClaw's SessionActorQueue / KeyedAsyncQueue pattern.
+  const sessionQueue = new KeyedAsyncQueue();
 
   let botUserId: string | undefined;
   const botDmChannels = new Set<string>(); // DM channels confirmed to be with the bot
@@ -56,9 +67,60 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     }
   }
 
+  /**
+   * Dispatch a message through the command queue and session queue.
+   * Fire-and-forget from the Slack event handler's perspective.
+   *
+   * Flow: Slack event → command queue (main lane, concurrency-limited)
+   *       → session queue (per-session serialization)
+   *       → handleMessage (agent loop)
+   *
+   * If a session is already busy, the message is routed to the followup
+   * queue which debounces and batches messages for delivery once the
+   * agent finishes its current turn.
+   */
+  function dispatch(params: HandleMessageParams): void {
+    void enqueueCommand(CommandLane.Main, () =>
+      sessionQueue.enqueue(params.sessionKey, async () => {
+        await handleMessage(params);
+      }),
+    ).catch((err) => {
+      if (err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"))) return;
+      console.error(`[slack] Dispatch error for ${params.sessionKey}:`, err);
+    });
+  }
+
+  /**
+   * Dispatch a followup message for a session that's currently busy.
+   * The followup queue debounces and batches messages, then delivers
+   * them as a single combined message once the agent is free.
+   */
+  function dispatchFollowup(params: HandleMessageParams): void {
+    const item: FollowupItem = {
+      text: params.text,
+      userId: params.userId,
+      ts: params.ts,
+      enqueuedAt: Date.now(),
+    };
+
+    enqueueFollowup(params.sessionKey, item, async (batch) => {
+      // Combine batched messages into a single user message
+      const combined = batch
+        .map((i) => i.userId === "system" ? i.text : `[From: <@${i.userId}>]\n${i.text}`)
+        .join("\n\n---\n\n");
+
+      // Dispatch the combined message through the normal flow
+      dispatch({
+        ...params,
+        text: combined,
+      });
+    });
+  }
+
   // Handle direct mentions in channels
   app.event("app_mention", async ({ event, client }) => {
     if (isDuplicate(event.channel, event.ts)) return;
+    if (allowedUsers && event.user && !allowedUsers.has(event.user)) return;
 
     const myId = await resolveBotId(client);
 
@@ -74,7 +136,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       }
     }
 
-    await handleMessage({
+    const params: HandleMessageParams = {
       agent,
       client,
       channel: event.channel,
@@ -85,7 +147,14 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       sessionKey,
       botToken: config.slackBotToken,
       files: (event as any).files,
-    });
+    };
+
+    // If this session is already processing, route to followup queue
+    if (sessionQueue.size > 0) {
+      dispatchFollowup(params);
+    } else {
+      dispatch(params);
+    }
   });
 
   // Handle DMs and thread replies in channels
@@ -95,6 +164,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     // Skip non-standard messages (edits, deletes, bot messages, etc.)
     if (msg.subtype) return;
     if (!msg.text) return;
+    if (allowedUsers && msg.user && !allowedUsers.has(msg.user as string)) return;
 
     const channel = msg.channel as string;
     const ts = msg.ts as string;
@@ -134,7 +204,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       }
     }
 
-    await handleMessage({
+    const params: HandleMessageParams = {
       agent,
       client,
       channel,
@@ -145,7 +215,14 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       sessionKey,
       botToken: config.slackBotToken,
       files: msg.files as Array<Record<string, unknown>> | undefined,
-    });
+    };
+
+    // If this session is already processing, route to followup queue
+    if (sessionQueue.size > 0) {
+      dispatchFollowup(params);
+    } else {
+      dispatch(params);
+    }
   });
 
   return app;
