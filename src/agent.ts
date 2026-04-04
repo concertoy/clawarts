@@ -2,10 +2,12 @@ import type { AgentConfig, Skill, ToolDefinition, ToolUseContext, WorkspaceFile 
 import type { ImageContent, ModelProvider, ProviderMessage } from "./provider.js";
 import { SessionStore } from "./session.js";
 import { buildSystemPrompt } from "./system-prompt.js";
+import { loadWorkspaceFiles } from "./workspace.js";
 import { runToolBatch } from "./tool-runner.js";
 import { touchAgent, recordAgentError } from "./relay.js";
 import { errMsg } from "./utils/errors.js";
 import { createRateLimiter, type RateLimiter } from "./utils/rate-limit.js";
+import { recordTokenUsage } from "./utils/token-tracker.js";
 
 const DEFAULT_MAX_TOOL_ITERATIONS = 10;
 
@@ -23,8 +25,10 @@ const COMPACTION_CHAR_THRESHOLD = 80_000;
 // ─── Agent ──────────────────────────────────────────────────────────────
 
 export class Agent {
-  private readonly systemPrompt: string;
+  private systemPrompt: string;
   private readonly toolDefs: ToolDefinition[];
+  private readonly skills: Skill[];
+  private lastWorkspaceFiles: WorkspaceFile[];
 
   /**
    * Track in-flight AbortControllers per session.
@@ -43,6 +47,8 @@ export class Agent {
     tools: ToolDefinition[],
     workspaceFiles: WorkspaceFile[],
   ) {
+    this.skills = skills;
+    this.lastWorkspaceFiles = workspaceFiles;
     this.systemPrompt = buildSystemPrompt({
       identity: config.systemPrompt,
       skills,
@@ -57,6 +63,26 @@ export class Agent {
     });
   }
 
+  /**
+   * Reload workspace files from disk if they changed.
+   * loadWorkspaceFiles() uses mtime-based caching, so this is cheap
+   * when nothing changed. Allows professor to edit SOUL.md without restart.
+   */
+  private refreshSystemPrompt(): void {
+    const fresh = loadWorkspaceFiles(this.config.workspaceDir);
+    // Quick identity check — same array ref means cache hit (unchanged)
+    if (fresh === this.lastWorkspaceFiles) return;
+    this.lastWorkspaceFiles = fresh;
+    this.systemPrompt = buildSystemPrompt({
+      identity: this.config.systemPrompt,
+      skills: this.skills,
+      workspaceFiles: fresh,
+      tools: this.toolDefs,
+      helpLevel: this.config.helpLevel,
+    });
+    console.log(`[agent] ${this.config.id}: workspace files changed, system prompt rebuilt`);
+  }
+
   async getReply(
     sessionKey: string,
     userMessage: string,
@@ -66,6 +92,9 @@ export class Agent {
     images?: ImageContent[],
     onToolStart?: (toolNames: string[]) => void,
   ): Promise<string> {
+    // Hot-reload workspace files (SOUL.md etc.) if they changed on disk
+    this.refreshSystemPrompt();
+
     // Quiet hours: return canned message without calling the API
     if (this.config.quietHours && isQuietHours(this.config.quietHours, this.config.quietHoursTimezone)) {
       touchAgent(this.config.id);
@@ -273,6 +302,9 @@ export class Agent {
     const cacheInfo = totalCacheReadTokens > 0 ? `, cache: ${totalCacheReadTokens} read / ${totalCacheCreationTokens} created` : "";
     const errorInfo = toolErrorCount > 0 ? `, ${toolErrorCount} tool error(s)` : "";
     console.log(`[agent] Complete: ${turnCount} turns in ${elapsedSec}s, ${totalInputTokens} input + ${totalOutputTokens} output tokens${cacheInfo}${errorInfo}`);
+
+    // Record cumulative token usage for status reporting
+    recordTokenUsage(this.config.id, totalInputTokens, totalOutputTokens, totalCacheReadTokens, totalCacheCreationTokens);
 
     const reply = lastText || "[No response]";
     session.messages.push({ role: "assistant", content: reply });

@@ -2,6 +2,8 @@ import fs from "node:fs";
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import { getStudentsForTutor, getAgentLastActive, getAgentLastError, getRegisteredAgent } from "../relay.js";
 import type { CronService } from "../cron/service.js";
+import { getTokenUsage, estimateCost } from "../utils/token-tracker.js";
+import { formatTokenCount, formatUsd } from "../utils/format.js";
 
 /**
  * Status tool for tutors — quick overview of student agents and scheduled jobs.
@@ -28,7 +30,11 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
       } catch { /* non-fatal */ }
       const tutorReg = getRegisteredAgent(tutorId);
       const tutorSessions = tutorReg?.sessions.size ?? 0;
-      const lines: string[] = [`Status for ${tutorId} v${version} (uptime: ${uptimeMin}m, ${memMB}MB, ${tutorSessions} session(s)):`];
+      const tutorTokens = getTokenUsage(tutorId);
+      const tokenInfo = tutorTokens
+        ? `, ${formatTokenCount(tutorTokens.inputTokens)}in/${formatTokenCount(tutorTokens.outputTokens)}out (${tutorTokens.requestCount} req, ~${formatUsd(estimateCost(tutorTokens))})`
+        : "";
+      const lines: string[] = [`Status for ${tutorId} v${version} (uptime: ${uptimeMin}m, ${memMB}MB, ${tutorSessions} session(s)${tokenInfo}):`];
 
       // Student agents
       const students = getStudentsForTutor(tutorId);
@@ -42,7 +48,9 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
           const sessionCount = reg?.sessions.size ?? 0;
           const lastErr = getAgentLastError(s.id);
           const errNote = lastErr ? ` [last error: ${lastErr.slice(0, 80)}]` : "";
-          lines.push(`  ${s.id}: last active ${ago}, ${sessionCount} session(s), users: ${users}${errNote}`);
+          const sTokens = getTokenUsage(s.id);
+          const sTokenInfo = sTokens ? `, ${formatTokenCount(sTokens.inputTokens)}in/${formatTokenCount(sTokens.outputTokens)}out (~${formatUsd(estimateCost(sTokens))})` : "";
+          lines.push(`  ${s.id}: last active ${ago}, ${sessionCount} session(s), users: ${users}${sTokenInfo}${errNote}`);
         }
       } else {
         lines.push("\nNo student agents linked.");
