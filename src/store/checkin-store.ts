@@ -126,6 +126,12 @@ export class CheckinStore {
     return store.items.find((r) => r.id === id);
   }
 
+  /** Get a single response by window + user (avoids loading all responses). */
+  async getResponseByWindowAndUser(windowId: string, userId: string): Promise<CheckinResponse | undefined> {
+    const store = await loadStore<CheckinResponse>(this.responsesPath);
+    return store.items.find((r) => r.windowId === windowId && r.userId === userId);
+  }
+
   async getResponsesByWindow(windowId: string): Promise<CheckinResponse[]> {
     const store = await loadStore<CheckinResponse>(this.responsesPath);
     return store.items.filter((r) => r.windowId === windowId);

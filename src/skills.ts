@@ -36,8 +36,6 @@ function scanSkillsRecursive(
 ): Skill[] {
   const expanded = rootDir.startsWith("~/") ? path.join(os.homedir(), rootDir.slice(2)) : rootDir;
   const resolved = path.resolve(expanded);
-  if (!fs.existsSync(resolved)) return [];
-
   const skills: Skill[] = [];
 
   function walk(dir: string): void {

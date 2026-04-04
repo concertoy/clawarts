@@ -103,8 +103,7 @@ export function createCheckinRespondTool(
           }
 
           // Check if student already responded
-          const responses = await checkinStore.getResponsesByWindow(active.id);
-          const existing = responses.find((r) => r.userId === userId);
+          const existing = await checkinStore.getResponseByWindowAndUser(active.id, userId);
           if (existing) {
             lines.push(`\nYou already responded: "${existing.content.slice(0, 100)}${existing.content.length > 100 ? "..." : ""}"`);
           }
