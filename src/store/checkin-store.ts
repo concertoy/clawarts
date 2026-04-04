@@ -78,6 +78,13 @@ export class CheckinStore {
     return store.items;
   }
 
+  /** List currently active (open and not expired) windows. */
+  async listActiveWindows(): Promise<CheckinWindow[]> {
+    const store = await loadStore<CheckinWindow>(this.windowsPath);
+    const now = Date.now();
+    return store.items.filter((w) => isWindowActive(w, now));
+  }
+
   /** Close any open windows whose closesAt has passed. */
   async closeExpiredWindows(): Promise<number> {
     const store = await loadStore<CheckinWindow>(this.windowsPath);

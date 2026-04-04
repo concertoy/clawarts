@@ -3,6 +3,9 @@ import path from "node:path";
 import matter from "gray-matter";
 import type { WorkspaceFile } from "./types.js";
 import { errMsg, isFileNotFound } from "./utils/errors.js";
+import { createLogger } from "./utils/logger.js";
+
+const log = createLogger("workspace");
 
 /**
  * Bootstrap files loaded from the workspace directory, following OpenClaw's pattern.
@@ -33,7 +36,7 @@ function getBootstrapStats(workspaceDir: string): { maxMtime: number; fileCount:
     } catch (err) {
       // ENOENT is expected for missing bootstrap files; warn on real errors (e.g. EACCES)
       if (!isFileNotFound(err)) {
-        console.warn(`[workspace] Failed to stat ${name}:`, errMsg(err));
+        log.warn(`Failed to stat ${name}:`, errMsg(err));
       }
     }
   }
@@ -72,12 +75,12 @@ export function loadWorkspaceFiles(workspaceDir: string): WorkspaceFile[] {
     } catch (err) {
       // ENOENT is expected for missing bootstrap files — only warn on real errors
       if (isFileNotFound(err)) continue;
-      console.warn(`[workspace] Failed to read ${name}:`, errMsg(err));
+      log.warn(`Failed to read ${name}:`, errMsg(err));
     }
   }
 
   if (files.length > 0) {
-    console.log(`[workspace] Loaded ${files.length} file(s): ${files.map((f) => f.name).join(", ")}`);
+    log.info(`Loaded ${files.length} file(s): ${files.map((f) => f.name).join(", ")}`);
   }
 
   cache.set(workspaceDir, { files, mtimeMs: mtime || Date.now(), fileCount });

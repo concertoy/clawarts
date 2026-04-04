@@ -3,6 +3,10 @@ import path from "node:path";
 import { WebClient } from "@slack/web-api";
 import type { AgentConfig } from "./types.js";
 import { errMsg } from "./utils/errors.js";
+import { createLogger } from "./utils/logger.js";
+
+const log = createLogger("clawarts");
+const healthLog = createLogger("health");
 
 /**
  * Startup diagnostics. Runs after config is loaded but before agents connect.
@@ -11,7 +15,7 @@ import { errMsg } from "./utils/errors.js";
 export function runDiagnostics(configs: AgentConfig[]): void {
   // Environment info
   const memMB = Math.round(process.memoryUsage.rss() / 1024 / 1024);
-  console.log(`[clawarts] Environment: node ${process.version}, ${memMB}MB RSS, ${configs.length} agent(s)`);
+  log.info(`Environment: node ${process.version}, ${memMB}MB RSS, ${configs.length} agent(s)`);
 
   const warnings: string[] = [];
 
@@ -92,9 +96,9 @@ export function runDiagnostics(configs: AgentConfig[]): void {
   }
 
   if (warnings.length > 0) {
-    console.warn(`[clawarts] Startup diagnostics (${warnings.length} warning${warnings.length > 1 ? "s" : ""}):`);
+    log.warn(`Startup diagnostics (${warnings.length} warning${warnings.length > 1 ? "s" : ""}):`);
     for (const w of warnings) {
-      console.warn(`  - ${w}`);
+      log.warn(`  - ${w}`);
     }
   }
 }
@@ -111,7 +115,7 @@ export async function checkProviderHealth(configs: AgentConfig[]): Promise<void>
       switch (provider) {
         case "anthropic-claude": {
           const key = process.env.ANTHROPIC_API_KEY;
-          if (!key) { console.warn(`[health] anthropic-claude: ANTHROPIC_API_KEY not set`); return; }
+          if (!key) { healthLog.warn("anthropic-claude: ANTHROPIC_API_KEY not set"); return; }
           const resp = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
@@ -123,21 +127,21 @@ export async function checkProviderHealth(configs: AgentConfig[]): Promise<void>
             signal: AbortSignal.timeout(10_000),
           });
           if (resp.ok) {
-            console.log(`[health] anthropic-claude: OK`);
+            healthLog.info("anthropic-claude: OK");
           } else {
             const body = await resp.text().catch(() => "");
-            console.warn(`[health] anthropic-claude: HTTP ${resp.status} — ${body.slice(0, 200)}`);
+            healthLog.warn(`anthropic-claude: HTTP ${resp.status} — ${body.slice(0, 200)}`);
           }
           break;
         }
         case "openai-codex": {
           // Codex uses OAuth tokens — just verify env vars exist
-          console.log(`[health] openai-codex: token provider will authenticate on first call`);
+          healthLog.info("openai-codex: token provider will authenticate on first call");
           break;
         }
       }
     } catch (err) {
-      console.warn(`[health] ${provider}: ${errMsg(err)}`);
+      healthLog.warn(`${provider}: ${errMsg(err)}`);
     }
   });
 
@@ -157,9 +161,9 @@ export async function checkSlackTokens(configs: AgentConfig[]): Promise<void> {
     try {
       const client = new WebClient(config.slackBotToken);
       const auth = await client.auth.test();
-      console.log(`[health] ${config.id}: Slack bot token OK (bot: @${auth.user})`);
+      healthLog.info(`${config.id}: Slack bot token OK (bot: @${auth.user})`);
     } catch (err) {
-      console.warn(`[health] ${config.id}: Slack bot token FAILED — ${errMsg(err)}`);
+      healthLog.warn(`${config.id}: Slack bot token FAILED — ${errMsg(err)}`);
     }
   });
   await Promise.allSettled(checks);
