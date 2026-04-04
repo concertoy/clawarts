@@ -1,14 +1,9 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import matter from "gray-matter";
 import type { Skill, SkillSource, SkillSources } from "./types.js";
 import { errMsg, isFileNotFound } from "./utils/errors.js";
-
-/** Expand ~/... to the user's home directory. */
-function expandTilde(p: string): string {
-  return p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p;
-}
+import { expandTilde } from "./utils/paths.js";
 
 // ─── Options ─────────────────────────────────────────────────────────
 
