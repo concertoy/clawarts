@@ -66,7 +66,7 @@ export function createSlackUploadTool(slackClient: WebClient): ToolDefinition {
         if (context.threadTs) uploadArgs.thread_ts = context.threadTs;
         if (comment) uploadArgs.initial_comment = comment;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // uploadV2 expects FilesUploadV2Arguments but accepts these fields — cast needed
         await slackClient.files.uploadV2(uploadArgs as any);
 
         return `File "${filename}" uploaded successfully to the conversation.`;
