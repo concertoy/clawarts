@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ConversationSession } from "./types.js";
 import { errMsg, isFileNotFound } from "./utils/errors.js";
+import { safeJsonStringify } from "./utils/safe-json.js";
 
 const MAX_MESSAGES_PER_SESSION = 100;
 const PERSIST_MESSAGES = 30;
@@ -130,7 +131,8 @@ export class SessionStore {
         createdAt: session.createdAt,
         updatedAt: session.updatedAt,
       };
-      fs.writeFileSync(tmp, JSON.stringify(toSave), "utf-8");
+      const json = safeJsonStringify(toSave) ?? "{}";
+      fs.writeFileSync(tmp, json, "utf-8");
       fs.renameSync(tmp, filePath);
     } catch (err) {
       // Clean up orphan temp file on failure

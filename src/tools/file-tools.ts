@@ -36,10 +36,13 @@ export function createFileTools(workspaceDir: string): ToolDefinition[] {
         const slice = lines.slice(offset, offset + limit);
         const result = slice.map((line, i) => `${offset + i + 1}\t${line}`).join("\n");
         const maxChars = 100_000;
+        const rangeInfo = offset > 0 || limit < lines.length
+          ? ` (lines ${offset + 1}-${Math.min(offset + limit, lines.length)} of ${lines.length})`
+          : ` (${lines.length} lines)`;
         if (result.length > maxChars) {
-          return result.slice(0, maxChars) + `\n\n[Truncated: file is ${lines.length} lines]`;
+          return result.slice(0, maxChars) + `\n\n[Truncated: file is ${lines.length} lines. Use offset/limit to read sections.]`;
         }
-        return result;
+        return `[${filePath}${rangeInfo}]\n${result}`;
       } catch (err) {
         return `Error reading file: ${errMsg(err)}`;
       }

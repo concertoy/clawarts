@@ -10,6 +10,7 @@ import type { Agent } from "./agent.js";
 import type { SessionStore } from "./session.js";
 import type { ToolDefinition, ToolUseContext } from "./types.js";
 import { BoundedMap } from "./utils/bounded-map.js";
+import { runWithConcurrency } from "./utils/concurrency.js";
 import { errMsg } from "./utils/errors.js";
 import { openDmChannel } from "./utils/slack-dm.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
@@ -192,7 +193,7 @@ export function createRelayTool(): ToolDefinition {
         const pairs = students.flatMap((s) =>
           s.allowedUsers.map((uid) => ({ agentId: s.id, uid })),
         );
-        const results = await boundedParallel(
+        const results = await runWithConcurrency(
           pairs,
           (p) => relayToStudent(p.agentId, p.uid, message, sourceAgent),
           BROADCAST_CONCURRENCY,
@@ -229,31 +230,4 @@ export function createRelayTool(): ToolDefinition {
       }
     },
   };
-}
-
-// ─── Bounded concurrency ──────────────────────────────────────────────
-
-/** Run tasks with at most `limit` concurrent executions. Returns PromiseSettledResult[]. */
-async function boundedParallel<T, R>(
-  items: T[],
-  fn: (item: T) => Promise<R>,
-  limit: number,
-): Promise<PromiseSettledResult<R>[]> {
-  const results: PromiseSettledResult<R>[] = new Array(items.length);
-  let idx = 0;
-
-  async function worker(): Promise<void> {
-    while (idx < items.length) {
-      const i = idx++;
-      try {
-        results[i] = { status: "fulfilled", value: await fn(items[i]) };
-      } catch (err) {
-        results[i] = { status: "rejected", reason: err };
-      }
-    }
-  }
-
-  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
-  await Promise.all(workers);
-  return results;
 }

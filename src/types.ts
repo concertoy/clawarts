@@ -32,6 +32,8 @@ export interface AgentConfig {
   maxToolIterations?: number;
   /** Max agent replies per minute. Prevents runaway API costs. Default: 30. */
   rateLimitPerMinute?: number;
+  /** Quiet hours: agent returns a canned message instead of calling the API. Format: "HH:MM-HH:MM" (24h, local time). */
+  quietHours?: string;
 }
 
 /** Top-level config file shape. */
@@ -45,7 +47,7 @@ type AgentOverrides = Partial<Pick<AgentConfig,
   | "provider" | "model" | "maxTokens" | "systemPrompt"
   | "skillsDirs" | "skillSources" | "sessionTtlMinutes" | "workspaceDir"
   | "allowedTools" | "disallowedTools" | "thinkingBudgetTokens"
-  | "allowedUsers" | "helpLevel" | "maxToolIterations" | "rateLimitPerMinute"
+  | "allowedUsers" | "helpLevel" | "maxToolIterations" | "rateLimitPerMinute" | "quietHours"
 >>;
 
 export interface AgentDefaults extends AgentOverrides {}

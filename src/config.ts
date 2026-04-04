@@ -105,6 +105,9 @@ function validateAgentConfig(config: AgentConfig): void {
   if (config.rateLimitPerMinute !== undefined && config.rateLimitPerMinute < 1) {
     errors.push("rateLimitPerMinute must be at least 1");
   }
+  if (config.quietHours && !/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(config.quietHours)) {
+    errors.push(`quietHours "${config.quietHours}" must be "HH:MM-HH:MM" format (e.g. "23:00-07:00")`);
+  }
 
   if (config.provider === "anthropic-claude" && !process.env.ANTHROPIC_API_KEY) {
     errors.push("ANTHROPIC_API_KEY environment variable is required for anthropic-claude provider");
@@ -184,6 +187,7 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults, allEntri
     helpLevel: entry.helpLevel ?? defaults.helpLevel,
     maxToolIterations: entry.maxToolIterations ?? defaults.maxToolIterations,
     rateLimitPerMinute: entry.rateLimitPerMinute ?? defaults.rateLimitPerMinute,
+    quietHours: entry.quietHours ?? defaults.quietHours,
   };
 }
 
