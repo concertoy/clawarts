@@ -131,7 +131,7 @@ function scheduleDrain(sessionKey: string): void {
         try {
           await callback(batch);
         } catch (err) {
-          console.warn(`[followup-queue] Drain failed for ${sessionKey}:`, err);
+          console.warn(`[followup-queue] Drain failed for ${sessionKey}:`, err instanceof Error ? err.message : err);
         }
       }
     } finally {

@@ -22,8 +22,12 @@ interface LegacyConfigFile {
 function resolveConfigPath(): string {
   if (process.env.CLAWARTS_CONFIG) return path.resolve(process.env.CLAWARTS_CONFIG);
   const cwdPath = path.resolve("config.json");
-  if (fs.existsSync(cwdPath)) return cwdPath;
-  return path.join(os.homedir(), ".clawarts", "config.json");
+  try {
+    fs.accessSync(cwdPath, fs.constants.R_OK);
+    return cwdPath;
+  } catch {
+    return path.join(os.homedir(), ".clawarts", "config.json");
+  }
 }
 
 function loadConfigFile(): LegacyConfigFile {

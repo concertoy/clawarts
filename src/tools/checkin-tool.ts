@@ -278,12 +278,7 @@ export function createCheckinTool(
             const notify = input.notifyStudents as boolean;
             let notified = 0;
             if (notify) {
-              notified = await notifyStudentsOfScores(agentId, checkinStore, evals.map((e, i) => ({
-                responseId: e.responseId,
-                score: e.score,
-                status: e.status,
-                feedback: e.feedback,
-              })));
+              notified = await notifyStudentsOfScores(agentId, checkinStore, evals);
             }
 
             const notifyMsg = notify ? ` ${notified} student(s) notified.` : "";

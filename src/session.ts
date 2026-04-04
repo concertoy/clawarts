@@ -14,7 +14,7 @@ export class SessionStore {
 
   constructor(private ttlMs: number) {
     this.cleanupTimer = setInterval(() => {
-      try { this.evictStale(); } catch (err) { console.error("[session] Cleanup error:", err); }
+      try { this.evictStale(); } catch (err) { console.error("[session] Cleanup error:", err instanceof Error ? err.message : err); }
     }, 5 * 60 * 1000);
     if (this.cleanupTimer.unref) this.cleanupTimer.unref();
   }
