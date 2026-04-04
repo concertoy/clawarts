@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import type { ToolDefinition } from "../types.js";
@@ -32,7 +33,7 @@ const webSearchTool: ToolDefinition = {
     const query = input.query as string;
     const count = Math.min(Math.max((input.count as number) ?? 5, 1), 10);
 
-    const cacheKey = `${query}:${count}`;
+    const cacheKey = `${query.trim().toLowerCase()}:${count}`;
     const cached = ddgCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.results;
 
@@ -209,7 +210,8 @@ const webFetchTool: ToolDefinition = {
       return `Error: Invalid URL — must be http or https: ${url}`;
     }
 
-    const cacheKey = `${url}:${extractMode}:${maxChars}`.toLowerCase();
+    const rawKey = `${url}:${extractMode}:${maxChars}`.toLowerCase();
+    const cacheKey = rawKey.length > 200 ? createHash("sha256").update(rawKey).digest("hex") : rawKey;
     const cached = fetchCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.result;
 

@@ -178,6 +178,11 @@ export class Agent {
           continue;
         }
 
+        // Warn if max_tokens hit but recovery exhausted
+        if (response.stopReason === "max_tokens" && maxTokensRecoveryCount >= MAX_TOKEN_RECOVERIES) {
+          console.warn(`[agent] max_tokens recovery exhausted (${MAX_TOKEN_RECOVERIES} attempts) — response may be truncated`);
+        }
+
         // Exit: no tool calls or model chose to stop
         if (response.toolCalls.length === 0 || response.stopReason !== "tool_use") {
           break;
