@@ -3,6 +3,7 @@ import type { ToolCall } from "./provider.js";
 import { errMsg } from "./utils/errors.js";
 import { sanitizeForUser } from "./utils/sanitize.js";
 import { createLogger } from "./utils/logger.js";
+import { recordToolUsage } from "./utils/token-tracker.js";
 
 const log = createLogger("tool-runner");
 
@@ -107,6 +108,7 @@ async function executeOne(tools: ToolDefinition[], tc: ToolCall, context?: ToolU
     return { callId: tc.id, name: tc.name, output: `Unknown tool: ${tc.name}`, isError: true };
   }
   const startMs = Date.now();
+  if (context?.agentId) recordToolUsage(context.agentId, tc.name);
   try {
     // Parse arguments, handling empty/malformed JSON gracefully.
     // Ported from claude-code's tool argument validation pattern.

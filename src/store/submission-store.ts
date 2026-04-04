@@ -56,6 +56,11 @@ export class SubmissionStore {
     return store.items.find((s) => s.assignmentId === assignmentId && s.userId === userId);
   }
 
+  async listAll(): Promise<Submission[]> {
+    const store = await this.load();
+    return store.items;
+  }
+
   /** Count submissions per assignment (avoids loading full content for reporting). */
   async countByAssignment(assignmentId: string): Promise<{ total: number; late: number }> {
     const store = await this.load();
