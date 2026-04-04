@@ -73,7 +73,11 @@ export function execAsync(
       // Kill the process group to prevent orphan children
       try { if (child.pid) process.kill(-child.pid, "SIGTERM"); } catch { /* already dead */ }
       if (ac.signal.aborted) {
-        resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: null });
+        // Include timeout info in stderr so callers can detect it
+        const reason = ac.signal.reason;
+        const timeoutMsg = reason instanceof Error && reason.message.includes("timed out")
+          ? `\n[TIMEOUT: ${reason.message}]` : "";
+        resolve({ stdout: stdout.trim(), stderr: stderr.trim() + timeoutMsg, exitCode: null });
       } else {
         reject(err);
       }

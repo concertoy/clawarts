@@ -31,9 +31,11 @@ const DANGEROUS_PATTERNS: RegExp[] = [
 ];
 
 function isDangerousCommand(command: string): string | null {
-  const trimmed = command.trim();
+  // Normalize: collapse backslash-escaped spaces and remove backslash line continuations
+  // to prevent trivial bypass of pattern matching (e.g. "rm\ -rf\ /")
+  const normalized = command.trim().replace(/\\\n/g, " ").replace(/\\( )/g, "$1");
   for (const pattern of DANGEROUS_PATTERNS) {
-    if (pattern.test(trimmed)) {
+    if (pattern.test(normalized)) {
       return `Blocked: command matches dangerous pattern (${pattern.source.slice(0, 40)}...). Use a safer alternative.`;
     }
   }
@@ -81,8 +83,14 @@ export function createShellTools(workspaceDir: string): ToolDefinition[] {
 
       try {
         const result = await execAsync(command, { cwd: workspaceRoot, timeout });
-        const output = result.stdout || result.stderr || "(no output)";
         const maxChars = 100_000;
+
+        // Detect timeout via marker injected by exec-async
+        if (result.exitCode === null && result.stderr.includes("[TIMEOUT:")) {
+          return `Command timed out after ${timeout / 1000}s. Increase the timeout parameter or simplify the command.`;
+        }
+
+        const output = result.stdout || result.stderr || "(no output)";
 
         if (result.exitCode !== 0 && result.exitCode !== null) {
           const combined = `Exit code: ${result.exitCode}\n${result.stdout}\n${result.stderr}`.trim();
@@ -184,7 +192,9 @@ export function createShellTools(workspaceDir: string): ToolDefinition[] {
         return output;
       } catch (err) {
         if (err && typeof err === "object" && "exitCode" in err && (err as { exitCode: number }).exitCode === 1) return "No matches found.";
-        return `Error: ${errMsg(err)}`;
+        const msg = errMsg(err);
+        if (msg.includes("timed out") || msg.includes("TIMEOUT")) return `Search timed out (15s). Try a narrower path or simpler pattern.`;
+        return `Error: ${msg}`;
       }
     },
   };
