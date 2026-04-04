@@ -26,8 +26,13 @@ export async function loadCronStore(storePath: string): Promise<CronStoreFile> {
 /**
  * Save cron store to disk. Creates parent directories if needed.
  */
+/**
+ * Atomic save: write to temp file then rename (POSIX atomic).
+ */
 export async function saveCronStore(storePath: string, store: CronStoreFile): Promise<void> {
   const dir = path.dirname(storePath);
   await fs.promises.mkdir(dir, { recursive: true });
-  await fs.promises.writeFile(storePath, JSON.stringify(store, null, 2), "utf-8");
+  const tmp = storePath + `.tmp.${process.pid}`;
+  await fs.promises.writeFile(tmp, JSON.stringify(store, null, 2), "utf-8");
+  await fs.promises.rename(tmp, storePath);
 }

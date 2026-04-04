@@ -1,7 +1,8 @@
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import type { CheckinStore } from "../store/checkin-store.js";
 import type { CronService } from "../cron/service.js";
-import { getStudentsForTutor } from "../relay.js";
+import { getStudentsForTutor, getRegisteredAgent } from "../relay.js";
+import { markdownToSlack } from "../utils/slack-markdown.js";
 
 /**
  * Check-in management tool for tutor agents.
@@ -69,6 +70,10 @@ export function createCheckinTool(
             required: ["responseId", "score", "status"],
           },
           description: "Evaluation results for each response (for evaluate action).",
+        },
+        notifyStudents: {
+          type: "boolean",
+          description: "If true, DM each student their score and feedback after evaluation (default: false).",
         },
       },
       required: ["action"],
@@ -224,7 +229,16 @@ export function createCheckinTool(
                 feedback: e.feedback,
               })),
             );
-            return `Evaluated ${updated} response(s).`;
+
+            // Auto-notify students of their scores via DM
+            const notify = input.notifyStudents as boolean;
+            let notified = 0;
+            if (notify) {
+              notified = await notifyStudentsOfScores(agentId, checkinStore, evaluations);
+            }
+
+            const notifyMsg = notify ? ` ${notified} student(s) notified.` : "";
+            return `Evaluated ${updated} response(s).${notifyMsg}`;
           }
 
           // No evaluations provided — return responses for AI assessment
@@ -258,7 +272,20 @@ export function createCheckinTool(
             const respondedUserIds = new Set(responses.map((r) => r.userId));
             const absentCount = allUserIds.filter((u) => !respondedUserIds.has(u)).length;
 
-            return `Passphrase auto-evaluated: ${updated} response(s) scored. ${evals.filter((e) => e.score === 100).length} correct, ${evals.filter((e) => e.score === 0).length} incorrect. ${absentCount} absent (no response).`;
+            // Auto-notify if requested
+            const notify = input.notifyStudents as boolean;
+            let notified = 0;
+            if (notify) {
+              notified = await notifyStudentsOfScores(agentId, checkinStore, evals.map((e, i) => ({
+                responseId: e.responseId,
+                score: e.score,
+                status: e.status,
+                feedback: e.feedback,
+              })));
+            }
+
+            const notifyMsg = notify ? ` ${notified} student(s) notified.` : "";
+            return `Passphrase auto-evaluated: ${updated} response(s) scored. ${evals.filter((e) => e.score === 100).length} correct, ${evals.filter((e) => e.score === 0).length} incorrect. ${absentCount} absent (no response).${notifyMsg}`;
           }
 
           // For quiz/reflect/pulse: return responses for AI to evaluate
@@ -393,4 +420,58 @@ export function createCheckinTool(
       }
     },
   };
+}
+
+/**
+ * DM each evaluated student their score and feedback.
+ * Posts directly via the student agent's bot token — no AI loop overhead.
+ */
+async function notifyStudentsOfScores(
+  tutorId: string,
+  checkinStore: CheckinStore,
+  evaluations: { responseId: string; score: number; status: string; feedback?: string }[],
+): Promise<number> {
+  const students = getStudentsForTutor(tutorId);
+  const userToAgent = new Map<string, string>();
+  for (const s of students) {
+    for (const uid of s.allowedUsers) userToAgent.set(uid, s.id);
+  }
+
+  // Build a responseId → userId map by scanning all windows once
+  const responseUserMap = new Map<string, string>();
+  const allWindows = await checkinStore.listWindows();
+  for (const w of allWindows) {
+    const responses = await checkinStore.getResponsesByWindow(w.id);
+    for (const r of responses) responseUserMap.set(r.id, r.userId);
+  }
+
+  let notified = 0;
+  const tasks = evaluations.map(async (ev) => {
+    const userId = responseUserMap.get(ev.responseId);
+    if (!userId) return;
+    const studentAgentId = userToAgent.get(userId);
+    if (!studentAgentId) return;
+    const agent = getRegisteredAgent(studentAgentId);
+    if (!agent) return;
+
+    try {
+      const dm = await agent.slackClient.conversations.open({ users: userId });
+      const channelId = dm.channel?.id;
+      if (!channelId) return;
+
+      const scoreEmoji = ev.score >= 80 ? "\u2705" : ev.score >= 50 ? "\u26a0\ufe0f" : "\u274c";
+      const msg = [
+        `${scoreEmoji} *Check-in result: ${ev.score}/100*`,
+        ev.feedback ? `> ${ev.feedback}` : "",
+      ].filter(Boolean).join("\n");
+
+      await agent.slackClient.chat.postMessage({ channel: channelId, text: markdownToSlack(msg) });
+      notified++;
+    } catch {
+      // Best-effort
+    }
+  });
+
+  await Promise.allSettled(tasks);
+  return notified;
 }

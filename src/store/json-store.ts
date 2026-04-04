@@ -28,8 +28,14 @@ export async function loadStore<T>(storePath: string): Promise<StoreFile<T>> {
   }
 }
 
+/**
+ * Atomic save: write to a temp file in the same directory, then rename.
+ * rename() is atomic on POSIX — prevents corruption from crashes or concurrent writes.
+ */
 export async function saveStore<T>(storePath: string, store: StoreFile<T>): Promise<void> {
   const dir = path.dirname(storePath);
   await fs.promises.mkdir(dir, { recursive: true });
-  await fs.promises.writeFile(storePath, JSON.stringify(store, null, 2), "utf-8");
+  const tmp = storePath + `.tmp.${process.pid}`;
+  await fs.promises.writeFile(tmp, JSON.stringify(store, null, 2), "utf-8");
+  await fs.promises.rename(tmp, storePath);
 }
