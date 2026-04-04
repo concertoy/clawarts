@@ -74,42 +74,114 @@ export function createListStudentsTool(): ToolDefinition {
   };
 }
 
+// ─── Relay Helper ──────────────────────────────────────────────────
+
+/** Relay a message to a single student agent → user DM. */
+async function relayToStudent(
+  targetId: string,
+  userId: string,
+  message: string,
+  sourceAgent: string,
+): Promise<string> {
+  const target = getRegisteredAgent(targetId);
+  if (!target) {
+    throw new Error(`Agent "${targetId}" not found.`);
+  }
+
+  const dmResp = await target.slackClient.conversations.open({ users: userId });
+  const channelId = dmResp.channel?.id;
+  if (!channelId) {
+    throw new Error(`Could not open DM channel with user ${userId} via ${targetId}'s bot.`);
+  }
+
+  const sessionKey = `relay:${sourceAgent}:${channelId}`;
+  const reply = await target.agent.getReply(
+    sessionKey,
+    `[Relayed from agent "${sourceAgent}"]\n${message}`,
+    "system",
+    { channelId },
+  );
+
+  await target.slackClient.chat.postMessage({
+    channel: channelId,
+    text: markdownToSlack(reply),
+  });
+
+  return `${targetId}/<@${userId}>: ${reply.length} chars`;
+}
+
 /**
  * Create a relay tool scoped to a specific source agent.
  * Only agents with linked students (tutors) get this tool.
+ *
+ * Actions:
+ * - send: relay to a single student (requires targetAgentId + userId)
+ * - broadcast: relay to ALL linked students in parallel (one tool call)
  */
 export function createRelayTool(): ToolDefinition {
   return {
     name: "relay",
     description:
-      "Send a message through another agent. The target agent processes it via its own AI and posts the response to the specified Slack channel. Use this to relay announcements or tasks to student agents.",
+      "Send a message through student agent(s). Actions: send (one student, requires targetAgentId + userId), broadcast (all linked students in parallel — one call reaches everyone).",
     parameters: {
       type: "object",
       properties: {
+        action: {
+          type: "string",
+          enum: ["send", "broadcast"],
+          description: "send = one student, broadcast = all linked students. Default: send.",
+        },
         targetAgentId: {
           type: "string",
-          description: "The ID of the agent to relay through (e.g. 'student-1').",
+          description: "The ID of the agent to relay through (for send action).",
         },
         userId: {
           type: "string",
-          description: "The Slack user ID of the person the target agent should DM (e.g. 'U07ERPSNP6X'). The relay will open/find the DM channel automatically.",
+          description: "The Slack user ID to DM (for send action). The relay opens the DM channel automatically.",
         },
         message: {
           type: "string",
-          description: "The message to send to the target agent. It will process this and generate its own response.",
+          description: "The message to send. The target agent(s) will process this and generate their own response.",
         },
       },
-      required: ["targetAgentId", "userId", "message"],
+      required: ["message"],
     },
     isReadOnly: false,
     category: "utility",
     async execute(input: Record<string, unknown>, context?: ToolUseContext): Promise<string> {
+      const action = (input.action as string) || "send";
+      const message = input.message as string;
+      if (!message) return "[Error] message is required.";
+
+      const sourceAgent = context?.agentId ?? "unknown";
+
+      if (action === "broadcast") {
+        const students = getStudentsForTutor(sourceAgent);
+        if (students.length === 0) return `No student agents linked to "${sourceAgent}".`;
+
+        // Fan out to all (student, userId) pairs in parallel
+        const tasks = students.flatMap((s) =>
+          s.allowedUsers.map((uid) => relayToStudent(s.id, uid, message, sourceAgent)),
+        );
+
+        const results = await Promise.allSettled(tasks);
+        const ok = results.filter((r) => r.status === "fulfilled");
+        const fail = results.filter((r) => r.status === "rejected");
+
+        const summary = [`Broadcast complete: ${ok.length} delivered, ${fail.length} failed.`];
+        if (fail.length > 0) {
+          for (const f of fail) {
+            summary.push(`  ✗ ${(f as PromiseRejectedResult).reason}`);
+          }
+        }
+        return summary.join("\n");
+      }
+
+      // Default: send to one student
       const targetId = input.targetAgentId as string;
       const userId = input.userId as string;
-      const message = input.message as string;
-
-      if (!targetId || !userId || !message) {
-        return "[Error] Missing required fields: targetAgentId, userId, message.";
+      if (!targetId || !userId) {
+        return "[Error] send action requires targetAgentId and userId. Use action=broadcast to reach all students.";
       }
 
       const target = getRegisteredAgent(targetId);
@@ -118,34 +190,9 @@ export function createRelayTool(): ToolDefinition {
         return `[Error] Agent "${targetId}" not found. Available agents: ${available}`;
       }
 
-      const sourceAgent = context?.agentId ?? "unknown";
-
       try {
-        // Open/find the DM channel between the target agent's bot and the user
-        const dmResp = await target.slackClient.conversations.open({ users: userId });
-        const channelId = dmResp.channel?.id;
-        if (!channelId) {
-          return `[Error] Could not open DM channel with user ${userId} via ${targetId}'s bot.`;
-        }
-
-        // Derive a session key for this relay conversation
-        const sessionKey = `relay:${sourceAgent}:${channelId}`;
-
-        // Run the target agent's AI loop with the relayed message
-        const reply = await target.agent.getReply(
-          sessionKey,
-          `[Relayed from agent "${sourceAgent}"]\n${message}`,
-          "system",
-          { channelId },
-        );
-
-        // Post the response via the target agent's Slack client
-        await target.slackClient.chat.postMessage({
-          channel: channelId,
-          text: markdownToSlack(reply),
-        });
-
-        return `Relayed to ${targetId}. Response (${reply.length} chars) posted to DM with <@${userId}>.`;
+        const result = await relayToStudent(targetId, userId, message, sourceAgent);
+        return `Relayed: ${result}`;
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
         return `[Error] Relay to "${targetId}" failed: ${errMsg}`;

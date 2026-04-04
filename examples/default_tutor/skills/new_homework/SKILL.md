@@ -33,13 +33,8 @@ If the tutor wants changes, update and re-confirm.
 
 ## Step 3 — Announce
 
-Once confirmed, use the `relay` tool to send the homework announcement through each student agent. For each student in your `allowedUsers` list:
+Once confirmed, call `relay` with:
+- `action`: `broadcast`
+- `message`: the formatted homework summary from Step 2, prefixed with "📚 **New Homework Assignment**"
 
-1. Call `relay` with:
-   - `targetAgentId`: the student's agent ID (e.g. `"student-1"`)
-   - `userId`: the student's Slack user ID from `allowedUsers`
-   - `message`: the formatted homework summary from Step 2, prefixed with "📚 **New Homework Assignment**"
-
-2. The student agent will process the message and DM the student directly.
-
-If a relay fails, report which students were not notified.
+This sends to all linked students in parallel. Report the delivery summary.
