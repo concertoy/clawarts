@@ -1,6 +1,7 @@
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import type { AssignmentStore } from "../store/assignment-store.js";
 import type { SubmissionStore } from "../store/submission-store.js";
+import { getRegisteredAgent } from "../relay.js";
 
 /**
  * Submission tool for student agents.
@@ -53,6 +54,10 @@ export function createSubmitTool(
 
           const lateNote = submission.status === "late" ? " (LATE — past deadline)" : "";
           const resubNote = existing ? " (previous submission overwritten)" : "";
+
+          // Notify tutor of new submission (best-effort, fire-and-forget)
+          notifyTutorOfSubmission(agentId, userId, assignment.title, submission.status === "late").catch(() => {});
+
           return `Submitted${lateNote}${resubNote}:\n- Assignment: "${assignment.title}"\n- Submission ID: ${submission.id}\n- Time: ${new Date(submission.submittedAt).toISOString()}`;
         }
 
@@ -113,4 +118,32 @@ export function createSubmitTool(
       }
     },
   };
+}
+
+/** DM the tutor about a new submission. Best-effort, no AI loop. */
+async function notifyTutorOfSubmission(
+  studentAgentId: string,
+  userId: string,
+  assignmentTitle: string,
+  isLate: boolean,
+): Promise<void> {
+  const studentAgent = getRegisteredAgent(studentAgentId);
+  if (!studentAgent?.linkedTutor) return;
+
+  const tutor = getRegisteredAgent(studentAgent.linkedTutor);
+  if (!tutor) return;
+
+  // Find a tutor user to DM (first allowed user)
+  const tutorUserId = tutor.allowedUsers?.[0];
+  if (!tutorUserId) return;
+
+  const dm = await tutor.slackClient.conversations.open({ users: tutorUserId });
+  const channelId = dm.channel?.id;
+  if (!channelId) return;
+
+  const lateTag = isLate ? " _(late)_" : "";
+  await tutor.slackClient.chat.postMessage({
+    channel: channelId,
+    text: `\u{1f4e5} <@${userId}> submitted "${assignmentTitle}"${lateTag}`,
+  });
 }
