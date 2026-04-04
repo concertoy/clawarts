@@ -15,12 +15,17 @@ import { KeyedAsyncQueue } from "./queue/keyed-async-queue.js";
 import { enqueueCommand } from "./queue/command-queue.js";
 import { CommandLane } from "./queue/lanes.js";
 import { enqueueFollowup, type FollowupItem } from "./queue/followup-queue.js";
+import { createLogger } from "./utils/logger.js";
+
+const log = createLogger("slack");
 
 const SLACK_TEXT_LIMIT = 4000;
 const STREAM_UPDATE_INTERVAL_MS = 1500;
 const SOCKET_PING_TIMEOUT_MS = 30_000;
 
 export function createSlackApp(config: AgentConfig, agent: Agent, sessions: SessionStore): App {
+  const alog = createLogger(`slack:${config.id}`);
+
   const app = new App({
     token: config.slackBotToken,
     appToken: config.slackAppToken,
@@ -93,7 +98,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       }
       return false;
     } catch (err) {
-      console.warn(`[slack] isBotDM check failed for ${channel}:`, errMsg(err));
+      alog.warn(`isBotDM check failed for ${channel}:`, errMsg(err));
       return false;
     }
   }
@@ -117,7 +122,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       }),
     ).catch((err) => {
       if (err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"))) return;
-      console.error(`[slack] Dispatch error for ${params.sessionKey}:`, errMsg(err));
+      alog.error(`Dispatch error for ${params.sessionKey}:`, errMsg(err));
     });
   }
 
@@ -287,9 +292,9 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   try {
     const receiver = (app as unknown as { receiver?: { client?: { on?: (e: string, cb: () => void) => void } } }).receiver;
     if (receiver?.client?.on) {
-      receiver.client.on("connected", () => console.log(`[slack:${config.id}] Socket Mode connected`));
-      receiver.client.on("reconnecting", () => console.warn(`[slack:${config.id}] Socket Mode reconnecting...`));
-      receiver.client.on("disconnected", () => console.warn(`[slack:${config.id}] Socket Mode disconnected`));
+      receiver.client.on("connected", () => log.info("Socket Mode connected"));
+      receiver.client.on("reconnecting", () => log.warn("Socket Mode reconnecting..."));
+      receiver.client.on("disconnected", () => log.warn("Socket Mode disconnected"));
     }
   } catch {
     // Bolt internals may change — non-fatal
@@ -341,7 +346,7 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
   let pendingEdit: ReturnType<typeof setTimeout> | null = null;
 
   try {
-    console.log(`[slack] ${sessionKey} from ${userId}: ${text.slice(0, 80)}${text.length > 80 ? "…" : ""}`);
+    log.info(`${sessionKey} from ${userId}: ${text.slice(0, 80)}${text.length > 80 ? "…" : ""}`);
 
     // Welcome message for new sessions (configurable per agent)
     if (params.isNewSession && params.welcomeMessage) {
@@ -387,7 +392,7 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
       if (!pendingEdit) {
         pendingEdit = setTimeout(() => {
           pendingEdit = null;
-          void flushEdit().catch((err) => console.debug("[slack] Stream edit failed:", errMsg(err)));
+          void flushEdit().catch((err) => log.debug("Stream edit failed:", errMsg(err)));
         }, STREAM_UPDATE_INTERVAL_MS);
         if (pendingEdit.unref) pendingEdit.unref();
       }
@@ -408,11 +413,11 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
     const onToolStart = (toolNames: string[]) => {
       if (!placeholderTs) return;
       const label = toolNames.length === 1 ? toolNames[0] : toolNames.join(", ");
-      client.chat.update({ channel, ts: placeholderTs, text: `:gear: Running ${label}...` }).catch((err: unknown) => console.debug("[slack] Tool status update failed:", errMsg(err)));
+      client.chat.update({ channel, ts: placeholderTs, text: `:gear: Running ${label}...` }).catch((err: unknown) => log.debug("Tool status update failed:", errMsg(err)));
     };
 
     const rawReply = await agent.getReply(sessionKey, messageWithFiles, userId, { channelId: channel, threadTs: replyThreadTs }, onText, images.length > 0 ? images : undefined, onToolStart);
-    console.log(`[slack] Reply (${rawReply.length} chars): ${rawReply.slice(0, 200)}`);
+    log.info(`Reply (${rawReply.length} chars): ${rawReply.slice(0, 200)}`);
 
     // Clear any pending throttled edit
     if (pendingEdit) {
@@ -449,11 +454,11 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
   } catch (err) {
     // Aborted requests (from AbortController) are expected — don't post error
     if (err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"))) {
-      console.log(`[slack] Request aborted for ${sessionKey} — suppressing error`);
+      log.info(`Request aborted for ${sessionKey} — suppressing error`);
       return;
     }
 
-    console.error("[slack] Error handling message:", err);
+    log.error("Error handling message:", err);
     try {
       // Don't expose raw error details (API keys, paths) to Slack users
       await client.chat.postMessage({

@@ -217,8 +217,11 @@ export function createRelayTool(): ToolDefinition {
         const fail = results.filter((r) => r.status === "rejected");
 
         const summary = [`Broadcast complete: ${ok.length} delivered, ${fail.length} failed.`];
-        for (const f of fail) {
-          if (f.status === "rejected") summary.push(`  ✗ ${f.reason}`);
+        for (const [i, r] of results.entries()) {
+          if (r.status === "rejected") {
+            const target = pairs[i];
+            summary.push(`  ✗ ${target.agentId}/<@${target.uid}>: ${errMsg(r.reason)}`);
+          }
         }
         return summary.join("\n");
       }
