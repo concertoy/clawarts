@@ -14,7 +14,7 @@ export class SessionStore {
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private persistDir: string | null = null;
 
-  constructor(private ttlMs: number) {
+  constructor(private readonly ttlMs: number) {
     this.cleanupTimer = setInterval(() => {
       try { this.evictStale(); } catch (err) { console.error("[session] Cleanup error:", errMsg(err)); }
     }, CLEANUP_INTERVAL_MS);

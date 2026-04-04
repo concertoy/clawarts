@@ -3,6 +3,11 @@ import path from "node:path";
 import { loadStore, saveStore } from "./json-store.js";
 import type { CheckinWindow, CheckinResponse } from "./types.js";
 
+/** Check if a window is currently active (open and not expired). */
+function isWindowActive(w: CheckinWindow, now: number): boolean {
+  return w.status === "open" && w.closesAt != null && w.closesAt > now;
+}
+
 /**
  * Check-in store. All data lives in the tutor's data directory.
  * Windows and responses are stored in separate files for clean separation.
@@ -46,7 +51,7 @@ export class CheckinStore {
     await this.closeExpiredWindows();
     const store = await loadStore<CheckinWindow>(this.windowsPath);
     const now = Date.now();
-    return store.items.find((w) => w.status === "open" && w.closesAt != null && w.closesAt > now);
+    return store.items.find((w) => isWindowActive(w, now));
   }
 
   async closeWindow(id: string): Promise<CheckinWindow | undefined> {
@@ -72,7 +77,7 @@ export class CheckinStore {
     const now = Date.now();
     let closed = 0;
     for (const w of store.items) {
-      if (w.status === "open" && w.closesAt != null && w.closesAt <= now) {
+      if (w.status === "open" && !isWindowActive(w, now)) {
         w.status = "closed";
         closed++;
       }

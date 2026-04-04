@@ -4,8 +4,7 @@
  */
 
 import { errMsg } from "./errors.js";
-
-const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp"]);
+import { IMAGE_EXTENSIONS, type SlackFile } from "./slack-types.js";
 
 const TEXT_EXTENSIONS = new Set([
   // Plain text
@@ -19,15 +18,6 @@ const TEXT_EXTENSIONS = new Set([
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_TEXT_CHARS = 50_000;
 const DOWNLOAD_TIMEOUT_MS = 30_000;
-
-interface SlackFile {
-  url_private?: string;
-  url_private_download?: string;
-  mimetype?: string;
-  filetype?: string;
-  size?: number;
-  name?: string;
-}
 
 export interface FileAttachment {
   name: string;
