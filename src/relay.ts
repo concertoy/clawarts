@@ -154,7 +154,7 @@ export function createRelayTool(): ToolDefinition {
     category: "communication",
     async execute(input: Record<string, unknown>, context?: ToolUseContext): Promise<string> {
       const action = (input.action as string) || "send";
-      const message = input.message as string;
+      const message = (input.message as string)?.trim();
       if (!message) return "[Error] message is required.";
 
       const sourceAgent = context?.agentId ?? "unknown";

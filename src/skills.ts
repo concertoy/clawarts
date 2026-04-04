@@ -79,6 +79,7 @@ function parseSkillFile(
   try {
     const raw = fs.readFileSync(skillPath, "utf-8");
     const { data } = matter(raw);
+    if (!data || typeof data !== "object") return null;
 
     const namespace = buildNamespace(skillDir, rootDir);
     const name = (data.name as string) ?? namespace;

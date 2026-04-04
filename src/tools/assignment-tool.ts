@@ -66,7 +66,7 @@ export function createAssignmentTool(
             title,
             description,
             deadline,
-            format: (input.format as string as "individual" | "group") || "individual",
+            format: input.format === "group" ? "group" : "individual",
             attachments: (input.attachments as string[]) || [],
             status: "open",
             createdBy: agentId,

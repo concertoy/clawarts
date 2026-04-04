@@ -163,9 +163,9 @@ export class TokenProvider {
       server.listen(opts.port, "127.0.0.1", async () => {
         console.log(`[auth] Open this URL in your browser to log in:\n\n  ${opts.authorizeUrl}\n`);
         try {
-          const { exec } = await import("node:child_process");
+          const { execFile } = await import("node:child_process");
           const cmd = process.platform === "darwin" ? "open" : "xdg-open";
-          exec(`${cmd} "${opts.authorizeUrl}"`);
+          execFile(cmd, [opts.authorizeUrl]);
         } catch {
           // User will open manually
         }
