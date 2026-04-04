@@ -223,8 +223,11 @@ async function main() {
     allCronServices.push(entry.cronService);
   }
 
-  // Graceful shutdown
+  // Graceful shutdown (guarded against double-fire from SIGINT + SIGTERM)
+  let shuttingDown = false;
   const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log("\n[clawarts] Shutting down...");
     const cronResults = await Promise.allSettled(allCronServices.map((c) => c.stop()));
     for (const r of cronResults) {

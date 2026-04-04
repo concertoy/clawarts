@@ -3,9 +3,15 @@ import type { ImageContent, ModelProvider, ProviderMessage } from "./provider.js
 import { SessionStore } from "./session.js";
 import { buildSystemPrompt } from "./system-prompt.js";
 import { runToolBatch } from "./tool-runner.js";
+import { touchAgent } from "./relay.js";
 import { errMsg } from "./utils/errors.js";
+import { createRateLimiter, type RateLimiter } from "./utils/rate-limit.js";
 
 const DEFAULT_MAX_TOOL_ITERATIONS = 10;
+
+/** Default: 30 requests per 60 seconds per agent. */
+const DEFAULT_RATE_LIMIT_REQUESTS = 30;
+const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
 
 /**
  * Estimated character threshold for triggering compaction.
@@ -27,6 +33,7 @@ export class Agent {
    * Ported from claude-code's abortController pattern.
    */
   private readonly activeRequests = new Map<string, AbortController>();
+  private readonly rateLimiter: RateLimiter;
 
   constructor(
     private readonly config: AgentConfig,
@@ -44,6 +51,10 @@ export class Agent {
       helpLevel: config.helpLevel,
     });
     this.toolDefs = tools;
+    this.rateLimiter = createRateLimiter({
+      maxRequests: DEFAULT_RATE_LIMIT_REQUESTS,
+      windowMs: DEFAULT_RATE_LIMIT_WINDOW_MS,
+    });
   }
 
   async getReply(
@@ -55,6 +66,14 @@ export class Agent {
     images?: ImageContent[],
     onToolStart?: (toolNames: string[]) => void,
   ): Promise<string> {
+    // Rate limit: prevent runaway API calls (ported from openclaw's fixed-window limiter)
+    const limit = this.rateLimiter.consume();
+    if (!limit.allowed) {
+      const waitSec = Math.ceil(limit.retryAfterMs / 1000);
+      console.warn(`[agent] Rate limited (${this.config.id}): retry in ${waitSec}s`);
+      return `I'm receiving too many messages right now. Please wait ${waitSec} seconds and try again.`;
+    }
+
     // Cancel any in-flight request for this session (ported from claude-code abortController)
     const existingController = this.activeRequests.get(sessionKey);
     if (existingController) {
@@ -251,6 +270,7 @@ export class Agent {
     session.messages.push({ role: "assistant", content: reply });
     this.sessions.truncate(session);
     this.sessions.persistSession(sessionKey);
+    touchAgent(this.config.id);
     return reply;
   }
 
