@@ -69,16 +69,15 @@ export function runDiagnostics(configs: AgentConfig[]): void {
       warnings.push(`${label}: no allowedUsers configured — any Slack user can interact with this agent`);
     }
 
-    // Duplicate Slack bot tokens (two agents sharing the same bot)
-    const sameBot = configs.filter((c) => c.id !== config.id && c.slackBotToken === config.slackBotToken);
-    if (sameBot.length > 0) {
-      warnings.push(`${label}: shares slackBotToken with ${sameBot.map((c) => c.id).join(", ")} — each agent should have its own Slack app`);
-    }
-
-    // Duplicate Slack app tokens — Socket Mode will fail if two apps use the same app-level token
-    const sameApp = configs.filter((c) => c.id !== config.id && c.slackAppToken === config.slackAppToken);
-    if (sameApp.length > 0) {
-      warnings.push(`${label}: shares slackAppToken with ${sameApp.map((c) => c.id).join(", ")} — Socket Mode requires unique app tokens per connection`);
+    // Duplicate Slack tokens (bot or app) — each agent should have its own
+    for (const [tokenField, reason] of [
+      ["slackBotToken", "each agent should have its own Slack app"] as const,
+      ["slackAppToken", "Socket Mode requires unique app tokens per connection"] as const,
+    ]) {
+      const same = configs.filter((c) => c.id !== config.id && c[tokenField] === config[tokenField]);
+      if (same.length > 0) {
+        warnings.push(`${label}: shares ${tokenField} with ${same.map((c) => c.id).join(", ")} — ${reason}`);
+      }
     }
   }
 
