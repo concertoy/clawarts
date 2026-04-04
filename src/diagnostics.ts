@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 import type { AgentConfig } from "./types.js";
 
 /**
@@ -19,6 +20,8 @@ export function runDiagnostics(configs: AgentConfig[]): void {
     // Check workspace exists
     if (!fs.existsSync(config.workspaceDir)) {
       warnings.push(`${label}: workspace "${config.workspaceDir}" will be created on start`);
+    } else if (!fs.existsSync(path.join(config.workspaceDir, "SOUL.md"))) {
+      warnings.push(`${label}: no SOUL.md in workspace — agent will use generic persona`);
     }
 
     // Check linked tutor exists
