@@ -22,19 +22,27 @@ interface SlackFile {
  * Extract downloadable image files from a Slack message event.
  * Returns base64-encoded image content blocks for the Claude API.
  */
+export interface ImageDownloadResult {
+  images: ImageContent[];
+  skipped: string[]; // Reasons for skipped images (e.g. "photo.png: too large (6MB)")
+}
+
 export async function downloadSlackImages(
   files: SlackFile[] | undefined,
   botToken: string,
-): Promise<ImageContent[]> {
-  if (!files || files.length === 0) return [];
+): Promise<ImageDownloadResult> {
+  if (!files || files.length === 0) return { images: [], skipped: [] };
 
   const images: ImageContent[] = [];
+  const skipped: string[] = [];
 
   for (const file of files) {
     const ext = (file.filetype ?? file.name?.split(".").pop() ?? "").toLowerCase();
     if (!IMAGE_EXTENSIONS.has(ext)) continue;
     if (file.size && file.size > MAX_IMAGE_SIZE) {
-      console.log(`[slack-images] Skipping ${file.name}: too large (${Math.round((file.size) / 1024)}KB)`);
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      skipped.push(`${file.name ?? "image"}: too large (${sizeMB}MB, max 5MB)`);
+      console.log(`[slack-images] Skipping ${file.name}: too large (${sizeMB}MB)`);
       continue;
     }
 
@@ -69,7 +77,7 @@ export async function downloadSlackImages(
     }
   }
 
-  return images;
+  return { images, skipped };
 }
 
 function mimeToMediaType(mime: string): ImageContent["mediaType"] | null {
