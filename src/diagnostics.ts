@@ -23,11 +23,18 @@ export function runDiagnostics(configs: AgentConfig[]): void {
       warnings.push(`${label}: agent ID should be lowercase alphanumeric with hyphens/underscores`);
     }
 
-    // Check workspace exists
+    // Check workspace exists and validate SOUL.md
     try {
       fs.accessSync(config.workspaceDir, fs.constants.R_OK);
+      const soulPath = path.join(config.workspaceDir, "SOUL.md");
       try {
-        fs.accessSync(path.join(config.workspaceDir, "SOUL.md"), fs.constants.R_OK);
+        const soul = fs.readFileSync(soulPath, "utf-8");
+        if (soul.length > 20_000) {
+          warnings.push(`${label}: SOUL.md is very long (${Math.round(soul.length / 1024)}KB) — will be truncated. Consider splitting into SOUL.md + TOOLS.md + COURSE.md`);
+        }
+        if (soul.trim().length === 0) {
+          warnings.push(`${label}: SOUL.md is empty — agent will use generic persona`);
+        }
       } catch {
         warnings.push(`${label}: no SOUL.md in workspace — agent will use generic persona`);
       }
