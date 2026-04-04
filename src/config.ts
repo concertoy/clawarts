@@ -5,6 +5,9 @@ import dotenv from "dotenv";
 import type { AgentConfig, AgentEntry, AgentDefaults, Provider, SkillSources } from "./types.js";
 import { errMsg, isFileNotFound } from "./utils/errors.js";
 import { expandTilde } from "./utils/paths.js";
+import { createLogger } from "./utils/logger.js";
+
+const log = createLogger("clawarts");
 
 dotenv.config();
 
@@ -95,6 +98,7 @@ function validateAgentConfig(config: AgentConfig): void {
   if (!config.slackBotToken) errors.push("slackBotToken is required (or its $ENV_VAR must be set)");
   if (!config.slackAppToken) errors.push("slackAppToken is required (or its $ENV_VAR must be set)");
   if (config.maxTokens < 1) errors.push("maxTokens must be positive");
+  if (config.maxTokens > 128_000) errors.push(`maxTokens (${config.maxTokens}) exceeds 128K — check your config`);
   if (config.sessionTtlMinutes < 1) errors.push("sessionTtlMinutes must be positive");
   if (config.thinkingBudgetTokens !== undefined && config.thinkingBudgetTokens < 0) {
     errors.push("thinkingBudgetTokens must be non-negative");
@@ -220,7 +224,7 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults, allEntri
 export function loadAllAgentConfigs(): AgentConfig[] {
   const file = loadConfigFile();
 
-  console.log(`[clawarts] Config: ${resolveConfigPath()}`);
+  log.info(`Config: ${resolveConfigPath()}`);
 
   // Multi-agent mode
   if (file.agents && file.agents.length > 0) {

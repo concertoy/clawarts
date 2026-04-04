@@ -45,10 +45,10 @@ export function createCronTool(cronService: CronService, agentId: string): ToolD
 
       switch (action) {
         case "add": {
-          const name = (input.name as string) || "Reminder";
-          const message = (input.message as string) || name;
+          const name = ((input.name as string) || "").trim() || "Reminder";
+          const message = ((input.message as string) || "").trim() || name;
           // Auto-inject channelId from ToolUseContext if LLM didn't supply it
-          const channelId = (input.channelId as string) || context?.channelId || "";
+          const channelId = ((input.channelId as string) || "").trim() || context?.channelId || "";
           if (!channelId) return "Error: channelId is required to schedule a reminder.";
 
           const scheduleKind = (input.scheduleKind as string) ?? "every";
