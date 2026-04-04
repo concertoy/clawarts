@@ -44,6 +44,11 @@ export function runDiagnostics(configs: AgentConfig[]): void {
       warnings.push(`${label}: has disallowedTools but no linkedTutor — is this a student agent missing its tutor link?`);
     }
 
+    // Check for student agents without disallowedTools (they get full tool access)
+    if (config.linkedTutor && (!config.disallowedTools || config.disallowedTools.length === 0)) {
+      warnings.push(`${label}: student agent has no disallowedTools — consider restricting bash, write_file, edit, multi_edit`);
+    }
+
     // Check allowedUsers configured
     if (!config.allowedUsers || config.allowedUsers.length === 0) {
       warnings.push(`${label}: no allowedUsers configured — any Slack user can interact with this agent`);
