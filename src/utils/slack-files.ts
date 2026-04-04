@@ -81,6 +81,7 @@ export async function downloadSlackFiles(
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+    if (timer.unref) timer.unref();
     try {
       const resp = await fetch(url, {
         headers: { Authorization: `Bearer ${botToken}` },

@@ -444,7 +444,7 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
       if (!pendingEdit) {
         pendingEdit = setTimeout(() => {
           pendingEdit = null;
-          void flushEdit().catch(() => {});
+          void flushEdit().catch((err) => console.debug("[slack] Stream edit failed:", errMsg(err)));
         }, STREAM_UPDATE_INTERVAL_MS);
       }
     };
@@ -466,7 +466,7 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
     const onToolStart = (toolNames: string[]) => {
       if (!placeholderTs) return;
       const label = toolNames.length === 1 ? toolNames[0] : toolNames.join(", ");
-      client.chat.update({ channel, ts: placeholderTs, text: `:gear: Running ${label}...` }).catch(() => {});
+      client.chat.update({ channel, ts: placeholderTs, text: `:gear: Running ${label}...` }).catch((err: unknown) => console.debug("[slack] Tool status update failed:", errMsg(err)));
     };
 
     const rawReply = await agent.getReply(sessionKey, messageWithFiles, userId, { channelId: channel, threadTs: replyThreadTs }, onText, images.length > 0 ? images : undefined, onToolStart);

@@ -60,6 +60,7 @@ export function createFileTools(workspaceDir: string): ToolDefinition[] {
       },
       required: ["path", "content"],
     },
+    isReadOnly: false,
     category: "filesystem",
     async execute(input) {
       const filePath = resolveFilePath(input.path as string);
@@ -103,6 +104,7 @@ export function createFileTools(workspaceDir: string): ToolDefinition[] {
       },
       required: ["path", "oldText", "newText"],
     },
+    isReadOnly: false,
     category: "filesystem",
     async execute(input) {
       const filePath = resolveFilePath(input.path as string);
@@ -165,6 +167,7 @@ export function createFileTools(workspaceDir: string): ToolDefinition[] {
       },
       required: ["path", "edits"],
     },
+    isReadOnly: false,
     category: "filesystem",
     async execute(input) {
       const filePath = resolveFilePath(input.path as string);
