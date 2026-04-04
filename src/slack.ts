@@ -173,16 +173,22 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     const msg = event as Record<string, any>;
 
     // Skip non-standard messages (edits, deletes, bot messages, etc.)
-    if (msg.subtype) return;
-    if (!msg.text) return;
-    if (allowedUsers && msg.user && !allowedUsers.has(msg.user as string)) return;
+    // Allow "message_changed" edits through — Slack auto-reformats punctuation
+    // (e.g. smart quotes) as an edit, dropping the original if we skip it here.
+    if (msg.subtype && msg.subtype !== "message_changed") return;
+
+    // For message_changed, use the edited message's text and user
+    const text_raw = msg.subtype === "message_changed" ? msg.message?.text : msg.text;
+    const user_raw = msg.subtype === "message_changed" ? msg.message?.user : msg.user;
+    if (!text_raw) return;
+    if (allowedUsers && user_raw && !allowedUsers.has(user_raw as string)) return;
 
     const channel = msg.channel as string;
     const ts = msg.ts as string;
     const threadTs = msg.thread_ts as string | undefined;
 
     const myId = await resolveBotId(client);
-    if (msg.user === myId) return;
+    if (user_raw === myId) return;
 
     const isDM = channel.startsWith("D");
     const isThreadReply = !!threadTs;
@@ -206,7 +212,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     if (isDuplicate(channel, ts)) return;
 
     const sessionKey = SessionStore.deriveKey(channel, ts, threadTs);
-    const text = isDM ? (msg.text as string) : stripMention(msg.text as string, myId);
+    const text = isDM ? (text_raw as string) : stripMention(text_raw as string, myId);
 
     // Hydrate from Slack API if session is cold (new or after restart)
     if (!sessions.has(sessionKey)) {
@@ -224,10 +230,10 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       ts,
       threadTs,
       text,
-      userId: (msg.user as string) ?? "unknown",
+      userId: (user_raw as string) ?? "unknown",
       sessionKey,
       botToken: config.slackBotToken,
-      files: msg.files as Array<Record<string, unknown>> | undefined,
+      files: (msg.subtype === "message_changed" ? msg.message?.files : msg.files) as Array<Record<string, unknown>> | undefined,
     };
 
     // If THIS session is already processing, route to followup queue.
