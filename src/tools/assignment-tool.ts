@@ -180,6 +180,7 @@ export function createAssignmentTool(
 
           const existing = await assignmentStore.get(id);
           if (!existing) return `No assignment found with ID ${id}.`;
+          if (existing.status === "closed") return "Error: cannot extend a closed assignment. Reopen it first.";
           if (existing.deadline && newDeadline <= existing.deadline) {
             return `Error: new deadline must be after current deadline (${new Date(existing.deadline).toISOString()}).`;
           }

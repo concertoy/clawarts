@@ -89,12 +89,12 @@ export function createCheckinTool(
           const mode = input.mode as "passphrase" | "quiz" | "pulse" | "reflect";
           if (!mode) return "Error: mode is required (passphrase, quiz, pulse, reflect).";
 
-          const durationMinutes = (input.durationMinutes as number) || 5;
+          const durationMinutes = Math.max(1, Math.min(120, (input.durationMinutes as number) || 5));
           const closesAt = Date.now() + durationMinutes * 60 * 1000;
 
           if (mode === "pulse") {
-            const pulseCount = (input.pulseCount as number) || 3;
-            const pulseIntervalMinutes = (input.pulseIntervalMinutes as number) || 15;
+            const pulseCount = Math.max(1, Math.min(20, (input.pulseCount as number) || 3));
+            const pulseIntervalMinutes = Math.max(1, Math.min(120, (input.pulseIntervalMinutes as number) || 15));
             const topic = input.topic as string;
             const pulseGroupId = crypto.randomUUID();
 
