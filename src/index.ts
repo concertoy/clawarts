@@ -205,7 +205,12 @@ async function main() {
     const label = `[${entry.config.id}]`;
 
     const app = createSlackApp(entry.config, entry.agent, entry.sessions);
-    await app.start();
+    try {
+      await app.start();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`${label} Failed to start Slack Socket Mode — check that slackBotToken and slackAppToken are correct and that Socket Mode is enabled in your Slack app settings. Error: ${msg}`);
+    }
     console.log(`${label} Slack bot running (Socket Mode)`);
 
     await entry.cronService.start();

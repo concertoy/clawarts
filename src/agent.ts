@@ -52,6 +52,7 @@ export class Agent {
     context?: { channelId?: string; threadTs?: string },
     onText?: (delta: string) => void,
     images?: ImageContent[],
+    onToolStart?: (toolNames: string[]) => void,
   ): Promise<string> {
     // Cancel any in-flight request for this session (ported from claude-code abortController)
     const existingController = this.activeRequests.get(sessionKey);
@@ -190,6 +191,11 @@ export class Agent {
           content: response.text,
           toolCalls: response.toolCalls,
         });
+
+        // Notify caller which tools are about to run (for Slack status updates)
+        if (onToolStart) {
+          onToolStart(response.toolCalls.map((tc) => tc.name));
+        }
 
         // Execute tools — concurrent for read-only, serial for writes
         const results = await runToolBatch(this.toolDefs, response.toolCalls, toolContext);
