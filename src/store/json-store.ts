@@ -4,6 +4,24 @@ import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("store");
 
+// Per-file mutex to prevent concurrent read-modify-write races.
+// Node is single-threaded but async operations can interleave.
+const locks = new Map<string, Promise<void>>();
+
+/** Acquire a per-file lock, execute fn, then release. */
+export async function withStoreLock<T>(storePath: string, fn: () => Promise<T>): Promise<T> {
+  const prev = locks.get(storePath) ?? Promise.resolve();
+  let release!: () => void;
+  const next = new Promise<void>((r) => { release = r; });
+  locks.set(storePath, next);
+  try {
+    await prev;
+    return await fn();
+  } finally {
+    release();
+  }
+}
+
 /**
  * Generic JSON file store. Each store file holds { version, items: T[] }.
  */

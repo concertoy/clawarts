@@ -5,6 +5,9 @@
 import type { WebClient } from "@slack/web-api";
 import type { SessionStore } from "../session.js";
 import { errMsg } from "./errors.js";
+import { createLogger } from "./logger.js";
+
+const log = createLogger("slack");
 
 const HISTORY_LIMIT = 20;
 
@@ -51,10 +54,10 @@ export async function hydrateFromDM(
 
     const count = ingestMessages(sessions, sessionKey, [...messages].reverse(), botUserId);
     if (count > 0) {
-      console.debug(`[slack] Hydrated ${count} messages from DM history (${sessionKey})`);
+      log.debug(`Hydrated ${count} messages from DM history (${sessionKey})`);
     }
   } catch (err) {
-    console.warn(`[slack] Failed to fetch DM history (${sessionKey}):`, errMsg(err));
+    log.warn(`Failed to fetch DM history (${sessionKey}):`, errMsg(err));
   }
 }
 
@@ -83,9 +86,9 @@ export async function hydrateFromThread(
 
     const count = ingestMessages(sessions, sessionKey, messages, botUserId);
     if (count > 0) {
-      console.debug(`[slack] Hydrated ${count} messages from thread history (${sessionKey})`);
+      log.debug(`Hydrated ${count} messages from thread history (${sessionKey})`);
     }
   } catch (err) {
-    console.warn(`[slack] Failed to fetch thread history (${sessionKey}):`, errMsg(err));
+    log.warn(`Failed to fetch thread history (${sessionKey}):`, errMsg(err));
   }
 }

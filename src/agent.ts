@@ -32,6 +32,11 @@ export class Agent {
   private readonly skills: Skill[];
   private lastWorkspaceFiles: WorkspaceFile[];
 
+  /** Expose loaded workspace files for status reporting. */
+  get workspaceFiles(): readonly WorkspaceFile[] {
+    return this.lastWorkspaceFiles;
+  }
+
   /**
    * Track in-flight AbortControllers per session.
    * When a new message arrives for a session that already has an active request,

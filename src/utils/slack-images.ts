@@ -6,6 +6,9 @@
 import type { ImageContent } from "../provider.js";
 import { errMsg } from "./errors.js";
 import { IMAGE_EXTENSIONS, type SlackFile } from "./slack-types.js";
+import { createLogger } from "./logger.js";
+
+const log = createLogger("slack-images");
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const DOWNLOAD_TIMEOUT_MS = 30_000;
@@ -34,7 +37,7 @@ export async function downloadSlackImages(
     if (file.size && file.size > MAX_IMAGE_SIZE) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
       skipped.push(`${file.name ?? "image"}: too large (${sizeMB}MB, max 5MB)`);
-      console.log(`[slack-images] Skipping ${file.name}: too large (${sizeMB}MB)`);
+      log.info(`Skipping ${file.name}: too large (${sizeMB}MB)`);
       continue;
     }
 
@@ -51,7 +54,7 @@ export async function downloadSlackImages(
       });
 
       if (!resp.ok) {
-        console.warn(`[slack-images] Failed to download ${file.name}: ${resp.status}`);
+        log.warn(`Failed to download ${file.name}: ${resp.status}`);
         continue;
       }
 
@@ -62,9 +65,9 @@ export async function downloadSlackImages(
       if (!mediaType) continue;
 
       images.push({ type: "image", mediaType, base64 });
-      console.log(`[slack-images] Downloaded ${file.name} (${Math.round(buffer.byteLength / 1024)}KB)`);
+      log.debug(`Downloaded ${file.name} (${Math.round(buffer.byteLength / 1024)}KB)`);
     } catch (err) {
-      console.warn(`[slack-images] Error downloading ${file.name}:`, errMsg(err));
+      log.warn(`Error downloading ${file.name}:`, errMsg(err));
     } finally {
       clearTimeout(timer);
     }

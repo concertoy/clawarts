@@ -5,6 +5,9 @@
 
 import { errMsg } from "./errors.js";
 import { IMAGE_EXTENSIONS, type SlackFile } from "./slack-types.js";
+import { createLogger } from "./logger.js";
+
+const log = createLogger("slack-files");
 
 const TEXT_EXTENSIONS = new Set([
   // Plain text
@@ -57,7 +60,7 @@ export async function downloadSlackFiles(
     }
 
     if (file.size && file.size > MAX_FILE_SIZE) {
-      console.log(`[slack-files] Skipping ${fileName}: too large (${Math.round(file.size / 1024)}KB)`);
+      log.info(`Skipping ${fileName}: too large (${Math.round(file.size / 1024)}KB)`);
       attachments.push({
         name: fileName,
         content: `[File: ${fileName} (${Math.round(file.size / 1024)}KB) — too large to process, limit is ${MAX_FILE_SIZE / 1024 / 1024}MB]`,
@@ -79,7 +82,7 @@ export async function downloadSlackFiles(
       });
 
       if (!resp.ok) {
-        console.warn(`[slack-files] Failed to download ${fileName}: ${resp.status}`);
+        log.warn(`Failed to download ${fileName}: ${resp.status}`);
         continue;
       }
 
@@ -92,9 +95,9 @@ export async function downloadSlackFiles(
       }
 
       attachments.push({ name: fileName, content: text, truncated });
-      console.log(`[slack-files] Downloaded ${fileName} (${text.length} chars${truncated ? ", truncated" : ""})`);
+      log.debug(`Downloaded ${fileName} (${text.length} chars${truncated ? ", truncated" : ""})`);
     } catch (err) {
-      console.warn(`[slack-files] Error downloading ${fileName}:`, errMsg(err));
+      log.warn(`Error downloading ${fileName}:`, errMsg(err));
     } finally {
       clearTimeout(timer);
     }

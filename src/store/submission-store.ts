@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { loadStore, saveStore } from "./json-store.js";
+import { loadStore, saveStore, withStoreLock } from "./json-store.js";
 import type { Submission } from "./types.js";
 
 export class SubmissionStore {
@@ -17,28 +17,30 @@ export class SubmissionStore {
     data: Omit<Submission, "id" | "submittedAt" | "status">,
     deadline: number,
   ): Promise<Submission> {
-    const store = await this.load();
+    return withStoreLock(this.storePath, async () => {
+      const store = await this.load();
 
-    // Overwrite previous submission from same user for same assignment
-    const existingIdx = store.items.findIndex(
-      (s) => s.assignmentId === data.assignmentId && s.userId === data.userId,
-    );
+      // Overwrite previous submission from same user for same assignment
+      const existingIdx = store.items.findIndex(
+        (s) => s.assignmentId === data.assignmentId && s.userId === data.userId,
+      );
 
-    const submission: Submission = {
-      ...data,
-      id: crypto.randomUUID(),
-      submittedAt: Date.now(),
-      status: Date.now() > deadline ? "late" : "submitted",
-    };
+      const submission: Submission = {
+        ...data,
+        id: crypto.randomUUID(),
+        submittedAt: Date.now(),
+        status: Date.now() > deadline ? "late" : "submitted",
+      };
 
-    if (existingIdx !== -1) {
-      store.items[existingIdx] = submission;
-    } else {
-      store.items.push(submission);
-    }
+      if (existingIdx !== -1) {
+        store.items[existingIdx] = submission;
+      } else {
+        store.items.push(submission);
+      }
 
-    await this.save(store.items);
-    return submission;
+      await this.save(store.items);
+      return submission;
+    });
   }
 
   async listByAssignment(assignmentId: string): Promise<Submission[]> {

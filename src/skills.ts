@@ -4,6 +4,9 @@ import matter from "gray-matter";
 import type { Skill, SkillSource, SkillSources } from "./types.js";
 import { errMsg, isFileNotFound } from "./utils/errors.js";
 import { expandTilde } from "./utils/paths.js";
+import { createLogger } from "./utils/logger.js";
+
+const log = createLogger("skills");
 
 // ─── Options ─────────────────────────────────────────────────────────
 
@@ -101,7 +104,7 @@ function parseSkillFile(
   } catch (err) {
     // ENOENT is expected when probing for SKILL.md — only warn on real errors
     if (isFileNotFound(err)) return null;
-    console.warn(`[skills] Failed to parse ${skillPath}, skipping:`, errMsg(err));
+    log.warn(`Failed to parse ${skillPath}, skipping:`, errMsg(err));
     return null;
   }
 }
