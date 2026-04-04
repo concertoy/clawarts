@@ -1,0 +1,53 @@
+import crypto from "node:crypto";
+import { loadStore, saveStore } from "./json-store.js";
+import type { Assignment } from "./types.js";
+
+export class AssignmentStore {
+  constructor(private storePath: string) {}
+
+  private async load() {
+    return loadStore<Assignment>(this.storePath);
+  }
+
+  private async save(items: Assignment[]) {
+    await saveStore(this.storePath, { version: 1, items });
+  }
+
+  async create(data: Omit<Assignment, "id" | "createdAt">): Promise<Assignment> {
+    const store = await this.load();
+    const assignment: Assignment = {
+      ...data,
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+    };
+    store.items.push(assignment);
+    await this.save(store.items);
+    return assignment;
+  }
+
+  async list(filter?: { status?: string }): Promise<Assignment[]> {
+    const store = await this.load();
+    if (filter?.status) {
+      return store.items.filter((a) => a.status === filter.status);
+    }
+    return store.items;
+  }
+
+  async get(id: string): Promise<Assignment | undefined> {
+    const store = await this.load();
+    return store.items.find((a) => a.id === id);
+  }
+
+  async update(id: string, patch: Partial<Assignment>): Promise<Assignment | undefined> {
+    const store = await this.load();
+    const idx = store.items.findIndex((a) => a.id === id);
+    if (idx === -1) return undefined;
+    store.items[idx] = { ...store.items[idx], ...patch };
+    await this.save(store.items);
+    return store.items[idx];
+  }
+
+  async close(id: string): Promise<Assignment | undefined> {
+    return this.update(id, { status: "closed" });
+  }
+}

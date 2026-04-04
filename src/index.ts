@@ -19,6 +19,11 @@ import type { App } from "@slack/bolt";
 import { WebClient } from "@slack/web-api";
 import { scaffoldWorkspace } from "./cli/scaffold.js";
 import { registerAgent, createRelayTool, createListStudentsTool } from "./relay.js";
+import { createSlackUploadTool } from "./slack-upload-tool.js";
+import { AssignmentStore } from "./store/assignment-store.js";
+import { SubmissionStore } from "./store/submission-store.js";
+import { createAssignmentTool } from "./tools/assignment-tool.js";
+import { createSubmitTool } from "./tools/submit-tool.js";
 
 // ─── Provider construction ────────────────────────────────────────────
 
@@ -109,7 +114,22 @@ async function main() {
     if (isTutor) {
       allTools.push(createRelayTool());
       allTools.push(createListStudentsTool());
+
+      // Assignment management for tutors
+      const dataDir = path.join(os.homedir(), ".clawarts", "agents", config.id, "data");
+      const assignmentStore = new AssignmentStore(path.join(dataDir, "assignments.json"));
+      const submissionStore = new SubmissionStore(path.join(dataDir, "submissions.json"));
+      allTools.push(createAssignmentTool(assignmentStore, submissionStore, cronService, config.id));
+    } else if (config.linkedTutor) {
+      // Student agents share the tutor's data stores (read assignments, write submissions)
+      const tutorDataDir = path.join(os.homedir(), ".clawarts", "agents", config.linkedTutor, "data");
+      const assignmentStore = new AssignmentStore(path.join(tutorDataDir, "assignments.json"));
+      const submissionStore = new SubmissionStore(path.join(tutorDataDir, "submissions.json"));
+      allTools.push(createSubmitTool(assignmentStore, submissionStore));
     }
+
+    // Add Slack file upload tool (all agents can upload files to their conversation)
+    allTools.push(createSlackUploadTool(slackClient));
 
     const tools = filterToolsForAgent(allTools, config);
     const sessions = new SessionStore(config.sessionTtlMinutes * 60 * 1000);
