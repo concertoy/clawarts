@@ -2,6 +2,10 @@ import type { ToolDefinition } from "../types.js";
 import type { ImageContent, ModelProvider, ProviderCallParams, ProviderMessage, ProviderResponse, ToolCall } from "../provider.js";
 import { withRetry } from "../utils/retry.js";
 
+function safeParse(json: string): unknown {
+  try { return JSON.parse(json); } catch { return {}; }
+}
+
 // ─── Anthropic API types ──────────────────────────────────────────────
 
 interface AnthropicContentBlock {
@@ -90,11 +94,12 @@ export class ClaudeProvider implements ModelProvider {
             "x-api-key": this.apiKey,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
-            // Beta headers for extended thinking + interleaved content.
-            // Ported from claude-code's getAnthropicHeaders() pattern.
-            ...(params.thinking?.budgetTokens
-              ? { "anthropic-beta": "interleaved-thinking-2025-05-14" }
-              : {}),
+            // Beta headers: prompt caching (always) + extended thinking (when active).
+            // Prompt caching requires the beta header or cache_control blocks are silently ignored.
+            "anthropic-beta": [
+              "prompt-caching-2024-07-31",
+              ...(params.thinking?.budgetTokens ? ["interleaved-thinking-2025-05-14"] : []),
+            ].join(","),
           },
           body: JSON.stringify(body),
           signal: params.signal,
@@ -317,7 +322,7 @@ function formatClaudeMessages(messages: ProviderMessage[]): ClaudeMessage[] {
             type: "tool_use",
             id: tc.id,
             name: tc.name,
-            input: JSON.parse(tc.arguments),
+            input: safeParse(tc.arguments),
           });
         }
       }
@@ -396,7 +401,7 @@ function parseClaudeResponse(result: AnthropicResponse): ProviderResponse {
   }
 
   return {
-    text: textParts.join("\n"),
+    text: textParts.join(""),
     toolCalls,
     stopReason,
     usage: result.usage

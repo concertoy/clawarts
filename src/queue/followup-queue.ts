@@ -100,12 +100,12 @@ function scheduleDrain(sessionKey: string): void {
         // Debounce: wait for more messages to accumulate
         await waitForDebounce(q);
 
+        const callback = drainCallbacks.get(sessionKey);
+        if (!callback) break; // Don't splice — items stay queued until a callback is registered
+
         // Collect all current items into a batch
         const batch = q.items.splice(0);
         if (batch.length === 0) break;
-
-        const callback = drainCallbacks.get(sessionKey);
-        if (!callback) break;
 
         // Prepend drop notice if messages were lost
         if (q.droppedCount > 0) {

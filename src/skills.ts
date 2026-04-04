@@ -58,7 +58,7 @@ function scanSkillsRecursive(
 
     // No SKILL.md here — recurse into subdirectories
     for (const entry of entries) {
-      if (entry.isDirectory() && !entry.name.startsWith(".")) {
+      if ((entry.isDirectory() || entry.isSymbolicLink()) && !entry.name.startsWith(".")) {
         walk(path.join(dir, entry.name));
       }
     }
@@ -97,8 +97,8 @@ function parseSkillFile(
     if (data.arguments) skill.arguments = String(data.arguments);
 
     return skill;
-  } catch {
-    console.warn(`[skills] Failed to parse ${skillPath}, skipping`);
+  } catch (err) {
+    console.warn(`[skills] Failed to parse ${skillPath}, skipping:`, err instanceof Error ? err.message : err);
     return null;
   }
 }
