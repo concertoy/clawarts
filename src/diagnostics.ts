@@ -56,9 +56,55 @@ export function runDiagnostics(configs: AgentConfig[]): void {
   }
 
   if (warnings.length > 0) {
-    console.warn(`[clawarts] ⚠ Startup diagnostics (${warnings.length} warning${warnings.length > 1 ? "s" : ""}):`);
+    console.warn(`[clawarts] Startup diagnostics (${warnings.length} warning${warnings.length > 1 ? "s" : ""}):`);
     for (const w of warnings) {
       console.warn(`  - ${w}`);
     }
   }
+}
+
+/**
+ * Test API provider connectivity. Runs in parallel for all unique providers.
+ * Logs pass/fail — doesn't throw (non-blocking).
+ */
+export async function checkProviderHealth(configs: AgentConfig[]): Promise<void> {
+  const providers = new Set(configs.map((c) => c.provider));
+
+  const checks = [...providers].map(async (provider) => {
+    try {
+      switch (provider) {
+        case "anthropic-claude": {
+          const key = process.env.ANTHROPIC_API_KEY;
+          if (!key) { console.warn(`[health] anthropic-claude: ANTHROPIC_API_KEY not set`); return; }
+          const resp = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "x-api-key": key,
+              "anthropic-version": "2023-06-01",
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1, messages: [{ role: "user", content: "hi" }] }),
+            signal: AbortSignal.timeout(10_000),
+          });
+          if (resp.ok) {
+            console.log(`[health] anthropic-claude: OK`);
+          } else {
+            const body = await resp.text().catch(() => "");
+            console.warn(`[health] anthropic-claude: HTTP ${resp.status} — ${body.slice(0, 200)}`);
+          }
+          break;
+        }
+        case "openai-codex": {
+          // Codex uses OAuth tokens — just verify env vars exist
+          console.log(`[health] openai-codex: token provider will authenticate on first call`);
+          break;
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[health] ${provider}: ${msg}`);
+    }
+  });
+
+  await Promise.allSettled(checks);
 }

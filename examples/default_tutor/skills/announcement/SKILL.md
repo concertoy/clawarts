@@ -29,3 +29,15 @@ Once confirmed, call `relay` with:
 - `message`: the confirmed announcement, prefixed with ":loudspeaker: *Announcement from your tutor*"
 
 This sends to all linked students in parallel — one tool call reaches everyone. Report the delivery summary.
+
+## Step 4 — Archive
+
+After sending, append the announcement to `announcements.md` in the workspace using `edit` (or `write_file` if the file doesn't exist). Format:
+
+```markdown
+## [DATE] — Announcement
+[message text]
+Delivered to: X students
+```
+
+This creates a running log the tutor can review later.

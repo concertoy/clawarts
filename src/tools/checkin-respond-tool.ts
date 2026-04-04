@@ -14,13 +14,13 @@ export function createCheckinRespondTool(
   return {
     name: "checkin_respond",
     description:
-      "Respond to class check-ins. Actions: respond (submit your answer), view (see active check-in window).",
+      "Respond to class check-ins. Actions: respond (submit your answer), view (see active check-in window), history (see your past scores).",
     parameters: {
       type: "object",
       properties: {
         action: {
           type: "string",
-          enum: ["respond", "view"],
+          enum: ["respond", "view", "history"],
           description: "The action to perform.",
         },
         content: {
@@ -112,8 +112,35 @@ export function createCheckinRespondTool(
           return lines.join("\n");
         }
 
+        case "history": {
+          const responses = await checkinStore.getResponsesByUser(userId);
+          if (responses.length === 0) return "You have no check-in history yet.";
+
+          const lines = await Promise.all(
+            responses.map(async (r) => {
+              const window = await checkinStore.getWindow(r.windowId);
+              const mode = window?.mode ?? "unknown";
+              const topic = window?.topic ? ` (${window.topic})` : "";
+              const scoreStr = r.score != null ? `score: ${r.score}/100` : "not yet scored";
+              const statusStr = r.status ?? "pending";
+              return `- ${mode}${topic}: ${statusStr} — ${scoreStr}${r.feedback ? ` — "${r.feedback}"` : ""}`;
+            }),
+          );
+
+          const scored = responses.filter((r) => r.score != null);
+          const avg = scored.length > 0
+            ? Math.round(scored.reduce((s, r) => s + r.score!, 0) / scored.length)
+            : null;
+
+          return [
+            `Your check-in history (${responses.length} total):`,
+            ...lines,
+            avg != null ? `\nAverage score: ${avg}/100` : "",
+          ].filter(Boolean).join("\n");
+        }
+
         default:
-          return `Unknown action: ${action}. Use respond or view.`;
+          return `Unknown action: ${action}. Use respond, view, or history.`;
       }
     },
   };
