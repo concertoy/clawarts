@@ -13,8 +13,9 @@ Tutor Agent ──relay──> Student Agent(s)
      └─ full tool access        (read-only tools)
 ```
 
-- **Tutor agents** have full tool access, manage assignments, and broadcast to students via relay
-- **Student agents** have restricted tools, submit work, and guide learners through problems
+- **Tutor agents** have full tool access, manage assignments, check-ins, and broadcast to students via relay
+- **Student agents** have restricted tools, submit work, respond to check-ins, and guide learners through problems
+- Academic integrity: configurable `helpLevel` (hints/guided/full) enforced at system prompt level
 - Agents share assignment data through a JSON file store — no database required
 
 ## Setup
@@ -57,7 +58,7 @@ npm start     # production
   "defaults": { "provider": "openai-codex", "model": "gpt-5.4" },
   "agents": [
     { "id": "tutor", "slackBotToken": "$TUTOR_SLACK_BOT_TOKEN", "slackAppToken": "$TUTOR_SLACK_APP_TOKEN" },
-    { "id": "student-1", "linkedTutor": "tutor", "disallowedTools": ["bash", "write_file", "edit", "multi_edit"] }
+    { "id": "student-1", "linkedTutor": "tutor", "helpLevel": "guided", "disallowedTools": ["bash", "write_file", "edit", "multi_edit"] }
   ]
 }
 ```
@@ -76,16 +77,32 @@ Providers: `anthropic-claude` (Claude), `openai-codex` (GPT).
 | `relay`, `list_students` | communication | tutor |
 | `assignment` | academic | tutor |
 | `submit` | academic | student |
+| `checkin` | academic | tutor |
+| `checkin_respond` | academic | student |
 
 ## Skills
 
-Skills are prompt-driven workflows defined in `SKILL.md` files:
+Skills are prompt-driven workflows defined in `SKILL.md` files.
 
-- `/new_homework` — create and announce assignments to students
-- `/announcement` — broadcast free-format messages
+**Tutor skills:**
+- `/new_homework` — create and announce assignments
+- `/launch_checkin` — start a check-in (passphrase, quiz, pulse, reflect)
 - `/check_submissions` — review submission status
-- `/my_assignments` — student view of open assignments
-- `/slack_format` — Slack mrkdwn formatting guide
+- `/setup_course` — auto-create assignments and check-ins from COURSE.md
+- `/announcement` — broadcast messages to all students
+- `/progress` — view student or class-wide progress report
+- `/roster` — student roster with status flags
+- `/export` — generate downloadable grade report
+- `/office_hours` — set and share availability
+- `/help` — show available commands
+
+**Student skills:**
+- `/my_assignments` — view open assignments and submission status
+- `/checkin` — respond to class check-ins
+- `/my_grades` — view scores and attendance
+- `/remind` — set personal study reminders
+- `/office_hours` — check tutor availability
+- `/help` — show available commands
 
 Skills live in `examples/default_tutor/skills/` and `examples/default_student/skills/`, and are copied to agent workspaces on first startup.
 
@@ -96,9 +113,12 @@ Agent state is stored in `~/.clawarts/agents/{id}/`:
 ```
 ~/.clawarts/agents/tutor/
   workspace/          # SOUL.md, IDENTITY.md, skills/
-  data/               # assignments.json, submissions.json
+  data/               # assignments.json, submissions.json, checkin-*.json
   cron/               # jobs.json
+  sessions/           # persisted conversation history
 ```
+
+Config file resolution: `CLAWARTS_CONFIG` env > `./config.json` > `~/.clawarts/config.json`.
 
 ## License
 
