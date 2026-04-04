@@ -18,7 +18,7 @@ import type { AgentConfig } from "./types.js";
 import type { App } from "@slack/bolt";
 import { WebClient } from "@slack/web-api";
 import { scaffoldWorkspace } from "./cli/scaffold.js";
-import { runDiagnostics, checkProviderHealth } from "./diagnostics.js";
+import { runDiagnostics, checkProviderHealth, checkSlackTokens } from "./diagnostics.js";
 import { registerAgent, createRelayTool, createListStudentsTool } from "./relay.js";
 import { createSlackUploadTool } from "./slack-upload-tool.js";
 import { errMsg } from "./utils/errors.js";
@@ -32,6 +32,8 @@ import { createCheckinRespondTool } from "./tools/checkin-respond-tool.js";
 import { createStatusTool } from "./tools/status-tool.js";
 import { createMyStatusTool } from "./tools/my-status-tool.js";
 import { createHelpTool } from "./tools/help-tool.js";
+import { createExportTool } from "./tools/export-tool.js";
+import { createResetTool } from "./tools/reset-tool.js";
 
 // ─── Provider construction ────────────────────────────────────────────
 
@@ -65,7 +67,7 @@ async function main() {
   const agentConfigs = loadAllAgentConfigs();
   console.log(`[clawarts] ${agentConfigs.length} agent(s): ${agentConfigs.map((a) => a.id).join(", ")}`);
   runDiagnostics(agentConfigs);
-  await checkProviderHealth(agentConfigs);
+  await Promise.all([checkProviderHealth(agentConfigs), checkSlackTokens(agentConfigs)]);
 
   const apps: App[] = [];
   const allSessions: SessionStore[] = [];
@@ -137,6 +139,8 @@ async function main() {
       const checkinStore = new CheckinStore(dataDir);
       allTools.push(createCheckinTool(checkinStore, cronService, config.id));
       allTools.push(createStatusTool(cronService));
+      allTools.push(createExportTool());
+      allTools.push(createResetTool());
 
       // Wire system message handler for auto-close cron jobs
       cronService.setSystemMessageHandler(async (tag, params) => {

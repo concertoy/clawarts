@@ -1,6 +1,9 @@
 import type { ToolDefinition } from "../types.js";
 import type { ModelProvider, ProviderCallParams, ProviderMessage, ProviderResponse, ToolCall } from "../provider.js";
 import { withRetry } from "../utils/retry.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("claude");
 
 function safeParse(json: string): unknown {
   try { return JSON.parse(json); } catch { return {}; }
@@ -81,7 +84,7 @@ export class ClaudeProvider implements ModelProvider {
     if (params.thinking?.budgetTokens && params.thinking.budgetTokens > 0) {
       const budgetTokens = Math.min(params.maxTokens - 1, params.thinking.budgetTokens);
       if (budgetTokens < params.thinking.budgetTokens) {
-        console.warn(`[claude] Thinking budget clamped from ${params.thinking.budgetTokens} to ${budgetTokens} (maxTokens=${params.maxTokens})`);
+        log.warn(`Thinking budget clamped from ${params.thinking.budgetTokens} to ${budgetTokens} (maxTokens=${params.maxTokens})`);
       }
       body.thinking = {
         type: "enabled",
@@ -89,6 +92,7 @@ export class ClaudeProvider implements ModelProvider {
       };
     }
 
+    const startMs = Date.now();
     return withRetry(
       async () => {
         const resp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -115,12 +119,21 @@ export class ClaudeProvider implements ModelProvider {
           throw new Error(`Anthropic API error (${resp.status}, req=${requestId}): ${text}`);
         }
 
+        let response: ProviderResponse;
         if (useStreaming) {
-          return this.consumeStream(resp, params.onText!);
+          response = await this.consumeStream(resp, params.onText!);
+        } else {
+          const result = (await resp.json()) as AnthropicResponse;
+          response = parseClaudeResponse(result);
         }
 
-        const result = (await resp.json()) as AnthropicResponse;
-        return parseClaudeResponse(result);
+        const elapsed = Date.now() - startMs;
+        const u = response.usage;
+        if (u) {
+          const cacheNote = u.cacheReadTokens ? ` (cache: ${u.cacheReadTokens} read)` : "";
+          log.debug(`${params.model}: ${u.inputTokens}in/${u.outputTokens}out${cacheNote} in ${elapsed}ms`);
+        }
+        return response;
       },
       { maxRetries: 5 },
     );

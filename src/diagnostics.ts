@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { WebClient } from "@slack/web-api";
 import type { AgentConfig } from "./types.js";
 import { errMsg } from "./utils/errors.js";
 
@@ -133,5 +134,26 @@ export async function checkProviderHealth(configs: AgentConfig[]): Promise<void>
     }
   });
 
+  await Promise.allSettled(checks);
+}
+
+/**
+ * Verify Slack bot tokens work by calling auth.test.
+ * Runs once at startup — catches invalid/revoked tokens early.
+ */
+export async function checkSlackTokens(configs: AgentConfig[]): Promise<void> {
+  // Deduplicate by token to avoid redundant API calls
+  const seen = new Set<string>();
+  const checks = configs.map(async (config) => {
+    if (seen.has(config.slackBotToken)) return;
+    seen.add(config.slackBotToken);
+    try {
+      const client = new WebClient(config.slackBotToken);
+      const auth = await client.auth.test();
+      console.log(`[health] ${config.id}: Slack bot token OK (bot: @${auth.user})`);
+    } catch (err) {
+      console.warn(`[health] ${config.id}: Slack bot token FAILED — ${errMsg(err)}`);
+    }
+  });
   await Promise.allSettled(checks);
 }
