@@ -147,14 +147,16 @@ async function main() {
           return true;
         }
         if (tag === "PULSE_CHECKIN" && params.pulseGroupId) {
-          const duration = parseInt(params.durationMinutes || "2") * 60 * 1000;
+          const duration = (parseInt(String(params.durationMinutes)) || 2) * 60 * 1000;
+          const pulseIndex = parseInt(String(params.pulseIndex)) || 1;
+          const pulseTotal = parseInt(String(params.pulseTotal)) || 1;
           await checkinStore.createWindow({
             tutorId: config.id,
             mode: "pulse",
             topic: params.topic || undefined,
             pulseGroupId: params.pulseGroupId,
-            pulseIndex: parseInt(params.pulseIndex || "1"),
-            pulseTotal: parseInt(params.pulseTotal || "1"),
+            pulseIndex,
+            pulseTotal,
             closesAt: Date.now() + duration,
           });
           console.log(`[cron:${config.id}] Opened pulse ${params.pulseIndex}/${params.pulseTotal}`);
