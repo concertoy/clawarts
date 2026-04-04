@@ -323,7 +323,7 @@ export class Agent {
       console.log(`[agent] Compacted ${sessionKey ?? "?"}: ${toSummarize.length} messages → summary (${summary.length} chars), kept ${toKeep.length} recent`);
     } catch (err) {
       // Non-fatal — if compaction fails, just continue with full history
-      console.warn("[agent] Compaction failed, continuing with full history:", err);
+      console.warn("[agent] Compaction failed, continuing with full history:", err instanceof Error ? err.message : err);
     }
   }
 }

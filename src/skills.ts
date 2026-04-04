@@ -120,7 +120,6 @@ export function loadSkills(options: SkillLoadOptions): Skill[] {
     if (!dir) return;
     const expanded = dir.startsWith("~/") ? path.join(os.homedir(), dir.slice(2)) : dir;
     const resolved = path.resolve(expanded);
-    if (!fs.existsSync(resolved)) return;
 
     let real: string;
     try { real = fs.realpathSync(resolved); } catch { return; }
@@ -143,7 +142,6 @@ export function loadSkills(options: SkillLoadOptions): Skill[] {
     for (const dir of options.legacyDirs) {
       const expanded = dir.startsWith("~/") ? path.join(os.homedir(), dir.slice(2)) : dir;
       const resolved = path.resolve(expanded);
-      if (!fs.existsSync(resolved)) continue;
 
       let real: string;
       try { real = fs.realpathSync(resolved); } catch { continue; }

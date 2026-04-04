@@ -256,13 +256,14 @@ export class TokenProvider {
   }
 
   private writeStored(data: StoredAuth): void {
+    const tmp = this.authFile + `.tmp.${process.pid}`;
     try {
       fs.mkdirSync(AUTH_DIR, { recursive: true });
       // Atomic write: temp + rename to prevent credential corruption on crash
-      const tmp = this.authFile + `.tmp.${process.pid}`;
       fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n");
       fs.renameSync(tmp, this.authFile);
     } catch (err) {
+      try { fs.unlinkSync(tmp); } catch { /* already gone */ }
       console.warn("[auth] Failed to write auth file:", err instanceof Error ? err.message : err);
     }
   }

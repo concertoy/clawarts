@@ -121,7 +121,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       }),
     ).catch((err) => {
       if (err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"))) return;
-      console.error(`[slack] Dispatch error for ${params.sessionKey}:`, err);
+      console.error(`[slack] Dispatch error for ${params.sessionKey}:`, err instanceof Error ? err.message : err);
     });
   }
 
