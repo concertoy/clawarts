@@ -150,27 +150,34 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     });
   }
 
-  // Handle direct mentions in channels
-  app.event("app_mention", async ({ event, client }) => {
-    if (isDuplicate(event.channel, event.ts)) return;
-    if (allowedUsers && event.user && !allowedUsers.has(event.user)) return;
-
-    const myId = await resolveBotId(client);
-
-    const text = stripMention(event.text, myId);
-    if (!text.trim()) return;
-
-    const sessionKey = SessionStore.deriveKey(event.channel, event.ts, event.thread_ts);
+  /**
+   * Shared hydrate-and-dispatch logic for both app_mention and message handlers.
+   * Hydrates cold sessions from Slack API, builds params, and routes to dispatch.
+   */
+  async function hydrateAndDispatch(opts: {
+    client: WebClient;
+    channel: string;
+    ts: string;
+    threadTs: string | undefined;
+    text: string;
+    userId: string;
+    files?: SlackFile[];
+    myId: string;
+  }): Promise<void> {
+    const { client, channel, ts, threadTs, text, userId, files, myId } = opts;
+    const sessionKey = SessionStore.deriveKey(channel, ts, threadTs);
+    const isDM = channel.startsWith("D");
 
     // Hydrate from Slack API if session is cold (new or after restart).
-    // Call get() first to trigger disk restore — only fetch from Slack if truly empty.
     let isNewSession = false;
     if (!sessions.has(sessionKey)) {
       const restored = sessions.get(sessionKey);
       if (restored.messages.length === 0) {
         isNewSession = true;
-        if (event.thread_ts) {
-          await hydrateFromThread(client, sessions, sessionKey, event.channel, event.thread_ts, myId);
+        if (isDM) {
+          await hydrateFromDM(client, sessions, sessionKey, channel, myId);
+        } else if (threadTs) {
+          await hydrateFromThread(client, sessions, sessionKey, channel, threadTs, myId);
         }
       }
     }
@@ -178,25 +185,44 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     const params: HandleMessageParams = {
       agent,
       client,
+      channel,
+      ts,
+      threadTs,
+      text,
+      userId,
+      sessionKey,
+      botToken: config.slackBotToken,
+      files,
+      welcomeMessage: config.welcomeMessage,
+      isNewSession,
+    };
+
+    if (sessionQueue.has(sessionKey)) {
+      dispatchFollowup(params);
+    } else {
+      dispatch(params);
+    }
+  }
+
+  // Handle direct mentions in channels
+  app.event("app_mention", async ({ event, client }) => {
+    if (isDuplicate(event.channel, event.ts)) return;
+    if (allowedUsers && event.user && !allowedUsers.has(event.user)) return;
+
+    const myId = await resolveBotId(client);
+    const text = stripMention(event.text, myId);
+    if (!text.trim()) return;
+
+    await hydrateAndDispatch({
+      client,
       channel: event.channel,
       ts: event.ts,
       threadTs: event.thread_ts ?? event.ts,
       text,
       userId: event.user ?? "unknown",
-      sessionKey,
-      botToken: config.slackBotToken,
       files: (event as unknown as { files?: SlackFile[] }).files,
-      welcomeMessage: config.welcomeMessage,
-      isNewSession,
-    };
-
-    // If THIS session is already processing, route to followup queue.
-    // Only check the specific session — not all sessions (OpenClaw pattern).
-    if (sessionQueue.has(params.sessionKey)) {
-      dispatchFollowup(params);
-    } else {
-      dispatch(params);
-    }
+      myId,
+    });
   });
 
   // Handle DMs and thread replies in channels
@@ -217,7 +243,6 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     // (e.g. smart quotes) as an edit, dropping the original if we skip it here.
     if (msg.subtype && msg.subtype !== "message_changed") return;
 
-    // For message_changed, use the edited message's text and user
     const text_raw = msg.subtype === "message_changed" ? msg.message?.text : msg.text;
     const user_raw = msg.subtype === "message_changed" ? msg.message?.user : msg.user;
     if (!text_raw) return;
@@ -232,16 +257,9 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     const isDM = channel.startsWith("D");
     const isThreadReply = !!threadTs;
 
-    // Only respond in DMs where the bot is a participant
     if (isDM && !(await isBotDM(client, channel, myId))) return;
-
-    if (!isDM && !isThreadReply) {
-      // Top-level channel message without @mention — handled by app_mention
-      return;
-    }
-
+    if (!isDM && !isThreadReply) return; // top-level channel — handled by app_mention
     if (!isDM && isThreadReply) {
-      // Channel thread reply: only respond if bot is active in this thread
       const sessionKey = SessionStore.deriveKey(channel, ts, threadTs);
       if (!sessions.has(sessionKey)) return;
     }
@@ -250,46 +268,18 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     // messages this handler skips, blocking the app_mention handler.
     if (isDuplicate(channel, ts)) return;
 
-    const sessionKey = SessionStore.deriveKey(channel, ts, threadTs);
     const text = isDM ? text_raw : stripMention(text_raw, myId);
 
-    // Hydrate from Slack API if session is cold (new or after restart).
-    // Call get() first to trigger disk restore — only fetch from Slack if truly empty.
-    let isNewSession2 = false;
-    if (!sessions.has(sessionKey)) {
-      const restored = sessions.get(sessionKey);
-      if (restored.messages.length === 0) {
-        isNewSession2 = true;
-        if (isDM) {
-          await hydrateFromDM(client, sessions, sessionKey, channel, myId);
-        } else if (isThreadReply && threadTs) {
-          await hydrateFromThread(client, sessions, sessionKey, channel, threadTs, myId);
-        }
-      }
-    }
-
-    const params: HandleMessageParams = {
-      agent,
+    await hydrateAndDispatch({
       client,
       channel,
       ts,
       threadTs,
       text,
       userId: user_raw ?? "unknown",
-      sessionKey,
-      botToken: config.slackBotToken,
       files: msg.subtype === "message_changed" ? msg.message?.files : msg.files,
-      welcomeMessage: config.welcomeMessage,
-      isNewSession: isNewSession2,
-    };
-
-    // If THIS session is already processing, route to followup queue.
-    // Only check the specific session — not all sessions (OpenClaw pattern).
-    if (sessionQueue.has(params.sessionKey)) {
-      dispatchFollowup(params);
-    } else {
-      dispatch(params);
-    }
+      myId,
+    });
   });
 
   // Log Socket Mode connection lifecycle for debugging WiFi/network issues

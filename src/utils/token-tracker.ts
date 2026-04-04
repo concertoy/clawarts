@@ -9,6 +9,9 @@ export interface AgentTokenUsage {
   cacheReadTokens: number;
   cacheCreationTokens: number;
   requestCount: number;
+  /** Recent request latencies in ms (last 50). */
+  latencies: number[];
+  errorCount: number;
 }
 
 /**
@@ -31,6 +34,8 @@ export function estimateCost(u: AgentTokenUsage): number {
 
 const usage = new Map<string, AgentTokenUsage>();
 
+const MAX_LATENCIES = 50;
+
 /** Record token usage for an agent (called after each getReply). */
 export function recordTokenUsage(
   agentId: string,
@@ -38,6 +43,8 @@ export function recordTokenUsage(
   output: number,
   cacheRead: number,
   cacheCreation: number,
+  latencyMs?: number,
+  isError?: boolean,
 ): void {
   const prev = usage.get(agentId) ?? {
     inputTokens: 0,
@@ -45,14 +52,45 @@ export function recordTokenUsage(
     cacheReadTokens: 0,
     cacheCreationTokens: 0,
     requestCount: 0,
+    latencies: [],
+    errorCount: 0,
   };
+  const latencies = prev.latencies;
+  if (latencyMs != null) {
+    latencies.push(latencyMs);
+    if (latencies.length > MAX_LATENCIES) latencies.shift();
+  }
   usage.set(agentId, {
     inputTokens: prev.inputTokens + input,
     outputTokens: prev.outputTokens + output,
     cacheReadTokens: prev.cacheReadTokens + cacheRead,
     cacheCreationTokens: prev.cacheCreationTokens + cacheCreation,
     requestCount: prev.requestCount + 1,
+    latencies,
+    errorCount: prev.errorCount + (isError ? 1 : 0),
   });
+}
+
+/** Get median of a sorted array. */
+function median(sorted: number[]): number {
+  if (sorted.length === 0) return 0;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/** Get p95 of a sorted array. */
+function p95(sorted: number[]): number {
+  if (sorted.length === 0) return 0;
+  return sorted[Math.min(Math.floor(sorted.length * 0.95), sorted.length - 1)];
+}
+
+/** Format latency stats for display. */
+export function formatLatencyStats(u: AgentTokenUsage): string {
+  if (u.latencies.length === 0) return "";
+  const sorted = [...u.latencies].sort((a, b) => a - b);
+  const med = (median(sorted) / 1000).toFixed(1);
+  const p = (p95(sorted) / 1000).toFixed(1);
+  return `latency: ${med}s median, ${p}s p95`;
 }
 
 /** Get cumulative token usage for an agent. */

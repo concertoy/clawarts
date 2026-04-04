@@ -2,7 +2,7 @@ import fs from "node:fs";
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import { getStudentsForTutor, getAgentLastActive, getAgentLastError, getRegisteredAgent } from "../relay.js";
 import type { CronService } from "../cron/service.js";
-import { getTokenUsage, estimateCost } from "../utils/token-tracker.js";
+import { getTokenUsage, estimateCost, formatLatencyStats } from "../utils/token-tracker.js";
 import { formatTokenCount, formatUsd } from "../utils/format.js";
 
 /**
@@ -31,8 +31,9 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
       const tutorReg = getRegisteredAgent(tutorId);
       const tutorSessions = tutorReg?.sessions.size ?? 0;
       const tutorTokens = getTokenUsage(tutorId);
+      const latencyInfo = tutorTokens ? formatLatencyStats(tutorTokens) : "";
       const tokenInfo = tutorTokens
-        ? `, ${formatTokenCount(tutorTokens.inputTokens)}in/${formatTokenCount(tutorTokens.outputTokens)}out (${tutorTokens.requestCount} req, ~${formatUsd(estimateCost(tutorTokens))})`
+        ? `, ${formatTokenCount(tutorTokens.inputTokens)}in/${formatTokenCount(tutorTokens.outputTokens)}out (${tutorTokens.requestCount} req, ~${formatUsd(estimateCost(tutorTokens))}${latencyInfo ? `, ${latencyInfo}` : ""})`
         : "";
       const lines: string[] = [`Status for ${tutorId} v${version} (uptime: ${uptimeMin}m, ${memMB}MB, ${tutorSessions} session(s)${tokenInfo}):`];
 

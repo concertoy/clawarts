@@ -307,7 +307,9 @@ export class Agent {
     this.log.info(`Complete: ${turnCount} turns in ${elapsedSec}s, ${totalInputTokens} input + ${totalOutputTokens} output tokens${cacheInfo}${errorInfo}`);
 
     // Record cumulative token usage for status reporting
-    recordTokenUsage(this.config.id, totalInputTokens, totalOutputTokens, totalCacheReadTokens, totalCacheCreationTokens);
+    const latencyMs = Date.now() - agentStartMs;
+    const hadError = toolErrorCount > 0;
+    recordTokenUsage(this.config.id, totalInputTokens, totalOutputTokens, totalCacheReadTokens, totalCacheCreationTokens, latencyMs, hadError);
 
     const reply = lastText || "[No response]";
     session.messages.push({ role: "assistant", content: reply });
