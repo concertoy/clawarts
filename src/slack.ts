@@ -34,7 +34,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   // Ported from OpenClaw's SessionActorQueue / KeyedAsyncQueue pattern.
   const sessionQueue = new KeyedAsyncQueue();
 
-  let botUserId: string | undefined;
+  let botUserIdPromise: Promise<string> | undefined;
   const botDmChannels = new Set<string>(); // DM channels confirmed to be with the bot
 
   // Message deduplication: Slack can deliver duplicate events.
@@ -67,11 +67,12 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   }
 
   async function resolveBotId(client: any): Promise<string> {
-    if (!botUserId) {
-      const auth = await client.auth.test();
-      botUserId = auth.user_id as string;
+    // Cache the promise (not just the result) to prevent duplicate auth.test()
+    // calls when multiple events arrive before the first resolves.
+    if (!botUserIdPromise) {
+      botUserIdPromise = (client.auth.test() as Promise<{ user_id: string }>).then((auth) => auth.user_id);
     }
-    return botUserId;
+    return botUserIdPromise;
   }
 
   /** Check if a DM channel is a 1:1 conversation with this bot. */

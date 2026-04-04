@@ -18,24 +18,27 @@ const BOOTSTRAP_FILES = [
 
 const MAX_CHARS_PER_FILE = 20_000;
 
-const cache = new Map<string, { files: WorkspaceFile[]; mtimeMs: number }>();
+const cache = new Map<string, { files: WorkspaceFile[]; mtimeMs: number; fileCount: number }>();
 
-/** Get the max mtime of any bootstrap file in the directory. */
-function getMaxMtime(workspaceDir: string): number {
+/** Get the max mtime and count of existing bootstrap files. */
+function getBootstrapStats(workspaceDir: string): { maxMtime: number; fileCount: number } {
   let max = 0;
+  let count = 0;
   for (const name of BOOTSTRAP_FILES) {
     try {
       const stat = fs.statSync(path.join(workspaceDir, name));
       if (stat.mtimeMs > max) max = stat.mtimeMs;
+      count++;
     } catch { /* file doesn't exist */ }
   }
-  return max;
+  return { maxMtime: max, fileCount: count };
 }
 
 export function loadWorkspaceFiles(workspaceDir: string): WorkspaceFile[] {
-  const mtime = getMaxMtime(workspaceDir);
+  const { maxMtime: mtime, fileCount } = getBootstrapStats(workspaceDir);
   const cached = cache.get(workspaceDir);
-  if (cached && cached.mtimeMs >= mtime && mtime > 0) {
+  // Invalidate cache if mtime changed OR file count changed (detects deletions)
+  if (cached && cached.mtimeMs >= mtime && cached.fileCount === fileCount && mtime > 0) {
     return cached.files;
   }
   const files: WorkspaceFile[] = [];
@@ -70,6 +73,6 @@ export function loadWorkspaceFiles(workspaceDir: string): WorkspaceFile[] {
     console.log(`[workspace] Loaded ${files.length} file(s): ${files.map((f) => f.name).join(", ")}`);
   }
 
-  cache.set(workspaceDir, { files, mtimeMs: mtime || Date.now() });
+  cache.set(workspaceDir, { files, mtimeMs: mtime || Date.now(), fileCount });
   return files;
 }
