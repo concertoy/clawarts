@@ -13,7 +13,9 @@ export class SessionStore {
   private persistDir: string | null = null;
 
   constructor(private ttlMs: number) {
-    this.cleanupTimer = setInterval(() => this.evictStale(), 5 * 60 * 1000);
+    this.cleanupTimer = setInterval(() => {
+      try { this.evictStale(); } catch (err) { console.error("[session] Cleanup error:", err); }
+    }, 5 * 60 * 1000);
   }
 
   /** Enable disk persistence for sessions. */
