@@ -81,7 +81,7 @@ export class Agent {
     const messages: ProviderMessage[] = [
       ...session.messages
         .filter((m) => m.content) // skip empty/corrupted messages from disk restore
-        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+        .map((m) => ({ role: m.role, content: m.content })),
       { role: "user" as const, content: userContent, ...(images?.length ? { images } : {}) },
     ];
 

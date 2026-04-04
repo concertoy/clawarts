@@ -61,7 +61,7 @@ export const AGENT_DEFAULTS: {
   sessionTtlMinutes: 120,
 };
 
-export const DEFAULT_MODELS: Record<string, string> = {
+export const DEFAULT_MODELS: Record<Provider, string> = {
   "openai-codex": "gpt-5.4",
   "anthropic-claude": "claude-sonnet-4-20250514",
 };
