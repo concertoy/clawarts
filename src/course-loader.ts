@@ -11,6 +11,8 @@
  *   - checkin: MODE topic="..." [duration=N] [count=N] [interval=N]
  */
 
+import type { CheckinMode } from "./store/types.js";
+
 export interface CourseHomework {
   title: string;
   description: string;
@@ -19,7 +21,7 @@ export interface CourseHomework {
 }
 
 export interface CourseCheckin {
-  mode: "passphrase" | "quiz" | "pulse" | "reflect";
+  mode: CheckinMode;
   topic?: string;
   durationMinutes?: number;
   pulseCount?: number;
@@ -33,7 +35,7 @@ export interface CourseSchedule {
   checkins: CourseCheckin[];
 }
 
-const VALID_CHECKIN_MODES = new Set<CourseCheckin["mode"]>(["passphrase", "quiz", "pulse", "reflect"]);
+const VALID_CHECKIN_MODES = new Set<CheckinMode>(["passphrase", "quiz", "pulse", "reflect"]);
 
 export function parseCourseSchedule(markdown: string): CourseSchedule {
   const lines = markdown.split("\n");
@@ -83,7 +85,7 @@ export function parseCourseSchedule(markdown: string): CourseSchedule {
     const ciMatch = line.match(/^-\s+checkin:\s+(\w+)\s*(.*)/);
     if (ciMatch) {
       const rawMode = ciMatch[1];
-      const mode: CourseCheckin["mode"] = VALID_CHECKIN_MODES.has(rawMode as CourseCheckin["mode"]) ? (rawMode as CourseCheckin["mode"]) : "reflect";
+      const mode: CheckinMode = VALID_CHECKIN_MODES.has(rawMode as CheckinMode) ? (rawMode as CheckinMode) : "reflect";
       const rest = ciMatch[2] || "";
 
       const topicMatch = rest.match(/topic="([^"]+)"/);

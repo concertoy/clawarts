@@ -135,7 +135,8 @@ export class ClaudeProvider implements ModelProvider {
     resp: Response,
     onText: (delta: string) => void,
   ): Promise<ProviderResponse> {
-    const reader = resp.body!.getReader();
+    if (!resp.body) throw new Error("Response body is null — streaming not supported");
+    const reader = resp.body.getReader();
     const decoder = new TextDecoder();
 
     const textParts: string[] = [];
