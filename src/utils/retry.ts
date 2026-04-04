@@ -98,5 +98,8 @@ export async function withRetry<T>(
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    if (timer.unref) timer.unref();
+  });
 }

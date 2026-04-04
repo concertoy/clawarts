@@ -277,9 +277,14 @@ function extractHtmlContent(html: string, url: string, mode: string): string {
   if (sanitized.length <= WEB_FETCH_MAX_HTML) {
     try {
       const { document } = parseHTML(sanitized);
+      // Set base URL for relative link resolution — linkedom doesn't support
+      // direct baseURI assignment, so insert a <base> element instead.
       try {
-        (document as any).baseURI = url;
-      } catch { /* linkedom may not support */ }
+        const base = document.createElement("base");
+        base.setAttribute("href", url);
+        const head = document.querySelector("head");
+        if (head) head.insertBefore(base, head.firstChild);
+      } catch { /* best-effort */ }
 
       const reader = new Readability(document as any, { charThreshold: 0 });
       const parsed = reader.parse();
@@ -292,7 +297,7 @@ function extractHtmlContent(html: string, url: string, mode: string): string {
         if (result.trim().length > 50) return result;
       }
     } catch (err) {
-      console.warn(`[web-tools] Readability failed for ${url}:`, err instanceof Error ? err.message : err);
+      console.warn(`[web-tools] Readability failed for ${url}:`, errMsg(err));
     }
   }
 
