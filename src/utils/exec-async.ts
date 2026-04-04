@@ -39,6 +39,7 @@ export function execAsync(
       cwd,
       signal: ac.signal,
       stdio: ["pipe", "pipe", "pipe"],
+      detached: true, // Create process group so we can kill the entire tree on timeout
     });
 
     let stdout = "";
@@ -68,6 +69,8 @@ export function execAsync(
 
     child.on("error", (err) => {
       clearTimeout(timer);
+      // Kill the process group to prevent orphan children
+      try { if (child.pid) process.kill(-child.pid, "SIGTERM"); } catch { /* already dead */ }
       if (ac.signal.aborted) {
         resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: null });
       } else {
