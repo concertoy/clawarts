@@ -94,6 +94,8 @@ export class Agent {
     let maxTokensRecoveryCount = 0;
     const MAX_TOKEN_RECOVERIES = 2;
 
+    const agentStartMs = Date.now();
+
     // Token usage tracking (ported from claude-code cost-tracker)
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
@@ -220,8 +222,9 @@ export class Agent {
       this.activeRequests.delete(sessionKey);
     }
 
+    const elapsedSec = ((Date.now() - agentStartMs) / 1000).toFixed(1);
     const cacheInfo = totalCacheReadTokens > 0 ? `, cache: ${totalCacheReadTokens} read / ${totalCacheCreationTokens} created` : "";
-    console.log(`[agent] Complete: ${turnCount} turns, ${totalInputTokens} input + ${totalOutputTokens} output tokens${cacheInfo}`);
+    console.log(`[agent] Complete: ${turnCount} turns in ${elapsedSec}s, ${totalInputTokens} input + ${totalOutputTokens} output tokens${cacheInfo}`);
 
     const reply = lastText || "[No response]";
     session.messages.push({ role: "assistant", content: reply });

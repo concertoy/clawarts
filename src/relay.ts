@@ -23,8 +23,10 @@ export interface RegisteredAgent {
 }
 
 const BROADCAST_CONCURRENCY = 5;
+const BROADCAST_DEDUP_MS = 10_000; // 10s window to prevent accidental double-broadcast
 
 const registry = new Map<string, RegisteredAgent>();
+const recentBroadcasts = new Map<string, number>(); // hash → timestamp
 
 export function registerAgent(entry: RegisteredAgent): void {
   registry.set(entry.id, entry);
@@ -160,6 +162,18 @@ export function createRelayTool(): ToolDefinition {
       if (action === "broadcast") {
         const students = getStudentsForTutor(sourceAgent);
         if (students.length === 0) return `No student agents linked to "${sourceAgent}".`;
+
+        // Dedup: prevent accidental double-broadcast of the same message
+        const dedupKey = `${sourceAgent}:${message.slice(0, 100)}`;
+        const lastSent = recentBroadcasts.get(dedupKey);
+        if (lastSent && Date.now() - lastSent < BROADCAST_DEDUP_MS) {
+          return `Broadcast skipped — same message was sent ${Math.round((Date.now() - lastSent) / 1000)}s ago. Wait ${Math.ceil(BROADCAST_DEDUP_MS / 1000)}s to re-send.`;
+        }
+        recentBroadcasts.set(dedupKey, Date.now());
+        // Cleanup old entries
+        for (const [k, t] of recentBroadcasts) {
+          if (Date.now() - t > BROADCAST_DEDUP_MS * 2) recentBroadcasts.delete(k);
+        }
 
         // Fan out with bounded concurrency (5 at a time) to prevent resource spikes
         const pairs = students.flatMap((s) =>
