@@ -69,8 +69,13 @@ const writeFileTool: ToolDefinition = {
       await fs.promises.mkdir(dir, { recursive: true });
       // Atomic write: temp file + rename to prevent corruption on crash
       const tmp = filePath + `.tmp.${process.pid}`;
-      await fs.promises.writeFile(tmp, content, "utf-8");
-      await fs.promises.rename(tmp, filePath);
+      try {
+        await fs.promises.writeFile(tmp, content, "utf-8");
+        await fs.promises.rename(tmp, filePath);
+      } catch (err) {
+        await fs.promises.unlink(tmp).catch(() => {});
+        return `Error writing file: ${errMsg(err)}`;
+      }
       return `File written: ${filePath}`;
     } catch (err) {
       return `Error writing file: ${errMsg(err)}`;
@@ -114,8 +119,13 @@ const editTool: ToolDefinition = {
 
       const updated = content.slice(0, idx) + newText + content.slice(idx + oldText.length);
       const tmp = filePath + `.tmp.${process.pid}`;
-      await fs.promises.writeFile(tmp, updated, "utf-8");
-      await fs.promises.rename(tmp, filePath);
+      try {
+        await fs.promises.writeFile(tmp, updated, "utf-8");
+        await fs.promises.rename(tmp, filePath);
+      } catch (err) {
+        await fs.promises.unlink(tmp).catch(() => {});
+        return `Error editing file: ${errMsg(err)}`;
+      }
 
       const lineNum = content.slice(0, idx).split("\n").length;
       return `Edited ${filePath} at line ${lineNum}`;
@@ -191,8 +201,13 @@ const multiEditTool: ToolDefinition = {
       }
 
       const tmp = filePath + `.tmp.${process.pid}`;
-      await fs.promises.writeFile(tmp, content, "utf-8");
-      await fs.promises.rename(tmp, filePath);
+      try {
+        await fs.promises.writeFile(tmp, content, "utf-8");
+        await fs.promises.rename(tmp, filePath);
+      } catch (err) {
+        await fs.promises.unlink(tmp).catch(() => {});
+        return `Error in multi_edit: ${errMsg(err)}`;
+      }
       return `Multi-edit ${filePath}:\n${results.join("\n")}`;
     } catch (err) {
       return `Error in multi_edit: ${errMsg(err)}`;

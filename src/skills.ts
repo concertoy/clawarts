@@ -49,10 +49,11 @@ function scanSkillsRecursive(
     }
 
     const skillPath = path.join(dir, "SKILL.md");
-    if (fs.existsSync(skillPath)) {
-      // This directory is a leaf skill — parse it, don't recurse deeper
-      const skill = parseSkillFile(skillPath, dir, resolved, source);
-      if (skill) skills.push(skill);
+    // Try to parse SKILL.md directly — if it exists, this is a leaf skill.
+    // Avoids TOCTOU: existsSync + readFileSync could race with file deletion.
+    const skill = parseSkillFile(skillPath, dir, resolved, source);
+    if (skill) {
+      skills.push(skill);
       return;
     }
 
@@ -99,6 +100,8 @@ function parseSkillFile(
 
     return skill;
   } catch (err) {
+    // ENOENT is expected when probing for SKILL.md — only warn on real errors
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") return null;
     console.warn(`[skills] Failed to parse ${skillPath}, skipping:`, err instanceof Error ? err.message : err);
     return null;
   }

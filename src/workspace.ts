@@ -29,7 +29,12 @@ function getBootstrapStats(workspaceDir: string): { maxMtime: number; fileCount:
       const stat = fs.statSync(path.join(workspaceDir, name));
       if (stat.mtimeMs > max) max = stat.mtimeMs;
       count++;
-    } catch { /* file doesn't exist */ }
+    } catch (err) {
+      // ENOENT is expected for missing bootstrap files; warn on real errors (e.g. EACCES)
+      if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code !== "ENOENT") {
+        console.warn(`[workspace] Failed to stat ${name}:`, err.message);
+      }
+    }
   }
   return { maxMtime: max, fileCount: count };
 }
