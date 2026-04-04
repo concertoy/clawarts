@@ -28,6 +28,7 @@ export interface RegisteredAgent {
 
 const BROADCAST_CONCURRENCY = 5;
 const BROADCAST_DEDUP_MS = 10_000; // 10s window to prevent accidental double-broadcast
+const MAX_BROADCAST_TARGETS = 100; // safety limit to prevent runaway broadcasts
 
 const registry = new Map<string, RegisteredAgent>();
 const lastActiveAt = new Map<string, number>(); // agent ID → epoch ms
@@ -204,6 +205,9 @@ export function createRelayTool(): ToolDefinition {
         const pairs = students.flatMap((s) =>
           s.allowedUsers.map((uid) => ({ agentId: s.id, uid })),
         );
+        if (pairs.length > MAX_BROADCAST_TARGETS) {
+          return `Error: broadcast would reach ${pairs.length} targets (max ${MAX_BROADCAST_TARGETS}). This looks like a misconfiguration.`;
+        }
         const results = await runWithConcurrency(
           pairs,
           (p) => relayToStudent(p.agentId, p.uid, message, sourceAgent),
