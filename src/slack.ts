@@ -177,7 +177,16 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
 
   // Handle DMs and thread replies in channels
   app.event("message", async ({ event, client }) => {
-    const msg = event as Record<string, any>;
+    const msg = event as unknown as {
+      subtype?: string;
+      text?: string;
+      user?: string;
+      channel: string;
+      ts: string;
+      thread_ts?: string;
+      files?: Array<Record<string, unknown>>;
+      message?: { text?: string; user?: string; files?: Array<Record<string, unknown>> };
+    };
 
     // Skip non-standard messages (edits, deletes, bot messages, etc.)
     // Allow "message_changed" edits through — Slack auto-reformats punctuation

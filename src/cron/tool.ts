@@ -145,6 +145,7 @@ function formatSchedule(schedule: CronSchedule): string {
 }
 
 function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "?";
   if (ms >= 86_400_000) return `${(ms / 86_400_000).toFixed(1)}d`;
   if (ms >= 3_600_000) return `${(ms / 3_600_000).toFixed(1)}h`;
   if (ms >= 60_000) return `${(ms / 60_000).toFixed(1)}m`;

@@ -42,9 +42,10 @@ export class AssignmentStore {
     const store = await this.load();
     const idx = store.items.findIndex((a) => a.id === id);
     if (idx === -1) return undefined;
-    store.items[idx] = { ...store.items[idx], ...patch };
+    const updated = { ...store.items[idx], ...patch };
+    store.items[idx] = updated;
     await this.save(store.items);
-    return store.items[idx];
+    return updated;
   }
 
   async close(id: string): Promise<Assignment | undefined> {
