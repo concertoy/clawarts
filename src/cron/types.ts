@@ -8,6 +8,8 @@ export interface CronJobState {
   lastRunAtMs?: number;
   lastStatus?: "ok" | "error";
   lastError?: string;
+  /** Number of consecutive delivery failures (for retry logic). */
+  retryCount?: number;
 }
 
 export interface CronJob {

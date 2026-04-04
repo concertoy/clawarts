@@ -102,11 +102,16 @@ export class SessionStore {
 
   private evictStale(): void {
     const now = Date.now();
+    let evicted = 0;
     for (const [key, session] of this.sessions) {
       if (now - session.updatedAt > this.ttlMs) {
         this.sessions.delete(key);
         this.deleteFromDisk(key);
+        evicted++;
       }
+    }
+    if (evicted > 0) {
+      log.debug(`Evicted ${evicted} stale session(s) (TTL: ${Math.round(this.ttlMs / 60_000)}m)`);
     }
   }
 
