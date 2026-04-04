@@ -22,6 +22,7 @@ import { createMyStatusTool } from "./tools/my-status-tool.js";
 import { createExportTool } from "./tools/export-tool.js";
 import { createResetTool } from "./tools/reset-tool.js";
 import { createHelpTool } from "./tools/help-tool.js";
+import { createGradesTool } from "./tools/grades-tool.js";
 import type { WebClient } from "@slack/web-api";
 
 export interface AgentToolsResult {
@@ -54,6 +55,7 @@ export function createAgentTools(
     allTools.push(createStatusTool(cronService));
     allTools.push(createExportTool());
     allTools.push(createResetTool());
+    allTools.push(createGradesTool(assignmentStore, submissionStore, checkinStore));
 
     cronSystemHandler = async (tag, params) => {
       if (tag === "CLOSE_ASSIGNMENT" && params.assignmentId) {

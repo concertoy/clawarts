@@ -85,6 +85,19 @@ export class CronService {
     await this.ensureLoaded();
     const now = this.now();
 
+    // Idempotency: if a one-shot job with the same name already exists and is still enabled,
+    // return it instead of creating a duplicate. Prevents double-creation from
+    // skills that run twice (e.g., double-click on /new_homework).
+    if (input.schedule.kind === "at" && input.name) {
+      const existing = this.jobs.find(
+        (j) => j.name === input.name && j.enabled && j.schedule.kind === "at",
+      );
+      if (existing) {
+        this.log.debug(`Idempotent skip: one-shot job "${input.name}" already exists (${existing.id})`);
+        return existing;
+      }
+    }
+
     const job: CronJob = {
       ...input,
       id: randomUUID(),
