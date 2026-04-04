@@ -21,10 +21,15 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     socketMode: true,
   });
 
-  // Increase ping timeout from default 5s to 30s to avoid constant reconnections
-  const receiver = (app as any).receiver;
-  if (receiver?.client) {
-    receiver.client.clientPingTimeoutMS = 30_000;
+  // Increase ping timeout from default 5s to 30s to avoid constant reconnections.
+  // This accesses Bolt internals — wrapped in try/catch for forward compatibility.
+  try {
+    const receiver = (app as any).receiver;
+    if (receiver?.client) {
+      receiver.client.clientPingTimeoutMS = 30_000;
+    }
+  } catch {
+    // Bolt internals may change — non-fatal
   }
 
   const allowedUsers = config.allowedUsers ? new Set(config.allowedUsers) : null;

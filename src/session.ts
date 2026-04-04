@@ -129,8 +129,9 @@ export class SessionStore {
       const tmp = filePath + `.tmp.${process.pid}`;
       fs.writeFileSync(tmp, JSON.stringify(toSave), "utf-8");
       fs.renameSync(tmp, filePath);
-    } catch {
-      // Best-effort
+    } catch (err) {
+      // Best-effort — log to help diagnose disk issues (e.g., full disk, permissions)
+      console.warn(`[session] Failed to persist ${session.key}:`, err instanceof Error ? err.message : err);
     }
   }
 

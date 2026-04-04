@@ -78,7 +78,9 @@ export class Agent {
     // Build conversation messages from session history + new user message
     const userContent = `[From: <@${userId}>]\n${userMessage}`;
     const messages: ProviderMessage[] = [
-      ...session.messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      ...session.messages
+        .filter((m) => m.content) // skip empty/corrupted messages from disk restore
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
       { role: "user" as const, content: userContent, ...(images?.length ? { images } : {}) },
     ];
 
