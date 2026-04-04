@@ -3,6 +3,7 @@ import type { ToolDefinition, ToolUseContext } from "../types.js";
 import type { CheckinStore } from "../store/checkin-store.js";
 import type { CronService } from "../cron/service.js";
 import { getStudentsForTutor, getRegisteredAgent } from "../relay.js";
+import { errMsg } from "../utils/errors.js";
 import { markdownToSlack } from "../utils/slack-markdown.js";
 
 /**
@@ -458,7 +459,7 @@ async function notifyStudentsOfScores(
       await agent.slackClient.chat.postMessage({ channel: channelId, text: markdownToSlack(msg) });
       notified++;
     } catch (err) {
-      console.warn(`[checkin] Failed to notify student:`, err instanceof Error ? err.message : err);
+      console.warn(`[checkin] Failed to notify student:`, errMsg(err));
     }
   });
 

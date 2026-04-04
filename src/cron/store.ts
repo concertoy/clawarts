@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { errMsg, isFileNotFound } from "../utils/errors.js";
 import type { CronStoreFile } from "./types.js";
 
 /**
@@ -15,10 +16,10 @@ export async function loadCronStore(storePath: string): Promise<CronStoreFile> {
     }
     return { version: 1, jobs: [] };
   } catch (err) {
-    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+    if (isFileNotFound(err)) {
       return { version: 1, jobs: [] };
     }
-    console.warn(`[cron] Failed to load store at ${storePath}:`, err instanceof Error ? err.message : err);
+    console.warn(`[cron] Failed to load store at ${storePath}:`, errMsg(err));
     return { version: 1, jobs: [] };
   }
 }

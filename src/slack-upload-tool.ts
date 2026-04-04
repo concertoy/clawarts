@@ -5,6 +5,7 @@
 
 import type { WebClient } from "@slack/web-api";
 import type { ToolDefinition, ToolUseContext } from "./types.js";
+import { errMsg } from "./utils/errors.js";
 
 const MAX_CONTENT_BYTES = 1 * 1024 * 1024; // 1MB text limit
 
@@ -71,8 +72,7 @@ export function createSlackUploadTool(slackClient: WebClient): ToolDefinition {
 
         return `File "${filename}" uploaded successfully to the conversation.`;
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return `Error uploading file: ${msg}`;
+        return `Error uploading file: ${errMsg(err)}`;
       }
     },
   };

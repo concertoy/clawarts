@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { AgentConfig } from "./types.js";
+import { errMsg } from "./utils/errors.js";
 
 /**
  * Startup diagnostics. Runs after config is loaded but before agents connect.
@@ -131,8 +132,7 @@ export async function checkProviderHealth(configs: AgentConfig[]): Promise<void>
         }
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`[health] ${provider}: ${msg}`);
+      console.warn(`[health] ${provider}: ${errMsg(err)}`);
     }
   });
 

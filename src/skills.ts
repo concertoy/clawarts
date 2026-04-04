@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import matter from "gray-matter";
 import type { Skill, SkillSources } from "./types.js";
+import { errMsg, isFileNotFound } from "./utils/errors.js";
 
 // ─── Options ─────────────────────────────────────────────────────────
 
@@ -99,8 +100,8 @@ function parseSkillFile(
     return skill;
   } catch (err) {
     // ENOENT is expected when probing for SKILL.md — only warn on real errors
-    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") return null;
-    console.warn(`[skills] Failed to parse ${skillPath}, skipping:`, err instanceof Error ? err.message : err);
+    if (isFileNotFound(err)) return null;
+    console.warn(`[skills] Failed to parse ${skillPath}, skipping:`, errMsg(err));
     return null;
   }
 }

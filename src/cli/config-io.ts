@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { AgentEntry, RootConfig } from "../types.js";
+import { errMsg, isFileNotFound } from "../utils/errors.js";
 
 /**
  * Config path resolution order:
@@ -29,7 +30,7 @@ export function readConfig(): RootConfig {
   try {
     raw = fs.readFileSync(CONFIG_PATH, "utf-8");
   } catch (err) {
-    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+    if (isFileNotFound(err)) {
       return { defaults: {}, agents: [] };
     }
     throw err;
@@ -38,8 +39,7 @@ export function readConfig(): RootConfig {
   try {
     parsed = JSON.parse(raw) as Partial<RootConfig>;
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to parse ${CONFIG_PATH}: ${msg}`);
+    throw new Error(`Failed to parse ${CONFIG_PATH}: ${errMsg(err)}`);
   }
   return {
     defaults: parsed.defaults ?? {},

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { Provider } from "./types.js";
+import { errMsg, isFileNotFound } from "./utils/errors.js";
 
 // --- OpenAI Codex OAuth constants (from pi-ai/oauth/openai-codex.js) ---
 const OPENAI_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
@@ -249,8 +250,8 @@ export class TokenProvider {
       return JSON.parse(fs.readFileSync(this.authFile, "utf-8")) as StoredAuth;
     } catch (err) {
       // ENOENT is expected on first run — only warn on real errors (corrupted file, permission denied)
-      if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") return null;
-      console.warn(`[auth] Corrupted auth file ${this.authFile}, will re-login:`, err instanceof Error ? err.message : err);
+      if (isFileNotFound(err)) return null;
+      console.warn(`[auth] Corrupted auth file ${this.authFile}, will re-login:`, errMsg(err));
       return null;
     }
   }
@@ -264,7 +265,7 @@ export class TokenProvider {
       fs.renameSync(tmp, this.authFile);
     } catch (err) {
       try { fs.unlinkSync(tmp); } catch { /* already gone */ }
-      console.warn("[auth] Failed to write auth file:", err instanceof Error ? err.message : err);
+      console.warn("[auth] Failed to write auth file:", errMsg(err));
     }
   }
 }

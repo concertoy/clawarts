@@ -1,5 +1,5 @@
 import type { ToolDefinition } from "../types.js";
-import type { ImageContent, ModelProvider, ProviderCallParams, ProviderMessage, ProviderResponse, ToolCall } from "../provider.js";
+import type { ModelProvider, ProviderCallParams, ProviderMessage, ProviderResponse, ToolCall } from "../provider.js";
 import { withRetry } from "../utils/retry.js";
 
 function safeParse(json: string): unknown {

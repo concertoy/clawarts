@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import type { WorkspaceFile } from "./types.js";
+import { errMsg, isFileNotFound } from "./utils/errors.js";
 
 /**
  * Bootstrap files loaded from the workspace directory, following OpenClaw's pattern.
@@ -31,8 +32,8 @@ function getBootstrapStats(workspaceDir: string): { maxMtime: number; fileCount:
       count++;
     } catch (err) {
       // ENOENT is expected for missing bootstrap files; warn on real errors (e.g. EACCES)
-      if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code !== "ENOENT") {
-        console.warn(`[workspace] Failed to stat ${name}:`, err.message);
+      if (!isFileNotFound(err)) {
+        console.warn(`[workspace] Failed to stat ${name}:`, errMsg(err));
       }
     }
   }
@@ -70,8 +71,8 @@ export function loadWorkspaceFiles(workspaceDir: string): WorkspaceFile[] {
       files.push({ name, content });
     } catch (err) {
       // ENOENT is expected for missing bootstrap files — only warn on real errors
-      if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") continue;
-      console.warn(`[workspace] Failed to read ${name}:`, err instanceof Error ? err.message : err);
+      if (isFileNotFound(err)) continue;
+      console.warn(`[workspace] Failed to read ${name}:`, errMsg(err));
     }
   }
 

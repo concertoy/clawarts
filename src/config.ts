@@ -2,7 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import dotenv from "dotenv";
-import type { AgentConfig, AgentEntry, AgentDefaults, RootConfig, SkillSources } from "./types.js";
+import type { AgentConfig, AgentEntry, AgentDefaults, SkillSources } from "./types.js";
+import { errMsg, isFileNotFound } from "./utils/errors.js";
 
 dotenv.config();
 
@@ -36,14 +37,13 @@ function loadConfigFile(): LegacyConfigFile {
   try {
     raw = fs.readFileSync(configPath, "utf-8");
   } catch (err) {
-    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") return {};
+    if (isFileNotFound(err)) return {};
     throw err;
   }
   try {
     return JSON.parse(raw) as LegacyConfigFile;
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to parse ${configPath}: ${msg}`);
+    throw new Error(`Failed to parse ${configPath}: ${errMsg(err)}`);
   }
 }
 

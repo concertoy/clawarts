@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ToolDefinition } from "../types.js";
-import { createPathResolver, errMsg } from "./paths.js";
+import { createPathResolver } from "./paths.js";
+import { errMsg } from "../utils/errors.js";
 
 // ─── Export ───────────────────────────────────────────────────────────
 

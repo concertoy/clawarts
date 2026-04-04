@@ -1,5 +1,6 @@
 import type { ToolDefinition, ToolUseContext } from "./types.js";
 import type { ToolCall } from "./provider.js";
+import { errMsg } from "./utils/errors.js";
 
 const MAX_CONCURRENCY = 10;
 
@@ -119,7 +120,7 @@ async function executeOne(tools: ToolDefinition[], tc: ToolCall, context?: ToolU
     return { callId: tc.id, name: tc.name, output, isError: isError || undefined };
   } catch (err) {
     const elapsed = Date.now() - startMs;
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = errMsg(err);
     console.error(`[tool-runner] ${tc.name} failed after ${(elapsed / 1000).toFixed(1)}s: ${msg.slice(0, 100)}`);
     return { callId: tc.id, name: tc.name, output: `Tool execution error: ${msg}`, isError: true };
   }

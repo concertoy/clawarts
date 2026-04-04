@@ -21,6 +21,7 @@ import { scaffoldWorkspace } from "./cli/scaffold.js";
 import { runDiagnostics, checkProviderHealth } from "./diagnostics.js";
 import { registerAgent, createRelayTool, createListStudentsTool } from "./relay.js";
 import { createSlackUploadTool } from "./slack-upload-tool.js";
+import { errMsg } from "./utils/errors.js";
 import { AssignmentStore } from "./store/assignment-store.js";
 import { SubmissionStore } from "./store/submission-store.js";
 import { createAssignmentTool } from "./tools/assignment-tool.js";
@@ -210,8 +211,7 @@ async function main() {
     try {
       await app.start();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      throw new Error(`${label} Failed to start Slack Socket Mode — check that slackBotToken and slackAppToken are correct and that Socket Mode is enabled in your Slack app settings. Error: ${msg}`);
+      throw new Error(`${label} Failed to start Slack Socket Mode — check that slackBotToken and slackAppToken are correct and that Socket Mode is enabled in your Slack app settings. Error: ${errMsg(err)}`);
     }
     console.log(`${label} Slack bot running (Socket Mode)`);
 
