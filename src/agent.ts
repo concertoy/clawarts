@@ -71,6 +71,7 @@ export class Agent {
     if (!limit.allowed) {
       const waitSec = Math.ceil(limit.retryAfterMs / 1000);
       console.warn(`[agent] Rate limited (${this.config.id}): retry in ${waitSec}s`);
+      touchAgent(this.config.id);
       return `I'm receiving too many messages right now. Please wait ${waitSec} seconds and try again.`;
     }
 

@@ -168,7 +168,7 @@ export function createRelayTool(): ToolDefinition {
     async execute(input: Record<string, unknown>, context?: ToolUseContext): Promise<string> {
       const action = (input.action as string) || "send";
       const message = (input.message as string)?.trim();
-      if (!message) return "[Error] message is required.";
+      if (!message) return "Error: message is required.";
 
       const sourceAgent = context?.agentId ?? "unknown";
 
@@ -211,13 +211,13 @@ export function createRelayTool(): ToolDefinition {
       const targetId = input.targetAgentId as string;
       const userId = input.userId as string;
       if (!targetId || !userId) {
-        return "[Error] send action requires targetAgentId and userId. Use action=broadcast to reach all students.";
+        return "Error: send action requires targetAgentId and userId. Use action=broadcast to reach all students.";
       }
 
       const target = getRegisteredAgent(targetId);
       if (!target) {
         const available = listRegisteredAgentIds().join(", ");
-        return `[Error] Agent "${targetId}" not found. Available agents: ${available}`;
+        return `Error: agent "${targetId}" not found. Available agents: ${available}`;
       }
 
       try {
@@ -225,7 +225,7 @@ export function createRelayTool(): ToolDefinition {
         return `Relayed: ${result}`;
       } catch (err) {
         const errText = errMsg(err);
-        return `[Error] Relay to "${targetId}" failed: ${errText}`;
+        return `Error: relay to "${targetId}" failed: ${errText}`;
       }
     },
   };
