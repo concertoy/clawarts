@@ -5,6 +5,9 @@
  */
 
 import { errMsg } from "../utils/errors.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("followup-queue");
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -133,7 +136,7 @@ function scheduleDrain(sessionKey: string): void {
         try {
           await callback(batch);
         } catch (err) {
-          console.warn(`[followup-queue] Drain failed for ${sessionKey}:`, errMsg(err));
+          log.warn(`Drain failed for ${sessionKey}:`, errMsg(err));
         }
       }
     } finally {

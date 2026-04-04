@@ -4,6 +4,9 @@ import { parseHTML } from "linkedom";
 import type { ToolDefinition } from "../types.js";
 import { BoundedMap } from "../utils/bounded-map.js";
 import { errMsg } from "../utils/errors.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("web-tools");
 
 // ─── web_search (DuckDuckGo) ──────────────────────────────────────────
 
@@ -299,7 +302,7 @@ function extractHtmlContent(html: string, url: string, mode: string): string {
         if (result.trim().length > 50) return result;
       }
     } catch (err) {
-      console.warn(`[web-tools] Readability failed for ${url}:`, errMsg(err));
+      log.warn(`Readability failed for ${url}:`, errMsg(err));
     }
   }
 

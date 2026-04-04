@@ -1,6 +1,9 @@
 import { errMsg } from "../utils/errors.js";
 import { atomicWriteJson, readJsonFile } from "../utils/json-file.js";
+import { createLogger } from "../utils/logger.js";
 import type { CronStoreFile } from "./types.js";
+
+const log = createLogger("cron");
 
 const EMPTY_STORE: CronStoreFile = { version: 1, jobs: [] };
 
@@ -15,7 +18,7 @@ export async function loadCronStore(storePath: string): Promise<CronStoreFile> {
     }
     return { ...EMPTY_STORE };
   } catch (err) {
-    console.warn(`[cron] Failed to load store at ${storePath}:`, errMsg(err));
+    log.warn(`Failed to load store at ${storePath}:`, errMsg(err));
     return { ...EMPTY_STORE };
   }
 }

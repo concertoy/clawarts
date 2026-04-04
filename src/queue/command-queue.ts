@@ -7,6 +7,9 @@
  * execute independently and don't block each other.
  */
 import { CommandLane, type CommandLaneType } from "./lanes.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("command-queue");
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -60,7 +63,7 @@ function drainLane(lane: string): void {
         if (!entry) break;
         // Evict stale tasks — prevents pileup when the bot is slow
         if (Date.now() - entry.enqueuedAt > STALE_TASK_MS) {
-          console.warn(`[command-queue] Evicting stale task in lane "${lane}" (queued ${Math.round((Date.now() - entry.enqueuedAt) / 1000)}s ago)`);
+          log.warn(`Evicting stale task in lane "${lane}" (queued ${Math.round((Date.now() - entry.enqueuedAt) / 1000)}s ago)`);
           entry.reject(new Error(`Task evicted: queued for ${Math.round((Date.now() - entry.enqueuedAt) / 1000)}s (limit: ${STALE_TASK_MS / 1000}s)`));
           continue;
         }

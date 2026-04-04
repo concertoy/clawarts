@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { loadStore, saveStore } from "./json-store.js";
+import { loadStore, saveStore, withStoreLock } from "./json-store.js";
 import type { Assignment } from "./types.js";
 
 export class AssignmentStore {
@@ -14,15 +14,17 @@ export class AssignmentStore {
   }
 
   async create(data: Omit<Assignment, "id" | "createdAt">): Promise<Assignment> {
-    const store = await this.load();
-    const assignment: Assignment = {
-      ...data,
-      id: crypto.randomUUID(),
-      createdAt: Date.now(),
-    };
-    store.items.push(assignment);
-    await this.save(store.items);
-    return assignment;
+    return withStoreLock(this.storePath, async () => {
+      const store = await this.load();
+      const assignment: Assignment = {
+        ...data,
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+      };
+      store.items.push(assignment);
+      await this.save(store.items);
+      return assignment;
+    });
   }
 
   async list(filter?: { status?: Assignment["status"] }): Promise<Assignment[]> {
@@ -50,5 +52,18 @@ export class AssignmentStore {
 
   async close(id: string): Promise<Assignment | undefined> {
     return this.update(id, { status: "closed" });
+  }
+
+  /** List all assignments (no filter). Useful for reporting/export. */
+  async listAll(): Promise<Assignment[]> {
+    const store = await this.load();
+    return store.items;
+  }
+
+  /** Count assignments by status. */
+  async countByStatus(): Promise<{ open: number; closed: number; total: number }> {
+    const store = await this.load();
+    const open = store.items.filter((a) => a.status === "open").length;
+    return { open, closed: store.items.length - open, total: store.items.length };
   }
 }

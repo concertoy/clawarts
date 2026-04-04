@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import { getStudentsForTutor, getAgentLastActive, getAgentLastError, getRegisteredAgent } from "../relay.js";
+import { getLaneDepth } from "../queue/command-queue.js";
+import { CommandLane } from "../queue/lanes.js";
 import type { CronService } from "../cron/service.js";
 import { getTokenUsage, estimateCost, formatLatencyStats, getToolUsage } from "../utils/token-tracker.js";
 import { formatTokenCount, formatUsd } from "../utils/format.js";
@@ -55,6 +57,13 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
         }
       } else {
         lines.push("\nNo student agents linked.");
+      }
+
+      // Queue health
+      const mainDepth = getLaneDepth(CommandLane.Main);
+      const cronDepth = getLaneDepth(CommandLane.Cron);
+      if (mainDepth > 0 || cronDepth > 0) {
+        lines.push(`\nQueues: main=${mainDepth}, cron=${cronDepth}`);
       }
 
       // Cron service health
