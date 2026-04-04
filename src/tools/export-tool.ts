@@ -1,7 +1,7 @@
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import { getStudentsForTutor, getRegisteredAgent } from "../relay.js";
 import { getTokenUsage } from "../utils/token-tracker.js";
-import { formatTokenCount } from "../utils/format.js";
+import { formatTokenCount, formatTimeAgo } from "../utils/format.js";
 
 /**
  * Session export tool for tutors — view a student's recent conversation history.
@@ -62,8 +62,7 @@ export function createExportTool(): ToolDefinition {
           : "";
 
         const lines = sorted.map((s) => {
-          const ago = Math.round((Date.now() - s.updatedAt) / 60_000);
-          return `  ${s.key}: ${s.messageCount} messages (${ago}m ago)`;
+          return `  ${s.key}: ${s.messageCount} messages (${formatTimeAgo(s.updatedAt)})`;
         });
 
         return `Sessions for ${studentId} (${list.length}):${tokenInfo}\n${lines.join("\n")}\n\nUse sessionKey to export a specific conversation.`;

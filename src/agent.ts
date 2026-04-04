@@ -5,7 +5,7 @@ import { buildSystemPrompt } from "./system-prompt.js";
 import { loadWorkspaceFiles } from "./workspace.js";
 import { runToolBatch } from "./tool-runner.js";
 import { touchAgent, recordAgentError } from "./relay.js";
-import { errMsg } from "./utils/errors.js";
+import { errMsg, isAbortError } from "./utils/errors.js";
 import { createRateLimiter, type RateLimiter } from "./utils/rate-limit.js";
 import { recordTokenUsage } from "./utils/token-tracker.js";
 import { createLogger } from "./utils/logger.js";
@@ -292,7 +292,7 @@ export class Agent {
       }
     } catch (err) {
       // Re-throw abort errors (handled by caller in slack.ts)
-      if (err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"))) {
+      if (isAbortError(err)) {
         throw err;
       }
       // Log unexpected errors but still save partial response
@@ -436,7 +436,7 @@ function ensureAlternatingRoles(messages: ProviderMessage[]): void {
 // ─── Quiet hours ────────────────────────────────────────────────────
 
 /** Check if current time falls within quiet hours (format: "HH:MM-HH:MM"). */
-function isQuietHours(range: string, timezone?: string): boolean {
+export function isQuietHours(range: string, timezone?: string): boolean {
   const match = range.match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/);
   if (!match) return false;
 
