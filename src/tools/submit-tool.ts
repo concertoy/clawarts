@@ -29,7 +29,7 @@ export function createSubmitTool(
       required: ["action"],
     },
     isReadOnly: false,
-    category: "academic" as any,
+    category: "academic",
 
     async execute(input: Record<string, unknown>, context?: ToolUseContext): Promise<string> {
       const action = input.action as string;
@@ -56,7 +56,8 @@ export function createSubmitTool(
           const resubNote = existing ? " (previous submission overwritten)" : "";
 
           // Notify tutor of new submission (best-effort, fire-and-forget)
-          notifyTutorOfSubmission(agentId, userId, assignment.title, submission.status === "late").catch(() => {});
+          notifyTutorOfSubmission(agentId, userId, assignment.title, submission.status === "late")
+            .catch((err) => console.warn(`[submit] Failed to notify tutor:`, err instanceof Error ? err.message : err));
 
           return `Submitted${lateNote}${resubNote}:\n- Assignment: "${assignment.title}"\n- Submission ID: ${submission.id}\n- Time: ${new Date(submission.submittedAt).toISOString()}`;
         }

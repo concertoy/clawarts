@@ -136,6 +136,7 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults, allEntri
     linkedTutor: entry.linkedTutor,
     allowedUsers: entry.allowedUsers ?? defaults.allowedUsers,
     helpLevel: entry.helpLevel ?? defaults.helpLevel,
+    maxToolIterations: entry.maxToolIterations ?? defaults.maxToolIterations,
   };
 }
 
