@@ -49,15 +49,13 @@ export async function downloadSlackImages(
     const url = file.url_private_download ?? file.url_private;
     if (!url) continue;
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
-
       const resp = await fetch(url, {
         headers: { Authorization: `Bearer ${botToken}` },
         signal: controller.signal,
       });
-      clearTimeout(timer);
 
       if (!resp.ok) {
         console.warn(`[slack-images] Failed to download ${file.name}: ${resp.status}`);
@@ -74,6 +72,8 @@ export async function downloadSlackImages(
       console.log(`[slack-images] Downloaded ${file.name} (${Math.round(buffer.byteLength / 1024)}KB)`);
     } catch (err) {
       console.warn(`[slack-images] Error downloading ${file.name}:`, err);
+    } finally {
+      clearTimeout(timer);
     }
   }
 

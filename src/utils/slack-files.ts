@@ -77,15 +77,13 @@ export async function downloadSlackFiles(
     const url = file.url_private_download ?? file.url_private;
     if (!url) continue;
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
-
       const resp = await fetch(url, {
         headers: { Authorization: `Bearer ${botToken}` },
         signal: controller.signal,
       });
-      clearTimeout(timer);
 
       if (!resp.ok) {
         console.warn(`[slack-files] Failed to download ${fileName}: ${resp.status}`);
@@ -104,6 +102,8 @@ export async function downloadSlackFiles(
       console.log(`[slack-files] Downloaded ${fileName} (${text.length} chars${truncated ? ", truncated" : ""})`);
     } catch (err) {
       console.warn(`[slack-files] Error downloading ${fileName}:`, err);
+    } finally {
+      clearTimeout(timer);
     }
   }
 
