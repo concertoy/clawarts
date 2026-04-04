@@ -165,7 +165,9 @@ export class SessionStore {
   private deleteFromDisk(key: string): void {
     const filePath = this.sessionFilePath(key);
     if (!filePath) return;
-    try { fs.unlinkSync(filePath); } catch { /* ignore */ }
+    try { fs.unlinkSync(filePath); } catch (err) {
+      if (!isFileNotFound(err)) console.warn(`[session] Failed to delete ${key}:`, errMsg(err));
+    }
   }
 
   /** Persist all in-memory sessions to disk before shutdown. */

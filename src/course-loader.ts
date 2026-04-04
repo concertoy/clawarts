@@ -83,7 +83,7 @@ export function parseCourseSchedule(markdown: string): CourseSchedule {
     const ciMatch = line.match(/^-\s+checkin:\s+(\w+)\s*(.*)/);
     if (ciMatch) {
       const rawMode = ciMatch[1];
-      const mode = (VALID_CHECKIN_MODES.has(rawMode as CourseCheckin["mode"]) ? rawMode : "reflect") as CourseCheckin["mode"];
+      const mode: CourseCheckin["mode"] = VALID_CHECKIN_MODES.has(rawMode as CourseCheckin["mode"]) ? (rawMode as CourseCheckin["mode"]) : "reflect";
       const rest = ciMatch[2] || "";
 
       const topicMatch = rest.match(/topic="([^"]+)"/);

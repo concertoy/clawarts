@@ -126,7 +126,7 @@ export function createCheckinRespondTool(
 
           const scored = responses.filter((r) => r.score != null);
           const avg = scored.length > 0
-            ? Math.round(scored.reduce((s, r) => s + r.score!, 0) / scored.length)
+            ? Math.round(scored.reduce((s, r) => s + (r.score ?? 0), 0) / scored.length)
             : null;
 
           return [
