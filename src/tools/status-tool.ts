@@ -16,7 +16,8 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
 
     async execute(_input: Record<string, unknown>, context?: ToolUseContext): Promise<string> {
       const tutorId = context?.agentId ?? "unknown";
-      const lines: string[] = [`Status for ${tutorId}:`];
+      const uptimeMin = Math.round(process.uptime() / 60);
+      const lines: string[] = [`Status for ${tutorId} (uptime: ${uptimeMin}m):`];
 
       // Student agents
       const students = getStudentsForTutor(tutorId);
