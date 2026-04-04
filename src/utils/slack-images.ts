@@ -71,7 +71,7 @@ export async function downloadSlackImages(
       images.push({ type: "image", mediaType, base64 });
       console.log(`[slack-images] Downloaded ${file.name} (${Math.round(buffer.byteLength / 1024)}KB)`);
     } catch (err) {
-      console.warn(`[slack-images] Error downloading ${file.name}:`, err);
+      console.warn(`[slack-images] Error downloading ${file.name}:`, err instanceof Error ? err.message : err);
     } finally {
       clearTimeout(timer);
     }

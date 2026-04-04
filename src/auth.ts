@@ -246,9 +246,10 @@ export class TokenProvider {
 
   private readStored(): StoredAuth | null {
     try {
-      if (!fs.existsSync(this.authFile)) return null;
       return JSON.parse(fs.readFileSync(this.authFile, "utf-8")) as StoredAuth;
     } catch (err) {
+      // ENOENT is expected on first run — only warn on real errors (corrupted file, permission denied)
+      if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") return null;
       console.warn(`[auth] Corrupted auth file ${this.authFile}, will re-login:`, err instanceof Error ? err.message : err);
       return null;
     }

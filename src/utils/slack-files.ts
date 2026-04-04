@@ -101,7 +101,7 @@ export async function downloadSlackFiles(
       attachments.push({ name: fileName, content: text, truncated });
       console.log(`[slack-files] Downloaded ${fileName} (${text.length} chars${truncated ? ", truncated" : ""})`);
     } catch (err) {
-      console.warn(`[slack-files] Error downloading ${fileName}:`, err);
+      console.warn(`[slack-files] Error downloading ${fileName}:`, err instanceof Error ? err.message : err);
     } finally {
       clearTimeout(timer);
     }
