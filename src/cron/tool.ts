@@ -58,11 +58,15 @@ export function createCronTool(cronService: CronService, agentId: string): ToolD
             const atMs = input.atMs as number;
             if (!atMs || !Number.isFinite(atMs)) return "Error: atMs (epoch milliseconds) is required for one-shot reminders.";
             if (atMs <= Date.now()) return "Error: atMs must be in the future.";
+            if (atMs > Date.now() + 365 * 86_400_000) return "Error: atMs is more than 1 year in the future — check the epoch value.";
             schedule = { kind: "at", atMs };
           } else {
             const everyMs = input.everyMs as number;
             if (!everyMs || !Number.isFinite(everyMs) || everyMs < 60_000) {
               return "Error: everyMs is required and must be at least 60000 (1 minute).";
+            }
+            if (everyMs > 30 * 86_400_000) {
+              return "Error: everyMs exceeds 30 days — use a one-shot (scheduleKind=at) for events that far out.";
             }
             schedule = { kind: "every", everyMs, anchorMs: Date.now() };
           }

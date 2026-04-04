@@ -88,6 +88,15 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
         lines.push(`\nTop tools: ${top.map(([n, c]) => `${n}(${c})`).join(", ")}`);
       }
 
+      // Workspace files
+      if (tutorReg) {
+        const wFiles = tutorReg.agent.workspaceFiles;
+        if (wFiles.length > 0) {
+          const fileList = wFiles.map((f) => `${f.name} (${f.content.length} chars)`).join(", ");
+          lines.push(`\nWorkspace files: ${fileList}`);
+        }
+      }
+
       // Total class cost estimate (tutor + all students)
       let totalCost = tutorTokens ? estimateCost(tutorTokens) : 0;
       for (const s of students) {

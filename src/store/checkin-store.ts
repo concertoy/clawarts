@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import path from "node:path";
-import { loadStore, saveStore } from "./json-store.js";
+import { loadStore, saveStore, withStoreLock } from "./json-store.js";
 import type { CheckinWindow, CheckinResponse, CheckinStatus } from "./types.js";
 
 /** Check if a window is currently active (open and not expired). */
@@ -108,36 +108,40 @@ export class CheckinStore {
     agentId: string;
     content: string;
   }): Promise<CheckinResponse | { error: string }> {
-    // Validate window
+    // Validate window before acquiring lock (read-only check)
     const window = await this.getWindow(data.windowId);
     if (!window) return { error: "Check-in window not found." };
     if (window.status !== "open") return { error: "Check-in window is closed." };
     if (Date.now() > window.closesAt) return { error: "Check-in window has expired." };
 
-    const store = await loadStore<CheckinResponse>(this.responsesPath);
+    // Lock the responses file to prevent concurrent read-modify-write races
+    // (multiple students may submit simultaneously during a check-in window)
+    return withStoreLock(this.responsesPath, async () => {
+      const store = await loadStore<CheckinResponse>(this.responsesPath);
 
-    // Overwrite previous response from same user for same window
-    const existingIdx = store.items.findIndex(
-      (r) => r.windowId === data.windowId && r.userId === data.userId,
-    );
+      // Overwrite previous response from same user for same window
+      const existingIdx = store.items.findIndex(
+        (r) => r.windowId === data.windowId && r.userId === data.userId,
+      );
 
-    const response: CheckinResponse = {
-      id: crypto.randomUUID(),
-      windowId: data.windowId,
-      userId: data.userId,
-      agentId: data.agentId,
-      content: data.content,
-      submittedAt: Date.now(), // server-set timestamp
-    };
+      const response: CheckinResponse = {
+        id: crypto.randomUUID(),
+        windowId: data.windowId,
+        userId: data.userId,
+        agentId: data.agentId,
+        content: data.content,
+        submittedAt: Date.now(), // server-set timestamp
+      };
 
-    if (existingIdx !== -1) {
-      store.items[existingIdx] = response;
-    } else {
-      store.items.push(response);
-    }
+      if (existingIdx !== -1) {
+        store.items[existingIdx] = response;
+      } else {
+        store.items.push(response);
+      }
 
-    await saveStore(this.responsesPath, store);
-    return response;
+      await saveStore(this.responsesPath, store);
+      return response;
+    });
   }
 
   async getResponse(id: string): Promise<CheckinResponse | undefined> {
@@ -203,22 +207,24 @@ export class CheckinStore {
   async bulkEvaluate(
     evaluations: { responseId: string; score: number; status: CheckinStatus; feedback?: string }[],
   ): Promise<number> {
-    const store = await loadStore<CheckinResponse>(this.responsesPath);
-    let updated = 0;
-    for (const ev of evaluations) {
-      const idx = store.items.findIndex((r) => r.id === ev.responseId);
-      if (idx !== -1) {
-        store.items[idx] = {
-          ...store.items[idx],
-          score: ev.score,
-          status: ev.status,
-          feedback: ev.feedback,
-          evaluatedAt: Date.now(),
-        };
-        updated++;
+    return withStoreLock(this.responsesPath, async () => {
+      const store = await loadStore<CheckinResponse>(this.responsesPath);
+      let updated = 0;
+      for (const ev of evaluations) {
+        const idx = store.items.findIndex((r) => r.id === ev.responseId);
+        if (idx !== -1) {
+          store.items[idx] = {
+            ...store.items[idx],
+            score: ev.score,
+            status: ev.status,
+            feedback: ev.feedback,
+            evaluatedAt: Date.now(),
+          };
+          updated++;
+        }
       }
-    }
-    if (updated > 0) await saveStore(this.responsesPath, store);
-    return updated;
+      if (updated > 0) await saveStore(this.responsesPath, store);
+      return updated;
+    });
   }
 }
