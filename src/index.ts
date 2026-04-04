@@ -24,6 +24,9 @@ import { AssignmentStore } from "./store/assignment-store.js";
 import { SubmissionStore } from "./store/submission-store.js";
 import { createAssignmentTool } from "./tools/assignment-tool.js";
 import { createSubmitTool } from "./tools/submit-tool.js";
+import { CheckinStore } from "./store/checkin-store.js";
+import { createCheckinTool } from "./tools/checkin-tool.js";
+import { createCheckinRespondTool } from "./tools/checkin-respond-tool.js";
 
 // ─── Provider construction ────────────────────────────────────────────
 
@@ -120,12 +123,20 @@ async function main() {
       const assignmentStore = new AssignmentStore(path.join(dataDir, "assignments.json"));
       const submissionStore = new SubmissionStore(path.join(dataDir, "submissions.json"));
       allTools.push(createAssignmentTool(assignmentStore, submissionStore, cronService, config.id));
+
+      // Check-in management for tutors (data in tutor's directory)
+      const checkinStore = new CheckinStore(dataDir);
+      allTools.push(createCheckinTool(checkinStore, cronService, config.id));
     } else if (config.linkedTutor) {
       // Student agents share the tutor's data stores (read assignments, write submissions)
       const tutorDataDir = path.join(os.homedir(), ".clawarts", "agents", config.linkedTutor, "data");
       const assignmentStore = new AssignmentStore(path.join(tutorDataDir, "assignments.json"));
       const submissionStore = new SubmissionStore(path.join(tutorDataDir, "submissions.json"));
       allTools.push(createSubmitTool(assignmentStore, submissionStore));
+
+      // Check-in respond tool for students (reads/writes tutor's checkin store)
+      const checkinStore = new CheckinStore(tutorDataDir);
+      allTools.push(createCheckinRespondTool(checkinStore));
     }
 
     // Add Slack file upload tool (all agents can upload files to their conversation)
