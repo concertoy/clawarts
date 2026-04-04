@@ -18,6 +18,18 @@ const DDG_TIMEOUT = 20_000;
 const ddgCache = new BoundedMap<string, { results: string; expiresAt: number }>(100);
 const DDG_CACHE_TTL = 60 * 60 * 1000;
 
+/** Sweep expired entries from a TTL cache. Runs at most every 60s per cache. */
+const lastSweep = new WeakMap<BoundedMap<string, { expiresAt: number }>, number>();
+function sweepExpired<V extends { expiresAt: number }>(cache: BoundedMap<string, V>): void {
+  const now = Date.now();
+  const last = lastSweep.get(cache as BoundedMap<string, { expiresAt: number }>) ?? 0;
+  if (now - last < 60_000) return;
+  lastSweep.set(cache as BoundedMap<string, { expiresAt: number }>, now);
+  for (const [key, val] of cache) {
+    if (val.expiresAt <= now) cache.delete(key);
+  }
+}
+
 const webSearchTool: ToolDefinition = {
   name: "web_search",
   description:
@@ -75,6 +87,7 @@ const webSearchTool: ToolDefinition = {
 
       const output = `Search results for: ${query}\n\n${formatted}`;
 
+      sweepExpired(ddgCache);
       ddgCache.set(cacheKey, { results: output, expiresAt: Date.now() + DDG_CACHE_TTL });
       return output;
     } catch (err) {
@@ -266,6 +279,7 @@ const webFetchTool: ToolDefinition = {
 
       if (!result.trim()) result = "(empty page — this site likely renders content via JavaScript.)";
 
+      sweepExpired(fetchCache);
       fetchCache.set(cacheKey, { result, expiresAt: Date.now() + FETCH_CACHE_TTL });
       return result;
     } catch (err) {

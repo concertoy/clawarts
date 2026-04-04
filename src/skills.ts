@@ -41,8 +41,15 @@ function scanSkillsRecursive(
   const expanded = expandTilde(rootDir);
   const resolved = path.resolve(expanded);
   const skills: Skill[] = [];
+  const visited = new Set<string>(); // real paths — prevents symlink cycles
 
   function walk(dir: string): void {
+    // Resolve symlinks and detect cycles
+    let realDir: string;
+    try { realDir = fs.realpathSync(dir); } catch { return; }
+    if (visited.has(realDir)) return;
+    visited.add(realDir);
+
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });

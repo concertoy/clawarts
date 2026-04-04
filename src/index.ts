@@ -176,11 +176,19 @@ async function main() {
   log.info(`Ready: ${tutors} tutor(s), ${students} student(s) — startup took ${(elapsedMs / 1000).toFixed(1)}s`);
 
   // Graceful shutdown (guarded against double-fire from SIGINT + SIGTERM)
+  const SHUTDOWN_TIMEOUT_MS = 10_000;
   let shuttingDown = false;
   const shutdown = async () => {
     if (shuttingDown) return;
     shuttingDown = true;
     log.info("Shutting down...");
+    // Force-exit if graceful shutdown hangs
+    const forceTimer = setTimeout(() => {
+      log.error(`Shutdown timed out after ${SHUTDOWN_TIMEOUT_MS / 1000}s — forcing exit`);
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS);
+    if (forceTimer.unref) forceTimer.unref();
+
     const cronResults = await Promise.allSettled(allCronServices.map((c) => c.stop()));
     for (const r of cronResults) {
       if (r.status === "rejected") log.warn("Cron stop error:", errMsg(r.reason));
@@ -191,6 +199,7 @@ async function main() {
     for (const r of appResults) {
       if (r.status === "rejected") log.warn("Slack app stop error:", errMsg(r.reason));
     }
+    clearTimeout(forceTimer);
     log.info("Goodbye.");
     process.exit(0);
   };
