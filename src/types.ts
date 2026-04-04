@@ -124,7 +124,7 @@ export interface ToolUseContext {
 }
 
 /** Tool categories for grouping and bulk filtering. */
-export type ToolCategory = "filesystem" | "shell" | "search" | "web" | "scheduling" | "utility" | "academic";
+export type ToolCategory = "filesystem" | "shell" | "search" | "web" | "scheduling" | "utility" | "academic" | "communication";
 
 export interface ToolDefinition {
   name: string;

@@ -94,6 +94,7 @@ Skills are prompt-driven workflows defined in `SKILL.md` files.
 - `/roster` — student roster with status flags
 - `/export` — generate downloadable grade report
 - `/office_hours` — set and share availability
+- `/status` — quick system health check (assignments, students, cron jobs)
 - `/help` — show available commands
 
 **Student skills:**
