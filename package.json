@@ -1,7 +1,7 @@
 {
   "name": "clawarts",
   "version": "0.1.0",
-  "description": "Minimalistic OpenClaw-style Slack agent powered by Claude",
+  "description": "Multi-agent Slack bot for course management with tutor/student roles",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

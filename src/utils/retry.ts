@@ -88,7 +88,7 @@ export async function withRetry<T>(
       const delay = getDelay(attempt + 1, retryAfter);
 
       opts?.onRetry?.(attempt + 1, delay, err);
-      console.log(`[retry] Attempt ${attempt + 1}/${maxRetries} failed, retrying in ${Math.round(delay)}ms`);
+      console.warn(`[retry] Attempt ${attempt + 1}/${maxRetries} failed, retrying in ${Math.round(delay)}ms`);
 
       await sleep(delay);
     }
