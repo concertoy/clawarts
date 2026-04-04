@@ -1,5 +1,5 @@
 import type { ToolDefinition, ToolUseContext } from "../types.js";
-import { getStudentsForTutor, getAgentLastActive } from "../relay.js";
+import { getStudentsForTutor, getAgentLastActive, getRegisteredAgent } from "../relay.js";
 import type { CronService } from "../cron/service.js";
 
 /**
@@ -17,7 +17,9 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
     async execute(_input: Record<string, unknown>, context?: ToolUseContext): Promise<string> {
       const tutorId = context?.agentId ?? "unknown";
       const uptimeMin = Math.round(process.uptime() / 60);
-      const lines: string[] = [`Status for ${tutorId} (uptime: ${uptimeMin}m):`];
+      const tutorReg = getRegisteredAgent(tutorId);
+      const tutorSessions = tutorReg?.sessions.size ?? 0;
+      const lines: string[] = [`Status for ${tutorId} (uptime: ${uptimeMin}m, ${tutorSessions} session(s)):`];
 
       // Student agents
       const students = getStudentsForTutor(tutorId);
@@ -27,7 +29,9 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
           const active = getAgentLastActive(s.id);
           const ago = active ? `${Math.round((Date.now() - active) / 60_000)}m ago` : "never";
           const users = s.allowedUsers.map((u) => `<@${u}>`).join(", ") || "(none)";
-          lines.push(`  ${s.id}: last active ${ago}, users: ${users}`);
+          const reg = getRegisteredAgent(s.id);
+          const sessionCount = reg?.sessions.size ?? 0;
+          lines.push(`  ${s.id}: last active ${ago}, ${sessionCount} session(s), users: ${users}`);
         }
       } else {
         lines.push("\nNo student agents linked.");

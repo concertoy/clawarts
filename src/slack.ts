@@ -45,7 +45,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   const sessionQueue = new KeyedAsyncQueue();
 
   let botUserIdPromise: Promise<string> | undefined;
-  const botDmChannels = new Set<string>(); // DM channels confirmed to be with the bot
+  const botDmChannels = new BoundedMap<string, true>(500); // DM channels confirmed to be with the bot
 
   // Message deduplication: Slack can deliver duplicate events.
   // Track recently processed message timestamps to avoid double-processing.
@@ -87,7 +87,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     try {
       const resp = await client.conversations.members({ channel, limit: 10 });
       if (resp.members?.includes(myId)) {
-        botDmChannels.add(channel);
+        botDmChannels.set(channel, true);
         return true;
       }
       return false;
