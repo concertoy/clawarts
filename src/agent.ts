@@ -11,6 +11,7 @@ import { recordTokenUsage } from "./utils/token-tracker.js";
 import { createLogger } from "./utils/logger.js";
 
 const DEFAULT_MAX_TOOL_ITERATIONS = 10;
+const AGENT_LOOP_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes max for entire agent loop
 
 /** Default: 30 requests per 60 seconds per agent. */
 const DEFAULT_RATE_LIMIT_REQUESTS = 30;
@@ -126,6 +127,13 @@ export class Agent {
     }
     const abortController = new AbortController();
     this.activeRequests.set(sessionKey, abortController);
+
+    // Safety timeout — abort after 5 minutes to prevent indefinite hangs
+    const loopTimeout = setTimeout(() => {
+      this.log.warn(`Agent loop timeout (${AGENT_LOOP_TIMEOUT_MS / 1000}s) — aborting`);
+      abortController.abort();
+    }, AGENT_LOOP_TIMEOUT_MS);
+    if (loopTimeout.unref) loopTimeout.unref();
 
     const session = this.sessions.get(sessionKey);
     const formattedTools = this.provider.formatTools(this.toolDefs);
@@ -302,6 +310,7 @@ export class Agent {
         lastText = "[An error occurred while processing your request. Please try again.]";
       }
     } finally {
+      clearTimeout(loopTimeout);
       // Always clean up abort controller — prevents memory leaks
       this.activeRequests.delete(sessionKey);
     }
