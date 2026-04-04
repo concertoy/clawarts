@@ -1,18 +1,23 @@
 import os from "node:os";
 import path from "node:path";
 
-export let workspaceRoot = "";
+/**
+ * Create path resolution helpers scoped to a specific workspace directory.
+ * Each agent gets its own resolver — avoids the multi-agent bug where a
+ * shared global workspaceRoot would be overwritten by the last agent.
+ */
+export function createPathResolver(workspaceDir: string) {
+  const workspaceRoot = workspaceDir;
 
-export function setWorkspaceRoot(dir: string): void {
-  workspaceRoot = dir;
-}
-
-export function resolveFilePath(filePath: string): string {
-  if (filePath.startsWith("~/")) {
-    return path.resolve(path.join(os.homedir(), filePath.slice(2)));
+  function resolveFilePath(filePath: string): string {
+    if (filePath.startsWith("~/")) {
+      return path.resolve(path.join(os.homedir(), filePath.slice(2)));
+    }
+    if (path.isAbsolute(filePath)) return path.resolve(filePath);
+    return path.resolve(workspaceRoot, filePath);
   }
-  if (path.isAbsolute(filePath)) return path.resolve(filePath);
-  return path.resolve(workspaceRoot, filePath);
+
+  return { resolveFilePath, workspaceRoot };
 }
 
 export function errMsg(err: unknown): string {

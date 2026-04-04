@@ -1,4 +1,3 @@
-import { setWorkspaceRoot } from "./tools/paths.js";
 import { createFileTools } from "./tools/file-tools.js";
 import { createShellTools } from "./tools/shell-tools.js";
 import { createWebTools } from "./tools/web-tools.js";
@@ -12,10 +11,9 @@ export function createToolRegistry(
   workspaceDir: string,
   opts?: { cronService?: CronService; agentId?: string },
 ): ToolDefinition[] {
-  setWorkspaceRoot(workspaceDir);
   const tools: ToolDefinition[] = [
-    ...createFileTools(),
-    ...createShellTools(),
+    ...createFileTools(workspaceDir),
+    ...createShellTools(workspaceDir),
     ...createWebTools(),
   ];
   if (opts?.cronService && opts?.agentId) {
