@@ -159,7 +159,7 @@ async function main() {
             pulseTotal,
             closesAt: Date.now() + duration,
           });
-          console.log(`[cron:${config.id}] Opened pulse ${params.pulseIndex}/${params.pulseTotal}`);
+          console.log(`[cron:${config.id}] Opened pulse ${pulseIndex}/${pulseTotal}`);
           return true;
         }
         return false;

@@ -37,18 +37,16 @@ const webSearchTool: ToolDefinition = {
     const cached = ddgCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.results;
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DDG_TIMEOUT);
     try {
       const params = new URLSearchParams({ q: query, kp: "-1" });
       const url = `${DDG_URL}?${params}`;
-
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), DDG_TIMEOUT);
 
       const resp = await fetch(url, {
         headers: { "User-Agent": DDG_USER_AGENT },
         signal: controller.signal,
       });
-      clearTimeout(timer);
 
       if (!resp.ok) {
         const text = await resp.text().catch(() => "");
@@ -78,6 +76,8 @@ const webSearchTool: ToolDefinition = {
       return output;
     } catch (err) {
       return `DuckDuckGo search failed: ${errMsg(err)}`;
+    } finally {
+      clearTimeout(timer);
     }
   },
 };
@@ -215,10 +215,9 @@ const webFetchTool: ToolDefinition = {
     const cached = fetchCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.result;
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), WEB_FETCH_TIMEOUT);
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), WEB_FETCH_TIMEOUT);
-
       const resp = await fetch(url, {
         headers: {
           "User-Agent": DDG_USER_AGENT,
@@ -227,7 +226,6 @@ const webFetchTool: ToolDefinition = {
         signal: controller.signal,
         redirect: "follow",
       });
-      clearTimeout(timer);
 
       if (!resp.ok) {
         return `Fetch error (${resp.status}): ${resp.statusText}`;
@@ -264,6 +262,8 @@ const webFetchTool: ToolDefinition = {
       return result;
     } catch (err) {
       return `Fetch failed: ${errMsg(err)}`;
+    } finally {
+      clearTimeout(timer);
     }
   },
 };
