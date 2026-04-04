@@ -72,7 +72,7 @@ export class CheckinStore {
     const now = Date.now();
     let closed = 0;
     for (const w of store.items) {
-      if (w.status === "open" && w.closesAt <= now) {
+      if (w.status === "open" && w.closesAt != null && w.closesAt <= now) {
         w.status = "closed";
         closed++;
       }

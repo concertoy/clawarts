@@ -91,9 +91,9 @@ export function parseCourseSchedule(markdown: string): CourseSchedule {
       checkins.push({
         mode,
         topic: topicMatch?.[1],
-        durationMinutes: durationMatch ? parseInt(durationMatch[1]) : undefined,
-        pulseCount: countMatch ? parseInt(countMatch[1]) : undefined,
-        pulseIntervalMinutes: intervalMatch ? parseInt(intervalMatch[1]) : undefined,
+        durationMinutes: durationMatch ? parseInt(durationMatch[1], 10) : undefined,
+        pulseCount: countMatch ? parseInt(countMatch[1], 10) : undefined,
+        pulseIntervalMinutes: intervalMatch ? parseInt(intervalMatch[1], 10) : undefined,
         weekDate: currentWeekDate,
       });
       continue;
