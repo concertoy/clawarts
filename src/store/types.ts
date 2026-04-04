@@ -5,7 +5,7 @@ export interface Assignment {
   deadline: number; // epoch ms
   format: "individual" | "group";
   attachments: string[]; // URLs or file paths
-  status: "open" | "closed";
+  status: WindowStatus;
   createdAt: number;
   createdBy: string; // tutor agent ID
 }
@@ -21,6 +21,8 @@ export interface Submission {
 }
 
 // ─── Check-in ────────────────────────────────────────────────────────
+
+export type WindowStatus = "open" | "closed";
 
 export type CheckinMode = "passphrase" | "quiz" | "pulse" | "reflect";
 
@@ -41,7 +43,7 @@ export interface CheckinWindow {
   pulseTotal?: number; // pulse mode: total windows in group
   openedAt: number;
   closesAt: number;
-  status: "open" | "closed";
+  status: WindowStatus;
 }
 
 export type CheckinStatus = "checked_in" | "late" | "absent" | "needs_review";
