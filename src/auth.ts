@@ -141,6 +141,15 @@ export class TokenProvider {
     authorizeUrl: string;
   }): Promise<string | null> {
     return new Promise((resolve) => {
+      let resolved = false;
+      const finish = (code: string | null) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timer);
+        server.close();
+        resolve(code);
+      };
+
       const server = http.createServer((req, res) => {
         const url = new URL(req.url ?? "", "http://localhost");
         if (url.pathname !== opts.callbackPath) {
@@ -156,8 +165,7 @@ export class TokenProvider {
         const code = url.searchParams.get("code");
         res.writeHead(200, { "Content-Type": "text/html" });
         res.end("<html><body><h2>Authentication complete. You can close this window.</h2></body></html>");
-        server.close();
-        resolve(code);
+        finish(code);
       });
 
       server.listen(opts.port, "127.0.0.1", async () => {
@@ -173,13 +181,10 @@ export class TokenProvider {
 
       server.on("error", () => {
         console.error(`[auth] Failed to bind port ${opts.port}. Please complete login manually.`);
-        resolve(null);
+        finish(null);
       });
 
-      setTimeout(() => {
-        server.close();
-        resolve(null);
-      }, 5 * 60 * 1000);
+      const timer = setTimeout(() => finish(null), 5 * 60 * 1000);
     });
   }
 
@@ -255,8 +260,8 @@ export class TokenProvider {
       const tmp = this.authFile + `.tmp.${process.pid}`;
       fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n");
       fs.renameSync(tmp, this.authFile);
-    } catch {
-      console.warn("[auth] Failed to write auth file");
+    } catch (err) {
+      console.warn("[auth] Failed to write auth file:", err instanceof Error ? err.message : err);
     }
   }
 }
