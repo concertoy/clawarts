@@ -9,6 +9,15 @@ import type { AgentConfig } from "./types.js";
 export function runDiagnostics(configs: AgentConfig[]): void {
   const warnings: string[] = [];
 
+  // Check for duplicate agent IDs (would silently overwrite in registry)
+  const idCounts = new Map<string, number>();
+  for (const config of configs) {
+    idCounts.set(config.id, (idCounts.get(config.id) ?? 0) + 1);
+  }
+  for (const [id, count] of idCounts) {
+    if (count > 1) warnings.push(`${id}: duplicate agent ID appears ${count} times — only the last will be registered`);
+  }
+
   for (const config of configs) {
     const label = config.id;
 
@@ -58,6 +67,12 @@ export function runDiagnostics(configs: AgentConfig[]): void {
     const sameBot = configs.filter((c) => c.id !== config.id && c.slackBotToken === config.slackBotToken);
     if (sameBot.length > 0) {
       warnings.push(`${label}: shares slackBotToken with ${sameBot.map((c) => c.id).join(", ")} — each agent should have its own Slack app`);
+    }
+
+    // Duplicate Slack app tokens — Socket Mode will fail if two apps use the same app-level token
+    const sameApp = configs.filter((c) => c.id !== config.id && c.slackAppToken === config.slackAppToken);
+    if (sameApp.length > 0) {
+      warnings.push(`${label}: shares slackAppToken with ${sameApp.map((c) => c.id).join(", ")} — Socket Mode requires unique app tokens per connection`);
     }
   }
 

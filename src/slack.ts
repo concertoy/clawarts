@@ -39,19 +39,30 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
 
   // Message deduplication: Slack can deliver duplicate events.
   // Track recently processed message timestamps to avoid double-processing.
-  const processedMessages = new Set<string>();
+  // Uses a Map<key, timestamp> with periodic sweep instead of per-message timers
+  // to avoid orphaned setTimeout handles when the safety valve clears entries.
+  const processedMessages = new Map<string, number>();
   const DEDUP_TTL_MS = 60_000; // Keep dedup entries for 1 minute
   const DEDUP_MAX_SIZE = 1000; // Safety valve — prevent unbounded growth
+
+  // Periodic sweep every 30s — cheaper than N individual timers
+  const dedupSweepTimer = setInterval(() => {
+    const cutoff = Date.now() - DEDUP_TTL_MS;
+    for (const [k, t] of processedMessages) {
+      if (t < cutoff) processedMessages.delete(k);
+    }
+  }, 30_000);
+  // Prevent timer from keeping the process alive during shutdown
+  if (dedupSweepTimer.unref) dedupSweepTimer.unref();
 
   function isDuplicate(channel: string, ts: string): boolean {
     const key = `${channel}:${ts}`;
     if (processedMessages.has(key)) return true;
-    // Safety valve: if set is too large, clear old entries
+    // Safety valve: if map is too large, clear all entries
     if (processedMessages.size >= DEDUP_MAX_SIZE) {
       processedMessages.clear();
     }
-    processedMessages.add(key);
-    setTimeout(() => processedMessages.delete(key), DEDUP_TTL_MS);
+    processedMessages.set(key, Date.now());
     return false;
   }
 

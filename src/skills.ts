@@ -89,10 +89,10 @@ function parseSkillFile(
 
     // Extended frontmatter fields
     if (data["allowed-tools"]) {
-      const raw = data["allowed-tools"];
-      skill.allowedTools = Array.isArray(raw)
-        ? raw.map(String)
-        : String(raw).split(",").map((s: string) => s.trim()).filter(Boolean);
+      const rawTools = data["allowed-tools"];
+      skill.allowedTools = Array.isArray(rawTools)
+        ? rawTools.map(String)
+        : String(rawTools).split(",").map((s: string) => s.trim()).filter(Boolean);
     }
     if (data.when_to_use) skill.whenToUse = String(data.when_to_use);
     if (data.arguments) skill.arguments = String(data.arguments);
