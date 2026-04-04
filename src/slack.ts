@@ -475,11 +475,16 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
       clearTimeout(pendingEdit);
       pendingEdit = null;
     }
-    // Remove thinking indicator
+    // Swap thinking indicator for completion indicator
     try {
       await client.reactions.remove({ channel, timestamp: ts, name: "eyes" });
     } catch {
       // May fail if reaction was already removed
+    }
+    try {
+      await client.reactions.add({ channel, timestamp: ts, name: "white_check_mark" });
+    } catch {
+      // Non-fatal — reaction may already exist or lack permissions
     }
   }
 }

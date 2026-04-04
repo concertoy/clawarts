@@ -27,7 +27,7 @@ export function createCheckinTool(
       properties: {
         action: {
           type: "string",
-          enum: ["open", "close", "evaluate", "report"],
+          enum: ["open", "close", "close_all", "evaluate", "report"],
           description: "The action to perform.",
         },
         // open fields
@@ -215,6 +215,17 @@ export function createCheckinTool(
           const closed = await checkinStore.closeWindow(active.id);
           if (!closed) return "Failed to close the active window.";
           return `Check-in window "${closed.id}" (${closed.mode}) closed.`;
+        }
+
+        case "close_all": {
+          const activeWindows = await checkinStore.listActiveWindows();
+          if (activeWindows.length === 0) return "No active check-in windows to close.";
+          let closedCount = 0;
+          for (const w of activeWindows) {
+            await checkinStore.closeWindow(w.id);
+            closedCount++;
+          }
+          return `Closed ${closedCount} active check-in window(s).`;
         }
 
         case "evaluate": {

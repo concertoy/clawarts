@@ -1,11 +1,11 @@
 import fs from "node:fs";
 import type { ToolDefinition, ToolUseContext } from "../types.js";
-import { getStudentsForTutor, getAgentLastActive, getAgentLastError, getRegisteredAgent } from "../relay.js";
+import { getStudentsForTutor, getAgentLastActive, getAgentLastError, getRegisteredAgent, getAgentStartedAt } from "../relay.js";
 import { getLaneDepth } from "../queue/command-queue.js";
 import { CommandLane } from "../queue/lanes.js";
 import type { CronService } from "../cron/service.js";
 import { getTokenUsage, estimateCost, formatLatencyStats, getToolUsage } from "../utils/token-tracker.js";
-import { formatTokenCount, formatUsd, formatTimeAgo } from "../utils/format.js";
+import { formatTokenCount, formatUsd, formatTimeAgo, formatDuration } from "../utils/format.js";
 
 /**
  * Status tool for tutors — quick overview of student agents and scheduled jobs.
@@ -30,6 +30,8 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
         const pkg = JSON.parse(fs.readFileSync(new URL("../../package.json", import.meta.url), "utf-8"));
         version = pkg.version ?? "?";
       } catch { /* non-fatal */ }
+      const tutorStarted = getAgentStartedAt(tutorId);
+      const uptimeStr = tutorStarted ? formatDuration(Date.now() - tutorStarted) : `${uptimeMin}m`;
       const tutorReg = getRegisteredAgent(tutorId);
       const tutorSessions = tutorReg?.sessions.size ?? 0;
       const tutorTokens = getTokenUsage(tutorId);
@@ -37,7 +39,7 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
       const tokenInfo = tutorTokens
         ? `, ${formatTokenCount(tutorTokens.inputTokens)}in/${formatTokenCount(tutorTokens.outputTokens)}out (${tutorTokens.requestCount} req, ~${formatUsd(estimateCost(tutorTokens))}${latencyInfo ? `, ${latencyInfo}` : ""})`
         : "";
-      const lines: string[] = [`Status for ${tutorId} v${version} (uptime: ${uptimeMin}m, ${memMB}MB, ${tutorSessions} session(s)${tokenInfo}):`];
+      const lines: string[] = [`Status for ${tutorId} v${version} (uptime: ${uptimeStr}, ${memMB}MB, ${tutorSessions} session(s)${tokenInfo}):`];
 
       // Student agents
       const students = getStudentsForTutor(tutorId);
