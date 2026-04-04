@@ -197,6 +197,7 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults, allEntri
     quietHours: entry.quietHours ?? defaults.quietHours,
     quietHoursTimezone: entry.quietHoursTimezone ?? defaults.quietHoursTimezone,
     compactionThreshold: entry.compactionThreshold ?? defaults.compactionThreshold,
+    welcomeMessage: entry.welcomeMessage ?? defaults.welcomeMessage,
   };
 }
 

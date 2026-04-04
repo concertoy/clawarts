@@ -7,6 +7,8 @@ import { computeNextRunAtMs } from "./schedule.js";
 import { loadCronStore, saveCronStore } from "./store.js";
 
 const MIN_REFIRE_GAP_MS = 2_000;
+const RETRY_DELAY_MS = 10_000; // Retry failed deliveries after 10s
+const MAX_RETRIES = 1; // Single retry — don't spam on persistent failures
 
 /**
  * Simplified cron scheduler service.
@@ -242,12 +244,34 @@ export class CronService {
       });
       job.state.lastStatus = "ok";
       job.state.lastError = undefined;
+      job.state.retryCount = 0;
       this.log.info(`Fired "${job.name}" → ${job.channelId}`);
     } catch (err) {
       const msg = errMsg(err);
       job.state.lastStatus = "error";
       job.state.lastError = msg;
-      this.log.error(`Job "${job.name}" failed:`, msg);
+      const retryCount = job.state.retryCount ?? 0;
+      if (retryCount < MAX_RETRIES) {
+        job.state.retryCount = retryCount + 1;
+        this.log.warn(`Job "${job.name}" failed (retry ${retryCount + 1}/${MAX_RETRIES} in ${RETRY_DELAY_MS / 1000}s): ${msg}`);
+        // Schedule a retry by temporarily re-enabling with a short delay
+        setTimeout(() => void this.retryJob(job), RETRY_DELAY_MS);
+      } else {
+        this.log.error(`Job "${job.name}" failed (no more retries): ${msg}`);
+      }
+    }
+  }
+
+  /** Retry a failed job delivery. */
+  private async retryJob(job: CronJob): Promise<void> {
+    try {
+      await this.deliverJob(job);
+      if (job.state.lastStatus === "ok") {
+        job.state.retryCount = 0;
+        await this.persist();
+      }
+    } catch (err) {
+      this.log.error(`Job "${job.name}" retry failed:`, errMsg(err));
     }
   }
 

@@ -164,10 +164,14 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
 
     // Hydrate from Slack API if session is cold (new or after restart).
     // Call get() first to trigger disk restore — only fetch from Slack if truly empty.
+    let isNewSession = false;
     if (!sessions.has(sessionKey)) {
       const restored = sessions.get(sessionKey);
-      if (restored.messages.length === 0 && event.thread_ts) {
-        await hydrateFromThread(client, sessions, sessionKey, event.channel, event.thread_ts, myId);
+      if (restored.messages.length === 0) {
+        isNewSession = true;
+        if (event.thread_ts) {
+          await hydrateFromThread(client, sessions, sessionKey, event.channel, event.thread_ts, myId);
+        }
       }
     }
 
@@ -182,6 +186,8 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       sessionKey,
       botToken: config.slackBotToken,
       files: (event as unknown as { files?: SlackFile[] }).files,
+      welcomeMessage: config.welcomeMessage,
+      isNewSession,
     };
 
     // If THIS session is already processing, route to followup queue.
@@ -249,9 +255,11 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
 
     // Hydrate from Slack API if session is cold (new or after restart).
     // Call get() first to trigger disk restore — only fetch from Slack if truly empty.
+    let isNewSession2 = false;
     if (!sessions.has(sessionKey)) {
       const restored = sessions.get(sessionKey);
       if (restored.messages.length === 0) {
+        isNewSession2 = true;
         if (isDM) {
           await hydrateFromDM(client, sessions, sessionKey, channel, myId);
         } else if (isThreadReply && threadTs) {
@@ -271,6 +279,8 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       sessionKey,
       botToken: config.slackBotToken,
       files: msg.subtype === "message_changed" ? msg.message?.files : msg.files,
+      welcomeMessage: config.welcomeMessage,
+      isNewSession: isNewSession2,
     };
 
     // If THIS session is already processing, route to followup queue.
@@ -395,6 +405,8 @@ interface HandleMessageParams {
   sessionKey: string;
   botToken: string;
   files?: SlackFile[];
+  welcomeMessage?: string;
+  isNewSession?: boolean;
 }
 
 async function handleMessage(params: HandleMessageParams): Promise<void> {
@@ -424,6 +436,15 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
 
   try {
     console.log(`[slack] ${sessionKey} from ${userId}: ${text.slice(0, 80)}${text.length > 80 ? "…" : ""}`);
+
+    // Welcome message for new sessions (configurable per agent)
+    if (params.isNewSession && params.welcomeMessage) {
+      await client.chat.postMessage({
+        channel,
+        text: markdownToSlack(params.welcomeMessage),
+        ...(replyThreadTs ? { thread_ts: replyThreadTs } : {}),
+      });
+    }
 
     // Post a placeholder message that we'll progressively update as text streams in
     const placeholder = await client.chat.postMessage({

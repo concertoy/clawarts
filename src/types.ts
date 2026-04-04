@@ -38,6 +38,8 @@ export interface AgentConfig {
   quietHoursTimezone?: string;
   /** Character threshold for conversation compaction. Lower = more frequent compaction, less API cost. Default: 80000. */
   compactionThreshold?: number;
+  /** Greeting sent to the user at the start of their first conversation. Set to empty string to disable. */
+  welcomeMessage?: string;
 }
 
 /** Top-level config file shape. */
@@ -52,7 +54,7 @@ type AgentOverrides = Partial<Pick<AgentConfig,
   | "skillsDirs" | "skillSources" | "sessionTtlMinutes" | "workspaceDir"
   | "allowedTools" | "disallowedTools" | "thinkingBudgetTokens"
   | "allowedUsers" | "helpLevel" | "maxToolIterations" | "rateLimitPerMinute"
-  | "quietHours" | "quietHoursTimezone" | "compactionThreshold"
+  | "quietHours" | "quietHoursTimezone" | "compactionThreshold" | "welcomeMessage"
 >>;
 
 export interface AgentDefaults extends AgentOverrides {}
