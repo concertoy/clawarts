@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import { loadStore, saveStore } from "./json-store.js";
-import type { CheckinWindow, CheckinResponse } from "./types.js";
+import type { CheckinWindow, CheckinResponse, CheckinStatus } from "./types.js";
 
 /** Check if a window is currently active (open and not expired). */
 function isWindowActive(w: CheckinWindow, now: number): boolean {
@@ -151,7 +151,7 @@ export class CheckinStore {
 
   async evaluateResponse(
     responseId: string,
-    patch: { score: number; status: CheckinResponse["status"]; feedback?: string },
+    patch: { score: number; status: CheckinStatus; feedback?: string },
   ): Promise<CheckinResponse | undefined> {
     const store = await loadStore<CheckinResponse>(this.responsesPath);
     const idx = store.items.findIndex((r) => r.id === responseId);
@@ -166,7 +166,7 @@ export class CheckinStore {
   }
 
   async bulkEvaluate(
-    evaluations: { responseId: string; score: number; status: CheckinResponse["status"]; feedback?: string }[],
+    evaluations: { responseId: string; score: number; status: CheckinStatus; feedback?: string }[],
   ): Promise<number> {
     const store = await loadStore<CheckinResponse>(this.responsesPath);
     let updated = 0;
