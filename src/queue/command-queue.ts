@@ -59,6 +59,7 @@ function drainLane(lane: string): void {
         const entry = state.queue.shift()!;
         // Evict stale tasks — prevents pileup when the bot is slow
         if (Date.now() - entry.enqueuedAt > STALE_TASK_MS) {
+          console.warn(`[command-queue] Evicting stale task in lane "${lane}" (queued ${Math.round((Date.now() - entry.enqueuedAt) / 1000)}s ago)`);
           entry.reject(new Error(`Task evicted: queued for ${Math.round((Date.now() - entry.enqueuedAt) / 1000)}s (limit: ${STALE_TASK_MS / 1000}s)`));
           continue;
         }
