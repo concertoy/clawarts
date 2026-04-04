@@ -19,8 +19,15 @@ interface LegacyConfigFile {
   agents?: AgentEntry[];
 }
 
+function resolveConfigPath(): string {
+  if (process.env.CLAWARTS_CONFIG) return path.resolve(process.env.CLAWARTS_CONFIG);
+  const cwdPath = path.resolve("config.json");
+  if (fs.existsSync(cwdPath)) return cwdPath;
+  return path.join(os.homedir(), ".clawarts", "config.json");
+}
+
 function loadConfigFile(): LegacyConfigFile {
-  const configPath = path.resolve("config.json");
+  const configPath = resolveConfigPath();
   if (!fs.existsSync(configPath)) return {};
   const raw = fs.readFileSync(configPath, "utf-8");
   return JSON.parse(raw) as LegacyConfigFile;
@@ -143,6 +150,8 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults, allEntri
  */
 export function loadAllAgentConfigs(): AgentConfig[] {
   const file = loadConfigFile();
+
+  console.log(`[clawarts] Config: ${resolveConfigPath()}`);
 
   // Multi-agent mode
   if (file.agents && file.agents.length > 0) {

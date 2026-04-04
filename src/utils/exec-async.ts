@@ -77,10 +77,9 @@ export function execAsync(
 
     child.on("close", (code) => {
       clearTimeout(timer);
-      const suffix = stdoutTruncated || stderrTruncated ? "\n[Output truncated]" : "";
       resolve({
-        stdout: stdout.trim() + (stdoutTruncated ? suffix : ""),
-        stderr: stderr.trim() + (stderrTruncated ? suffix : ""),
+        stdout: stdout.trim() + (stdoutTruncated ? "\n[stdout truncated at 1MB]" : ""),
+        stderr: stderr.trim() + (stderrTruncated ? "\n[stderr truncated at 1MB]" : ""),
         exitCode: code,
       });
     });
