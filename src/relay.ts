@@ -95,6 +95,9 @@ async function relayToStudent(
   }
 
   const dmResp = await target.slackClient.conversations.open({ users: userId });
+  if (!dmResp.ok) {
+    throw new Error(`Slack API error opening DM with ${userId}: ${dmResp.error ?? "unknown"}`);
+  }
   const channelId = dmResp.channel?.id;
   if (!channelId) {
     throw new Error(`Could not open DM channel with user ${userId} via ${targetId}'s bot.`);
