@@ -28,6 +28,7 @@ function isRetriable(err: unknown): boolean {
   // HTTP status-based errors (from fetch wrapper or API error messages)
   if (/\b429\b/.test(msg)) return true; // rate limit
   if (/\b529\b/.test(msg)) return true; // overloaded
+  if (/\b500\b/.test(msg)) return true; // internal server error (transient)
   if (/\b502\b|\b503\b|\b504\b/.test(msg)) return true; // gateway/service errors
   if (/overloaded/.test(msg)) return true; // Anthropic overloaded_error in body
 
