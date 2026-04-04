@@ -4,6 +4,7 @@ import type { ConversationSession } from "./types.js";
 
 const MAX_MESSAGES_PER_SESSION = 100;
 const PERSIST_MESSAGES = 30; // Persist last N messages to disk
+const MAX_SESSIONS = 500; // LRU eviction threshold — prevents OOM under heavy load
 
 export class SessionStore {
   private sessions = new Map<string, ConversationSession>();
@@ -49,7 +50,28 @@ export class SessionStore {
       this.sessions.set(key, session);
     }
     session.updatedAt = Date.now();
+    // LRU eviction: if we've hit the limit, evict the oldest session
+    if (this.sessions.size > MAX_SESSIONS) {
+      this.evictOldest();
+    }
     return session;
+  }
+
+  /** Evict the oldest session by updatedAt to stay under MAX_SESSIONS. */
+  private evictOldest(): void {
+    let oldestKey: string | null = null;
+    let oldestTime = Infinity;
+    for (const [key, session] of this.sessions) {
+      if (session.updatedAt < oldestTime) {
+        oldestTime = session.updatedAt;
+        oldestKey = key;
+      }
+    }
+    if (oldestKey) {
+      const evicted = this.sessions.get(oldestKey);
+      if (evicted) this.persistToDisk(evicted);
+      this.sessions.delete(oldestKey);
+    }
   }
 
   truncate(session: ConversationSession): void {

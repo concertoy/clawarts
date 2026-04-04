@@ -218,7 +218,7 @@ async function main() {
   // Graceful shutdown
   const shutdown = async () => {
     console.log("\n[clawarts] Shutting down...");
-    for (const c of allCronServices) c.stop();
+    await Promise.allSettled(allCronServices.map((c) => c.stop()));
     console.log("[clawarts] Persisting sessions...");
     for (const s of allSessions) s.destroy(); // destroy() calls persistAll() before clearing
     for (const a of apps) await a.stop();

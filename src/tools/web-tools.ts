@@ -10,6 +10,7 @@ const DDG_USER_AGENT =
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 const DDG_TIMEOUT = 20_000;
 
+const DDG_CACHE_MAX = 100;
 const ddgCache = new Map<string, { results: string; expiresAt: number }>();
 const DDG_CACHE_TTL = 60 * 60 * 1000;
 
@@ -71,6 +72,7 @@ const webSearchTool: ToolDefinition = {
 
       const output = `Search results for: ${query}\n\n${formatted}`;
 
+      if (ddgCache.size >= DDG_CACHE_MAX) ddgCache.delete(ddgCache.keys().next().value!);
       ddgCache.set(cacheKey, { results: output, expiresAt: Date.now() + DDG_CACHE_TTL });
       return output;
     } catch (err) {
@@ -170,6 +172,7 @@ const WEB_FETCH_MAX_CHARS = 50_000;
 const WEB_FETCH_MAX_HTML = 1_000_000;
 const WEB_FETCH_MAX_RESPONSE_BYTES = 2_000_000;
 
+const FETCH_CACHE_MAX = 100;
 const fetchCache = new Map<string, { result: string; expiresAt: number }>();
 const FETCH_CACHE_TTL = 15 * 60 * 1000;
 
@@ -254,6 +257,7 @@ const webFetchTool: ToolDefinition = {
 
       if (!result.trim()) result = "(empty page — this site likely renders content via JavaScript.)";
 
+      if (fetchCache.size >= FETCH_CACHE_MAX) fetchCache.delete(fetchCache.keys().next().value!);
       fetchCache.set(cacheKey, { result, expiresAt: Date.now() + FETCH_CACHE_TTL });
       return result;
     } catch (err) {

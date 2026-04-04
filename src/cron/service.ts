@@ -53,11 +53,13 @@ export class CronService {
     }
   }
 
-  stop(): void {
+  async stop(): Promise<void> {
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
     }
+    // Persist current state to disk so schedule advances aren't lost
+    await this.persist();
   }
 
   // ─── CRUD ─────────────────────────────────────────────────────────────

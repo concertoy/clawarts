@@ -2,6 +2,11 @@ import type { ToolDefinition } from "../types.js";
 import { execAsync } from "../utils/exec-async.js";
 import { resolveFilePath, workspaceRoot, errMsg } from "./paths.js";
 
+/** Shell-safe quoting: wraps value in single quotes, escaping any embedded single quotes. */
+function shellQuote(s: string): string {
+  return "'" + s.replace(/'/g, "'\\''") + "'";
+}
+
 // ─── bash ──────────────────────────────────────────────────────────────
 
 /**
@@ -142,7 +147,7 @@ const grepTool: ToolDefinition = {
           args.push("-n"); // line numbers for content mode
         }
 
-        args.push("--", JSON.stringify(pattern).slice(1, -1), searchPath);
+        args.push("--", shellQuote(pattern), searchPath);
 
         if (headLimit > 0) {
           command = args.join(" ") + ` | head -${headLimit}`;
@@ -156,7 +161,7 @@ const grepTool: ToolDefinition = {
         if (glob) args.push(`--include=${glob}`);
         if (outputMode === "files_with_matches") args.push("-l");
         if (outputMode === "count") args.push("-c");
-        args.push("-E", JSON.stringify(pattern), searchPath);
+        args.push("-E", shellQuote(pattern), searchPath);
 
         if (headLimit > 0) {
           command = args.join(" ") + ` | head -${headLimit}`;
@@ -208,9 +213,9 @@ const globTool: ToolDefinition = {
     try {
       let command: string;
       if (useRg) {
-        command = `rg --files --glob ${JSON.stringify(pattern)} ${JSON.stringify(searchPath)} 2>/dev/null | head -200`;
+        command = `rg --files --glob ${shellQuote(pattern)} ${shellQuote(searchPath)} 2>/dev/null | head -200`;
       } else {
-        command = `find ${JSON.stringify(searchPath)} -name ${JSON.stringify(pattern)} -type f 2>/dev/null | head -200`;
+        command = `find ${shellQuote(searchPath)} -name ${shellQuote(pattern)} -type f 2>/dev/null | head -200`;
       }
 
       const result = await execAsync(command, { cwd: workspaceRoot, timeout: 15_000 });

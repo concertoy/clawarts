@@ -67,7 +67,10 @@ const writeFileTool: ToolDefinition = {
     try {
       const dir = path.dirname(filePath);
       await fs.promises.mkdir(dir, { recursive: true });
-      await fs.promises.writeFile(filePath, content, "utf-8");
+      // Atomic write: temp file + rename to prevent corruption on crash
+      const tmp = filePath + `.tmp.${process.pid}`;
+      await fs.promises.writeFile(tmp, content, "utf-8");
+      await fs.promises.rename(tmp, filePath);
       return `File written: ${filePath}`;
     } catch (err) {
       return `Error writing file: ${errMsg(err)}`;
@@ -110,7 +113,9 @@ const editTool: ToolDefinition = {
       if (secondIdx !== -1) return `Error: oldText matches multiple locations in ${filePath}. Provide more context to make it unique.`;
 
       const updated = content.slice(0, idx) + newText + content.slice(idx + oldText.length);
-      await fs.promises.writeFile(filePath, updated, "utf-8");
+      const tmp = filePath + `.tmp.${process.pid}`;
+      await fs.promises.writeFile(tmp, updated, "utf-8");
+      await fs.promises.rename(tmp, filePath);
 
       const lineNum = content.slice(0, idx).split("\n").length;
       return `Edited ${filePath} at line ${lineNum}`;
@@ -180,7 +185,9 @@ const multiEditTool: ToolDefinition = {
         results.push(`Edit ${i + 1}: applied at line ${lineNum}`);
       }
 
-      await fs.promises.writeFile(filePath, content, "utf-8");
+      const tmp = filePath + `.tmp.${process.pid}`;
+      await fs.promises.writeFile(tmp, content, "utf-8");
+      await fs.promises.rename(tmp, filePath);
       return `Multi-edit ${filePath}:\n${results.join("\n")}`;
     } catch (err) {
       return `Error in multi_edit: ${errMsg(err)}`;
