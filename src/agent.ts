@@ -102,6 +102,7 @@ export class Agent {
     let totalOutputTokens = 0;
     let totalCacheReadTokens = 0;
     let totalCacheCreationTokens = 0;
+    let toolErrorCount = 0;
 
     // Build tool execution context once (ported from claude-code ToolUseContext)
     const toolContext: ToolUseContext = {
@@ -212,6 +213,7 @@ export class Agent {
           });
         }
 
+        toolErrorCount += results.filter((r) => r.isError).length;
         console.log(`[agent] Turn ${turnCount}: ${results.map((r) => r.name).join(", ")}`);
       }
     } catch (err) {
@@ -231,7 +233,8 @@ export class Agent {
 
     const elapsedSec = ((Date.now() - agentStartMs) / 1000).toFixed(1);
     const cacheInfo = totalCacheReadTokens > 0 ? `, cache: ${totalCacheReadTokens} read / ${totalCacheCreationTokens} created` : "";
-    console.log(`[agent] Complete: ${turnCount} turns in ${elapsedSec}s, ${totalInputTokens} input + ${totalOutputTokens} output tokens${cacheInfo}`);
+    const errorInfo = toolErrorCount > 0 ? `, ${toolErrorCount} tool error(s)` : "";
+    console.log(`[agent] Complete: ${turnCount} turns in ${elapsedSec}s, ${totalInputTokens} input + ${totalOutputTokens} output tokens${cacheInfo}${errorInfo}`);
 
     const reply = lastText || "[No response]";
     session.messages.push({ role: "assistant", content: reply });
@@ -278,7 +281,7 @@ export class Agent {
     try {
       const summaryResponse = await this.provider.call({
         model: this.config.model,
-        systemPrompt: "You are a conversation summarizer. Summarize the following conversation history concisely, preserving key facts, decisions, and context needed for continuation. Be brief.",
+        systemPrompt: "Summarize this conversation history concisely. Preserve: key facts, decisions made, pending tasks, user preferences, and any context needed for the assistant to continue naturally. Focus on what matters for continuation, not what was said verbatim. Be brief — 3-5 sentences max.",
         messages: [{ role: "user", content: `Summarize this conversation:\n\n${summaryContent}` }],
         tools: [], // Empty array, not null — providers expect an array
         maxTokens: 1024,

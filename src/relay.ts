@@ -63,7 +63,7 @@ export function createListStudentsTool(): ToolDefinition {
       "List all student agents linked to you, including their agent IDs and Slack user IDs. Use this to discover which students you manage before relaying messages.",
     parameters: { type: "object", properties: {} },
     isReadOnly: true,
-    category: "utility",
+    category: "communication",
     async execute(_input: Record<string, unknown>, context?: ToolUseContext): Promise<string> {
       const tutorId = context?.agentId ?? "unknown";
       const students = getStudentsForTutor(tutorId);
@@ -151,7 +151,7 @@ export function createRelayTool(): ToolDefinition {
       required: ["message"],
     },
     isReadOnly: false,
-    category: "utility",
+    category: "communication",
     async execute(input: Record<string, unknown>, context?: ToolUseContext): Promise<string> {
       const action = (input.action as string) || "send";
       const message = input.message as string;

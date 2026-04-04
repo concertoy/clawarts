@@ -1,6 +1,6 @@
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import type { CronService } from "./service.js";
-import type { CronSchedule } from "./types.js";
+import type { CronJobPatch, CronSchedule } from "./types.js";
 
 /**
  * Create a cron/reminder tool for the agent.
@@ -107,10 +107,10 @@ export function createCronTool(cronService: CronService, agentId: string): ToolD
           const jobId = input.jobId as string;
           if (!jobId) return "Error: jobId is required.";
 
-          const patch: Record<string, unknown> = {};
-          if (input.name !== undefined) patch.name = input.name;
-          if (input.message !== undefined) patch.message = input.message;
-          if (input.enabled !== undefined) patch.enabled = input.enabled;
+          const patch: CronJobPatch = {};
+          if (input.name !== undefined) patch.name = input.name as string;
+          if (input.message !== undefined) patch.message = input.message as string;
+          if (input.enabled !== undefined) patch.enabled = input.enabled as boolean;
 
           if (input.scheduleKind !== undefined) {
             if (input.scheduleKind === "at") {
@@ -124,7 +124,7 @@ export function createCronTool(cronService: CronService, agentId: string): ToolD
             }
           }
 
-          const job = await cronService.update(jobId, patch as any);
+          const job = await cronService.update(jobId, patch);
           if (!job) return `No reminder found with ID ${jobId}.`;
 
           return `Reminder updated:\n- ID: ${job.id}\n- Name: ${job.name}\n- Enabled: ${job.enabled}\n- Schedule: ${formatSchedule(job.schedule)}`;
