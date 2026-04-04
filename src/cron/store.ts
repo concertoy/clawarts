@@ -1,41 +1,25 @@
-import fs from "node:fs";
-import path from "node:path";
-import { errMsg, isFileNotFound } from "../utils/errors.js";
+import { errMsg } from "../utils/errors.js";
+import { atomicWriteJson, readJsonFile } from "../utils/json-file.js";
 import type { CronStoreFile } from "./types.js";
+
+const EMPTY_STORE: CronStoreFile = { version: 1, jobs: [] };
 
 /**
  * Load cron store from disk. Returns empty store if file doesn't exist.
- * Ported from openclaw src/cron/store.ts.
  */
 export async function loadCronStore(storePath: string): Promise<CronStoreFile> {
   try {
-    const raw = await fs.promises.readFile(storePath, "utf-8");
-    const parsed = JSON.parse(raw);
+    const parsed = await readJsonFile<CronStoreFile>(storePath);
     if (parsed && parsed.version === 1 && Array.isArray(parsed.jobs)) {
-      return parsed as CronStoreFile;
+      return parsed;
     }
-    return { version: 1, jobs: [] };
+    return { ...EMPTY_STORE };
   } catch (err) {
-    if (isFileNotFound(err)) {
-      return { version: 1, jobs: [] };
-    }
     console.warn(`[cron] Failed to load store at ${storePath}:`, errMsg(err));
-    return { version: 1, jobs: [] };
+    return { ...EMPTY_STORE };
   }
 }
 
-/**
- * Atomic save: write to temp file then rename (POSIX atomic).
- */
 export async function saveCronStore(storePath: string, store: CronStoreFile): Promise<void> {
-  const dir = path.dirname(storePath);
-  await fs.promises.mkdir(dir, { recursive: true });
-  const tmp = storePath + `.tmp.${process.pid}`;
-  try {
-    await fs.promises.writeFile(tmp, JSON.stringify(store, null, 2), "utf-8");
-    await fs.promises.rename(tmp, storePath);
-  } catch (err) {
-    await fs.promises.unlink(tmp).catch(() => {});
-    throw err;
-  }
+  await atomicWriteJson(storePath, store);
 }

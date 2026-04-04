@@ -2,6 +2,7 @@ import { App } from "@slack/bolt";
 import type { AgentConfig } from "./types.js";
 import type { Agent } from "./agent.js";
 import { SessionStore } from "./session.js";
+import { BoundedMap } from "./utils/bounded-map.js";
 import { errMsg } from "./utils/errors.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
 import { downloadSlackImages } from "./utils/slack-images.js";
@@ -48,35 +49,24 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   // Track recently processed message timestamps to avoid double-processing.
   // Uses a Map<key, timestamp> with periodic sweep instead of per-message timers
   // to avoid orphaned setTimeout handles when the safety valve clears entries.
-  const processedMessages = new Map<string, number>();
-  const DEDUP_TTL_MS = 60_000; // Keep dedup entries for 1 minute
-  const DEDUP_MAX_SIZE = 1000; // Safety valve — prevent unbounded growth
+  const DEDUP_TTL_MS = 60_000;
+  const DEDUP_MAX_SIZE = 1000;
   const DEDUP_SWEEP_INTERVAL_MS = 30_000;
-  const DEDUP_EVICTION_RATIO = 0.25;
+  const processedMessages = new BoundedMap<string, number>(DEDUP_MAX_SIZE);
 
-  // Periodic sweep — cheaper than N individual timers
+  // Periodic sweep to expire old entries — cheaper than per-message timers
   const dedupSweepTimer = setInterval(() => {
     const cutoff = Date.now() - DEDUP_TTL_MS;
     for (const [k, t] of processedMessages) {
       if (t < cutoff) processedMessages.delete(k);
     }
   }, DEDUP_SWEEP_INTERVAL_MS);
-  // Prevent timer from keeping the process alive during shutdown
   if (dedupSweepTimer.unref) dedupSweepTimer.unref();
 
   function isDuplicate(channel: string, ts: string): boolean {
     const key = `${channel}:${ts}`;
     if (processedMessages.has(key)) return true;
-    // Safety valve: if map is too large, evict oldest entries (FIFO)
-    if (processedMessages.size >= DEDUP_MAX_SIZE) {
-      const toEvict = Math.floor(DEDUP_MAX_SIZE * DEDUP_EVICTION_RATIO);
-      const iter = processedMessages.keys();
-      for (let i = 0; i < toEvict; i++) {
-        const k = iter.next().value;
-        if (k !== undefined) processedMessages.delete(k);
-      }
-    }
-    processedMessages.set(key, Date.now());
+    processedMessages.set(key, Date.now()); // BoundedMap handles eviction
     return false;
   }
 
