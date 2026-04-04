@@ -44,6 +44,8 @@ export interface CheckinWindow {
   status: "open" | "closed";
 }
 
+export type CheckinStatus = "checked_in" | "late" | "absent" | "needs_review";
+
 export interface CheckinResponse {
   id: string;
   windowId: string;
@@ -53,7 +55,7 @@ export interface CheckinResponse {
   submittedAt: number; // server-set timestamp
   // Below fields: tutor-only (set by evaluate action)
   score?: number; // 0-100
-  status?: "checked_in" | "late" | "absent" | "needs_review";
+  status?: CheckinStatus;
   feedback?: string;
   evaluatedAt?: number;
 }

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import type { CheckinStore } from "../store/checkin-store.js";
+import type { CheckinStatus } from "../store/types.js";
 import type { CronService } from "../cron/service.js";
 import { getStudentsForTutor, getRegisteredAgent } from "../relay.js";
 import { errMsg } from "../utils/errors.js";
@@ -219,7 +220,6 @@ export function createCheckinTool(
 
         case "evaluate": {
           await checkinStore.closeExpiredWindows();
-          type CheckinStatus = "checked_in" | "late" | "absent" | "needs_review";
 
           const evaluations = input.evaluations as { responseId: string; score: number; status: string; feedback?: string }[];
 

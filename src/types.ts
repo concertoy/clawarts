@@ -61,11 +61,13 @@ export interface WorkspaceFile {
   content: string;
 }
 
+export type SkillSource = "bundled" | "user-global" | "agent" | "workspace" | "legacy";
+
 export interface Skill {
   name: string;
   description: string;
   filePath: string;
-  source?: "bundled" | "user-global" | "agent" | "workspace" | "legacy";
+  source?: SkillSource;
   allowedTools?: string[];
   whenToUse?: string;
   arguments?: string;

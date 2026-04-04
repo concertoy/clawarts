@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import matter from "gray-matter";
-import type { Skill, SkillSources } from "./types.js";
+import type { Skill, SkillSource, SkillSources } from "./types.js";
 import { errMsg, isFileNotFound } from "./utils/errors.js";
 
 /** Expand ~/... to the user's home directory. */
@@ -38,7 +38,7 @@ function buildNamespace(skillDir: string, rootDir: string): string {
  */
 function scanSkillsRecursive(
   rootDir: string,
-  source: Skill["source"],
+  source: SkillSource,
 ): Skill[] {
   const expanded = expandTilde(rootDir);
   const resolved = path.resolve(expanded);
@@ -79,7 +79,7 @@ function parseSkillFile(
   skillPath: string,
   skillDir: string,
   rootDir: string,
-  source: Skill["source"],
+  source: SkillSource,
 ): Skill | null {
   try {
     const raw = fs.readFileSync(skillPath, "utf-8");
@@ -122,7 +122,7 @@ export function loadSkills(options: SkillLoadOptions): Skill[] {
   const map = new Map<string, Skill>();
   const seen = new Set<string>(); // realpath dedup
 
-  function addSource(dir: string | undefined, source: Skill["source"]) {
+  function addSource(dir: string | undefined, source: SkillSource) {
     if (!dir) return;
     const resolved = path.resolve(expandTilde(dir));
 
