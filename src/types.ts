@@ -1,5 +1,8 @@
 export type Provider = "openai-codex" | "anthropic-claude";
 
+/** How much help the student agent provides. */
+export type HelpLevel = "hints" | "guided" | "full";
+
 /** Per-agent configuration (resolved from defaults + agent overrides). */
 export interface AgentConfig {
   id: string;
@@ -24,7 +27,7 @@ export interface AgentConfig {
   /** If set, only these Slack user IDs can interact with this agent. Others are silently ignored. */
   allowedUsers?: string[];
   /** How much help the agent provides. "hints" = questions only, "guided" = explain approach (default), "full" = no restriction. */
-  helpLevel?: "hints" | "guided" | "full";
+  helpLevel?: HelpLevel;
   /** Max tool execution iterations per reply. Higher = more complex tasks, more API cost. Default: 10. */
   maxToolIterations?: number;
 }
@@ -35,44 +38,22 @@ export interface RootConfig {
   agents: AgentEntry[];
 }
 
-export interface AgentDefaults {
-  provider?: Provider;
-  model?: string;
-  maxTokens?: number;
-  systemPrompt?: string;
-  skillsDirs?: string[];
-  skillSources?: SkillSources;
-  sessionTtlMinutes?: number;
-  workspaceDir?: string;
-  allowedTools?: string[];
-  disallowedTools?: string[];
-  thinkingBudgetTokens?: number;
-  allowedUsers?: string[];
-  helpLevel?: "hints" | "guided" | "full";
-  maxToolIterations?: number;
-}
+/** Fields shared between defaults and per-agent overrides. */
+type AgentOverrides = Partial<Pick<AgentConfig,
+  | "provider" | "model" | "maxTokens" | "systemPrompt"
+  | "skillsDirs" | "skillSources" | "sessionTtlMinutes" | "workspaceDir"
+  | "allowedTools" | "disallowedTools" | "thinkingBudgetTokens"
+  | "allowedUsers" | "helpLevel" | "maxToolIterations"
+>>;
 
-export interface AgentEntry {
+export interface AgentDefaults extends AgentOverrides {}
+
+export interface AgentEntry extends AgentOverrides {
   id: string;
   slackBotToken: string;
   slackAppToken: string;
-  provider?: Provider;
-  model?: string;
-  maxTokens?: number;
-  systemPrompt?: string;
-  skillsDirs?: string[];
-  skillSources?: SkillSources;
-  sessionTtlMinutes?: number;
-  workspaceDir?: string;
-  allowedTools?: string[];
-  disallowedTools?: string[];
-  thinkingBudgetTokens?: number;
   /** For student agents: ID of the tutor agent whose workspace contains this student's workspace. */
   linkedTutor?: string;
-  /** If set, only these Slack user IDs can interact with this agent. */
-  allowedUsers?: string[];
-  helpLevel?: "hints" | "guided" | "full";
-  maxToolIterations?: number;
 }
 
 export interface WorkspaceFile {

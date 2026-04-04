@@ -416,7 +416,7 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
       text: ":hourglass_flowing_sand: Thinking...",
       ...(replyThreadTs ? { thread_ts: replyThreadTs } : {}),
     });
-    const placeholderTs = placeholder.ts as string | undefined;
+    const placeholderTs = placeholder.ts;
 
     // Streaming state: accumulate text deltas and throttle Slack edits
     let streamedText = "";

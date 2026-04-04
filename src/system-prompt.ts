@@ -1,4 +1,4 @@
-import type { Skill, ToolDefinition, WorkspaceFile } from "./types.js";
+import type { HelpLevel, Skill, ToolDefinition, WorkspaceFile } from "./types.js";
 import { formatSkillsForPrompt } from "./skills.js";
 
 export function buildSystemPrompt(params: {
@@ -6,7 +6,7 @@ export function buildSystemPrompt(params: {
   skills: Skill[];
   workspaceFiles: WorkspaceFile[];
   tools?: ToolDefinition[];
-  helpLevel?: "hints" | "guided" | "full";
+  helpLevel?: HelpLevel;
 }): string {
   const sections: string[] = [];
 

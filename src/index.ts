@@ -90,7 +90,7 @@ async function main() {
     // Ensure workspace directory exists and scaffold template files if missing.
     fs.mkdirSync(config.workspaceDir, { recursive: true });
     if (!fs.existsSync(path.join(config.workspaceDir, "SOUL.md"))) {
-      const agentType = config.linkedTutor ? "student" : config.disallowedTools?.length ? "student" : "tutor";
+      const agentType = config.linkedTutor ? "student" : "tutor";
       const { created } = scaffoldWorkspace(config.id, config.workspaceDir, agentType);
       if (created.length > 0) console.log(`${label} Scaffolded workspace: ${created.join(", ")}`);
     }
