@@ -37,6 +37,9 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
         lines.push("\nNo student agents linked.");
       }
 
+      // Cron service health
+      lines.push(`\nCron: ${cronService.isRunning ? "running" : "stopped"}`);
+
       // Upcoming cron jobs
       const jobs = await cronService.listAll();
       const enabled = jobs.filter((j) => j.enabled);

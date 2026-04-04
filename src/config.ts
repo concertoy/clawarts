@@ -4,6 +4,7 @@ import path from "node:path";
 import dotenv from "dotenv";
 import type { AgentConfig, AgentEntry, AgentDefaults, Provider, SkillSources } from "./types.js";
 import { errMsg, isFileNotFound } from "./utils/errors.js";
+import { expandTilde } from "./utils/paths.js";
 
 dotenv.config();
 
@@ -65,10 +66,6 @@ export const DEFAULT_MODELS: Record<Provider, string> = {
   "openai-codex": "gpt-5.4",
   "anthropic-claude": "claude-sonnet-4-20250514",
 };
-
-function expandTilde(p: string): string {
-  return p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p;
-}
 
 /** Resolve a value that may be a $ENV_VAR or ${ENV_VAR} reference. */
 function resolveEnvRef(value: string): string {

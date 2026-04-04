@@ -30,6 +30,7 @@ import { CheckinStore } from "./store/checkin-store.js";
 import { createCheckinTool } from "./tools/checkin-tool.js";
 import { createCheckinRespondTool } from "./tools/checkin-respond-tool.js";
 import { createStatusTool } from "./tools/status-tool.js";
+import { createMyStatusTool } from "./tools/my-status-tool.js";
 
 // ─── Provider construction ────────────────────────────────────────────
 
@@ -178,6 +179,7 @@ async function main() {
       // Check-in respond tool for students (reads/writes tutor's checkin store)
       const checkinStore = new CheckinStore(tutorDataDir);
       allTools.push(createCheckinRespondTool(checkinStore));
+      allTools.push(createMyStatusTool(assignmentStore, submissionStore, checkinStore));
     }
 
     // Add Slack file upload tool (all agents can upload files to their conversation)

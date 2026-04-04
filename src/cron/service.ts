@@ -137,6 +137,11 @@ export class CronService {
     return this.store?.jobs.find((j) => j.id === id);
   }
 
+  /** Whether the cron service is loaded and has an active timer. */
+  get isRunning(): boolean {
+    return this.store !== null && this.timer !== null;
+  }
+
   // ─── Timer ────────────────────────────────────────────────────────────
 
   private armTimer(): void {
