@@ -187,6 +187,7 @@ export class TokenProvider {
       });
 
       const timer = setTimeout(() => finish(null), LOGIN_TIMEOUT_MS);
+      if (timer.unref) timer.unref();
     });
   }
 
