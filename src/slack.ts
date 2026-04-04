@@ -74,7 +74,8 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
         return true;
       }
       return false;
-    } catch {
+    } catch (err) {
+      console.warn(`[slack] isBotDM check failed for ${channel}:`, err instanceof Error ? err.message : err);
       return false;
     }
   }
@@ -163,7 +164,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       userId: event.user ?? "unknown",
       sessionKey,
       botToken: config.slackBotToken,
-      files: (event as any).files,
+      files: (event as unknown as { files?: Array<Record<string, unknown>> }).files,
     };
 
     // If THIS session is already processing, route to followup queue.
@@ -253,7 +254,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       userId: (user_raw as string) ?? "unknown",
       sessionKey,
       botToken: config.slackBotToken,
-      files: (msg.subtype === "message_changed" ? msg.message?.files : msg.files) as Array<Record<string, unknown>> | undefined,
+      files: msg.subtype === "message_changed" ? msg.message?.files : msg.files,
     };
 
     // If THIS session is already processing, route to followup queue.

@@ -160,7 +160,7 @@ export function createCheckinTool(
             mode,
             topic: input.topic as string,
             passphrase: mode === "passphrase" ? (input.passphrase as string) : undefined,
-            challenges: mode === "quiz" ? (input.challenges as any[]) : undefined,
+            challenges: mode === "quiz" ? (input.challenges as { userId: string; question: string }[]) : undefined,
             closesAt,
           });
 
