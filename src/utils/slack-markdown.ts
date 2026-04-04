@@ -37,6 +37,9 @@ export function markdownToSlack(md: string): string {
   // Headers: # Header → *Header* (bold in Slack, with newline for spacing)
   result = result.replace(/^#{1,6}\s+(.+)$/gm, "*$1*");
 
+  // Bold+italic: ***text*** → *_text_* (must run before bold/italic)
+  result = result.replace(/\*\*\*(.+?)\*\*\*/g, "*_$1_*");
+
   // Bold → placeholder first to prevent italic regex from clobbering it.
   // **text** or __text__ → \x01text\x02
   result = result.replace(/\*\*(.+?)\*\*/g, "\x01$1\x02");

@@ -293,10 +293,10 @@ async function hydrateFromDM(
     }
 
     if (session.messages.length > 0) {
-      console.log(`[slack] Hydrated ${session.messages.length} messages from DM history`);
+      console.log(`[slack] Hydrated ${session.messages.length} messages from DM history (${sessionKey})`);
     }
   } catch (err) {
-    console.warn("[slack] Failed to fetch DM history:", err);
+    console.warn(`[slack] Failed to fetch DM history (${sessionKey}):`, err);
   }
 }
 
@@ -333,10 +333,10 @@ async function hydrateFromThread(
     }
 
     if (session.messages.length > 0) {
-      console.log(`[slack] Hydrated ${session.messages.length} messages from thread history`);
+      console.log(`[slack] Hydrated ${session.messages.length} messages from thread history (${sessionKey})`);
     }
   } catch (err) {
-    console.warn("[slack] Failed to fetch thread history:", err);
+    console.warn(`[slack] Failed to fetch thread history (${sessionKey}):`, err);
   }
 }
 

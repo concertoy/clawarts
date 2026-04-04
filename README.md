@@ -63,6 +63,11 @@ npm start     # production
 }
 ```
 
+Key agent options:
+- `helpLevel`: `"hints"` | `"guided"` | `"full"` — academic integrity guardrail for student agents (default: `"guided"`)
+- `maxToolIterations`: max tool-use turns per request (default: 10, max recommended: 25)
+- `disallowedTools`: tools to block for this agent (e.g. `["bash", "write_file"]`)
+
 Providers: `anthropic-claude` (Claude), `openai-codex` (GPT).
 
 ## Tools
