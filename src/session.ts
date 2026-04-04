@@ -191,4 +191,20 @@ export class SessionStore {
   get size(): number {
     return this.sessions.size;
   }
+
+  /** List all in-memory session keys with basic metadata. */
+  listSessions(): { key: string; messageCount: number; updatedAt: number }[] {
+    return [...this.sessions.values()].map((s) => ({
+      key: s.key,
+      messageCount: s.messages.length,
+      updatedAt: s.updatedAt,
+    }));
+  }
+
+  /** Get messages for a specific session (read-only copy). */
+  getMessages(key: string): { role: string; content: string }[] {
+    const session = this.sessions.get(key);
+    if (!session) return [];
+    return session.messages.map((m) => ({ role: m.role, content: m.content }));
+  }
 }

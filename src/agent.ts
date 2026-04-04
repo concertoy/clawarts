@@ -8,6 +8,7 @@ import { touchAgent, recordAgentError } from "./relay.js";
 import { errMsg } from "./utils/errors.js";
 import { createRateLimiter, type RateLimiter } from "./utils/rate-limit.js";
 import { recordTokenUsage } from "./utils/token-tracker.js";
+import { createLogger } from "./utils/logger.js";
 
 const DEFAULT_MAX_TOOL_ITERATIONS = 10;
 
@@ -25,6 +26,7 @@ const COMPACTION_CHAR_THRESHOLD = 80_000;
 // ─── Agent ──────────────────────────────────────────────────────────────
 
 export class Agent {
+  private readonly log;
   private systemPrompt: string;
   private readonly toolDefs: ToolDefinition[];
   private readonly skills: Skill[];
@@ -47,6 +49,7 @@ export class Agent {
     tools: ToolDefinition[],
     workspaceFiles: WorkspaceFile[],
   ) {
+    this.log = createLogger(`agent:${config.id}`);
     this.skills = skills;
     this.lastWorkspaceFiles = workspaceFiles;
     this.systemPrompt = buildSystemPrompt({
@@ -80,7 +83,7 @@ export class Agent {
       tools: this.toolDefs,
       helpLevel: this.config.helpLevel,
     });
-    console.log(`[agent] ${this.config.id}: workspace files changed, system prompt rebuilt`);
+    this.log.info("Workspace files changed, system prompt rebuilt");
   }
 
   async getReply(
@@ -105,7 +108,7 @@ export class Agent {
     const limit = this.rateLimiter.consume();
     if (!limit.allowed) {
       const waitSec = Math.ceil(limit.retryAfterMs / 1000);
-      console.warn(`[agent] Rate limited (${this.config.id}): retry in ${waitSec}s`);
+      this.log.warn(`Rate limited: retry in ${waitSec}s`);
       touchAgent(this.config.id);
       return `I'm receiving too many messages right now. Please wait ${waitSec} seconds and try again.`;
     }
@@ -114,7 +117,7 @@ export class Agent {
     const existingController = this.activeRequests.get(sessionKey);
     if (existingController) {
       existingController.abort();
-      console.log(`[agent] Canceled in-flight request for session ${sessionKey}`);
+      this.log.debug(`Canceled in-flight request for session ${sessionKey}`);
     }
     const abortController = new AbortController();
     this.activeRequests.set(sessionKey, abortController);
@@ -180,7 +183,7 @@ export class Agent {
 
         // Check if aborted before making API call
         if (abortController.signal.aborted) {
-          console.log(`[agent] Request aborted before turn ${turnCount}`);
+          this.log.debug(`Request aborted before turn ${turnCount}`);
           break;
         }
 
@@ -211,13 +214,13 @@ export class Agent {
         // Ported from claude-code queryLoop: append partial response and ask to continue.
         if (response.stopReason === "max_tokens" && maxTokensRecoveryCount < MAX_TOKEN_RECOVERIES) {
           maxTokensRecoveryCount++;
-          console.log(`[agent] max_tokens hit (recovery ${maxTokensRecoveryCount}/${MAX_TOKEN_RECOVERIES}), continuing`);
+          this.log.info(`max_tokens hit (recovery ${maxTokensRecoveryCount}/${MAX_TOKEN_RECOVERIES}), continuing`);
           // Drop tool calls from truncated responses — they likely have incomplete JSON
           // arguments and would create dangling tool_use blocks without matching tool_result.
           // Ported from claude-code's max_tokens recovery that only preserves text.
           const validToolCalls = response.toolCalls.filter((tc) => {
             try { JSON.parse(tc.arguments); return true; } catch {
-              console.warn(`[agent] Dropped truncated tool call: ${tc.name} (invalid JSON in arguments)`);
+              this.log.warn(`Dropped truncated tool call: ${tc.name} (invalid JSON in arguments)`);
               return false;
             }
           });
@@ -238,7 +241,7 @@ export class Agent {
 
         // Warn if max_tokens hit but recovery exhausted
         if (response.stopReason === "max_tokens" && maxTokensRecoveryCount >= MAX_TOKEN_RECOVERIES) {
-          console.warn(`[agent] max_tokens recovery exhausted (${MAX_TOKEN_RECOVERIES} attempts) — response may be truncated`);
+          this.log.warn(`max_tokens recovery exhausted (${MAX_TOKEN_RECOVERIES} attempts) — response may be truncated`);
         }
 
         // Exit: no tool calls or model chose to stop
@@ -249,7 +252,7 @@ export class Agent {
         // Safety limit
         const maxIterations = this.config.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
         if (turnCount >= maxIterations) {
-          console.log(`[agent] Hit max tool iterations (${maxIterations})`);
+          this.log.info(`Hit max tool iterations (${maxIterations})`);
           break;
         }
 
@@ -280,7 +283,7 @@ export class Agent {
         }
 
         toolErrorCount += results.filter((r) => r.isError).length;
-        console.log(`[agent] Turn ${turnCount}: ${results.map((r) => r.name).join(", ")}`);
+        this.log.debug(`Turn ${turnCount}: ${results.map((r) => r.name).join(", ")}`);
       }
     } catch (err) {
       // Re-throw abort errors (handled by caller in slack.ts)
@@ -288,7 +291,7 @@ export class Agent {
         throw err;
       }
       // Log unexpected errors but still save partial response
-      console.error(`[agent] Error in agent loop (turn ${turnCount}):`, err);
+      this.log.error(`Error in agent loop (turn ${turnCount}):`, err);
       recordAgentError(this.config.id, errMsg(err));
       if (!lastText) {
         lastText = "[An error occurred while processing your request. Please try again.]";
@@ -301,7 +304,7 @@ export class Agent {
     const elapsedSec = ((Date.now() - agentStartMs) / 1000).toFixed(1);
     const cacheInfo = totalCacheReadTokens > 0 ? `, cache: ${totalCacheReadTokens} read / ${totalCacheCreationTokens} created` : "";
     const errorInfo = toolErrorCount > 0 ? `, ${toolErrorCount} tool error(s)` : "";
-    console.log(`[agent] Complete: ${turnCount} turns in ${elapsedSec}s, ${totalInputTokens} input + ${totalOutputTokens} output tokens${cacheInfo}${errorInfo}`);
+    this.log.info(`Complete: ${turnCount} turns in ${elapsedSec}s, ${totalInputTokens} input + ${totalOutputTokens} output tokens${cacheInfo}${errorInfo}`);
 
     // Record cumulative token usage for status reporting
     recordTokenUsage(this.config.id, totalInputTokens, totalOutputTokens, totalCacheReadTokens, totalCacheCreationTokens);
@@ -381,10 +384,10 @@ export class Agent {
       }
       messages.push(...toKeep.slice(startIdx));
 
-      console.log(`[agent] Compacted ${sessionKey ?? "?"}: ${toSummarize.length + toKeep.length} → ${messages.length} messages (${totalChars} → ~${summary.length} chars)`);
+      this.log.info(`Compacted ${sessionKey ?? "?"}: ${toSummarize.length + toKeep.length} → ${messages.length} messages (${totalChars} → ~${summary.length} chars)`);
     } catch (err) {
       // Non-fatal — if compaction fails, just continue with full history
-      console.warn("[agent] Compaction failed, continuing with full history:", errMsg(err));
+      this.log.warn("Compaction failed, continuing with full history:", errMsg(err));
     }
   }
 }
