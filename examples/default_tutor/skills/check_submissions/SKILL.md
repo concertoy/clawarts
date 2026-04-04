@@ -26,4 +26,6 @@ Present a summary:
 - Late submissions
 - Missing students (not yet submitted)
 
-If the tutor wants to send a reminder to missing students, use `relay` to message each one through their student agent.
+If the tutor wants to send a reminder to missing students, use `relay` with `action=send` for each missing student (since the message should be personalized with their name and the specific assignment).
+
+Alternatively, if the tutor wants a generic "don't forget to submit" message to everyone, use `relay` with `action=broadcast`.
