@@ -33,6 +33,8 @@ export interface CourseSchedule {
   checkins: CourseCheckin[];
 }
 
+const VALID_CHECKIN_MODES = new Set<CourseCheckin["mode"]>(["passphrase", "quiz", "pulse", "reflect"]);
+
 export function parseCourseSchedule(markdown: string): CourseSchedule {
   const lines = markdown.split("\n");
 
@@ -80,7 +82,8 @@ export function parseCourseSchedule(markdown: string): CourseSchedule {
     // Match - checkin: MODE key="value" key=N ...
     const ciMatch = line.match(/^-\s+checkin:\s+(\w+)\s*(.*)/);
     if (ciMatch) {
-      const mode = ciMatch[1] as CourseCheckin["mode"];
+      const rawMode = ciMatch[1];
+      const mode = (VALID_CHECKIN_MODES.has(rawMode as CourseCheckin["mode"]) ? rawMode : "reflect") as CourseCheckin["mode"];
       const rest = ciMatch[2] || "";
 
       const topicMatch = rest.match(/topic="([^"]+)"/);

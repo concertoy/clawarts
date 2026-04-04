@@ -36,7 +36,7 @@ export interface RootConfig {
 }
 
 export interface AgentDefaults {
-  provider?: string;
+  provider?: Provider;
   model?: string;
   maxTokens?: number;
   systemPrompt?: string;
@@ -56,7 +56,7 @@ export interface AgentEntry {
   id: string;
   slackBotToken: string;
   slackAppToken: string;
-  provider?: string;
+  provider?: Provider;
   model?: string;
   maxTokens?: number;
   systemPrompt?: string;
@@ -99,7 +99,7 @@ export interface SkillSources {
 }
 
 export interface ConversationMessage {
-  role: string;
+  role: "user" | "assistant";
   content: string;
 }
 
