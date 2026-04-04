@@ -55,4 +55,14 @@ export class SubmissionStore {
     const store = await this.load();
     return store.items.find((s) => s.assignmentId === assignmentId && s.userId === userId);
   }
+
+  /** Count submissions per assignment (avoids loading full content for reporting). */
+  async countByAssignment(assignmentId: string): Promise<{ total: number; late: number }> {
+    const store = await this.load();
+    const subs = store.items.filter((s) => s.assignmentId === assignmentId);
+    return {
+      total: subs.length,
+      late: subs.filter((s) => s.status === "late").length,
+    };
+  }
 }

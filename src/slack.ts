@@ -431,7 +431,13 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
       : "";
     const messageWithFiles = filePrefix || skippedNotice ? `${skippedNotice}${filePrefix}\n---\n${text}` : text;
 
-    const rawReply = await agent.getReply(sessionKey, messageWithFiles, userId, { channelId: channel, threadTs: replyThreadTs }, onText, images.length > 0 ? images : undefined);
+    const onToolStart = (toolNames: string[]) => {
+      if (!placeholderTs) return;
+      const label = toolNames.length === 1 ? toolNames[0] : toolNames.join(", ");
+      client.chat.update({ channel, ts: placeholderTs, text: `:gear: Running ${label}...` }).catch(() => {});
+    };
+
+    const rawReply = await agent.getReply(sessionKey, messageWithFiles, userId, { channelId: channel, threadTs: replyThreadTs }, onText, images.length > 0 ? images : undefined, onToolStart);
     console.log(`[slack] Reply (${rawReply.length} chars): ${rawReply.slice(0, 200)}`);
 
     // Clear any pending throttled edit

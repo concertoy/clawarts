@@ -9,6 +9,8 @@ You have read-only access to the workspace:
 - `web_fetch` — Fetch web page content
 
 - Assignments: `submit` — submit work, view assignment details, check your submission status
-- Check-in: `checkin_respond` — view active check-in windows and submit your response
+- Check-in: `checkin_respond` — view active check-in windows, submit your response, or view your history
+- Scheduling: `cron` — set personal reminders (e.g. study reminders, deadline alerts)
+- Files: `slack_upload` — upload a file to the current conversation
 
 You do NOT have access to: `bash`, `write_file`, `edit`, `multi_edit`.
