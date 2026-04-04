@@ -9,5 +9,6 @@ You have read-only access to the workspace:
 - `web_fetch` — Fetch web page content
 
 - Assignments: `submit` — submit work, view assignment details, check your submission status
+- Check-in: `checkin_respond` — view active check-in windows and submit your response
 
 You do NOT have access to: `bash`, `write_file`, `edit`, `multi_edit`.
