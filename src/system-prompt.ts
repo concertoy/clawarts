@@ -109,7 +109,8 @@ export function buildSystemPrompt(params: {
   if (params.tools && params.tools.length > 0) {
     const toolLines = params.tools.map((t) => {
       const cat = t.category ? ` [${t.category}]` : "";
-      return `- \`${t.name}\`${cat}: ${t.description.split(".")[0]}.`;
+      const desc = t.description ?? "";
+      return `- \`${t.name}\`${cat}: ${desc.split(".")[0] || desc}.`;
     });
     sections.push(
       ["## Available tools", "", ...toolLines].join("\n"),

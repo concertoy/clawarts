@@ -70,6 +70,7 @@ export function createShellTools(workspaceDir: string): ToolDefinition[] {
       },
       required: ["command"],
     },
+    isReadOnly: false,
     category: "shell",
     async execute(input) {
       const command = input.command as string;
