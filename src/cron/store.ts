@@ -14,18 +14,15 @@ export async function loadCronStore(storePath: string): Promise<CronStoreFile> {
       return parsed as CronStoreFile;
     }
     return { version: 1, jobs: [] };
-  } catch (err: any) {
-    if (err?.code === "ENOENT") {
+  } catch (err) {
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
       return { version: 1, jobs: [] };
     }
-    console.warn(`[cron] Failed to load store at ${storePath}:`, err);
+    console.warn(`[cron] Failed to load store at ${storePath}:`, err instanceof Error ? err.message : err);
     return { version: 1, jobs: [] };
   }
 }
 
-/**
- * Save cron store to disk. Creates parent directories if needed.
- */
 /**
  * Atomic save: write to temp file then rename (POSIX atomic).
  */
