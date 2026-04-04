@@ -343,7 +343,7 @@ async function hydrateFromDM(
     // conversations.history returns newest-first, reverse for chronological order
     const count = ingestMessages(sessions, sessionKey, [...messages].reverse(), botUserId);
     if (count > 0) {
-      console.log(`[slack] Hydrated ${count} messages from DM history (${sessionKey})`);
+      console.debug(`[slack] Hydrated ${count} messages from DM history (${sessionKey})`);
     }
   } catch (err) {
     console.warn(`[slack] Failed to fetch DM history (${sessionKey}):`, errMsg(err));
@@ -375,7 +375,7 @@ async function hydrateFromThread(
 
     const count = ingestMessages(sessions, sessionKey, messages, botUserId);
     if (count > 0) {
-      console.log(`[slack] Hydrated ${count} messages from thread history (${sessionKey})`);
+      console.debug(`[slack] Hydrated ${count} messages from thread history (${sessionKey})`);
     }
   } catch (err) {
     console.warn(`[slack] Failed to fetch thread history (${sessionKey}):`, errMsg(err));

@@ -31,6 +31,7 @@ import { createCheckinTool } from "./tools/checkin-tool.js";
 import { createCheckinRespondTool } from "./tools/checkin-respond-tool.js";
 import { createStatusTool } from "./tools/status-tool.js";
 import { createMyStatusTool } from "./tools/my-status-tool.js";
+import { createHelpTool } from "./tools/help-tool.js";
 
 // ─── Provider construction ────────────────────────────────────────────
 
@@ -185,6 +186,7 @@ async function main() {
     allTools.push(createSlackUploadTool(slackClient));
 
     const tools = filterToolsForAgent(allTools, config);
+    tools.push(createHelpTool(tools));
     const sessions = new SessionStore(config.sessionTtlMinutes * 60 * 1000);
     sessions.enablePersistence(path.join(os.homedir(), ".clawarts", "agents", config.id, "sessions"));
     const provider = await createProvider(config);
