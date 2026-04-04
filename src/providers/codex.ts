@@ -1,7 +1,7 @@
 import os from "node:os";
 import type { ToolDefinition } from "../types.js";
 import type { TokenProvider } from "../auth.js";
-import type { ModelProvider, ProviderCallParams, ProviderMessage, ProviderResponse, ToolCall } from "../provider.js";
+import type { ModelProvider, ProviderCallParams, ProviderMessage, ProviderResponse, TokenUsage, ToolCall } from "../provider.js";
 import { withRetry } from "../utils/retry.js";
 
 const CODEX_BASE_URL = "https://chatgpt.com/backend-api/codex/responses";
@@ -19,10 +19,17 @@ interface CodexResponseItem {
   status?: string;
 }
 
+interface CodexUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  total_tokens?: number;
+}
+
 interface CodexResponse {
   id: string;
   output: CodexResponseItem[];
   status: string;
+  usage?: CodexUsage;
 }
 
 // ─── CodexProvider ────────────────────────────────────────────────────
@@ -221,10 +228,21 @@ function parseCodexResponse(result: CodexResponse): ProviderResponse {
   }
 
   const hasToolCalls = toolCalls.length > 0;
+
+  // Extract usage metadata if present in the response
+  let usage: TokenUsage | undefined;
+  if (result.usage) {
+    usage = {
+      inputTokens: result.usage.input_tokens ?? 0,
+      outputTokens: result.usage.output_tokens ?? 0,
+    };
+  }
+
   return {
     text: textParts.join(""),
     toolCalls,
     stopReason: hasToolCalls ? "tool_use" : "end_turn",
+    usage,
     raw: result,
   };
 }

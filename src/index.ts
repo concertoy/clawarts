@@ -20,6 +20,9 @@ import { runDiagnostics, checkProviderHealth, checkSlackTokens } from "./diagnos
 import { registerAgent } from "./relay.js";
 import { errMsg } from "./utils/errors.js";
 import { createAgentTools } from "./agent-tools.js";
+import { createLogger } from "./utils/logger.js";
+
+const log = createLogger("clawarts");
 
 // ─── Provider construction ────────────────────────────────────────────
 
@@ -50,10 +53,10 @@ async function main() {
   // Read version from package.json for startup banner
   const pkgPath = new URL("../package.json", import.meta.url);
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-  console.log(`[clawarts] v${pkg.version} starting (node ${process.version}, pid ${process.pid})`);
+  log.info(`v${pkg.version} starting (node ${process.version}, pid ${process.pid})`);
 
   const agentConfigs = loadAllAgentConfigs();
-  console.log(`[clawarts] ${agentConfigs.length} agent(s): ${agentConfigs.map((a) => a.id).join(", ")}`);
+  log.info(`${agentConfigs.length} agent(s): ${agentConfigs.map((a) => a.id).join(", ")}`);
   runDiagnostics(agentConfigs);
   await Promise.all([checkProviderHealth(agentConfigs), checkSlackTokens(agentConfigs)]);
 
@@ -62,9 +65,6 @@ async function main() {
   const allCronServices: CronService[] = [];
 
   // ─── Phase 1: Create all agent components ──────────────────────────
-  // Build agents first so we can register them all in the relay registry
-  // before starting any Slack apps. The relay tool resolves targets at
-  // call time, so it's safe to add it to the tools list before registration.
 
   interface AgentEntry {
     config: AgentConfig;
@@ -77,14 +77,14 @@ async function main() {
   const entries: AgentEntry[] = [];
 
   for (const config of agentConfigs) {
-    const label = `[${config.id}]`;
+    const alog = createLogger(config.id);
 
     // Ensure workspace directory exists and scaffold template files if missing.
     fs.mkdirSync(config.workspaceDir, { recursive: true });
     if (!fs.existsSync(path.join(config.workspaceDir, "SOUL.md"))) {
       const agentType = config.linkedTutor ? "student" : "tutor";
       const { created } = scaffoldWorkspace(config.id, config.workspaceDir, agentType);
-      if (created.length > 0) console.log(`${label} Scaffolded workspace: ${created.join(", ")}`);
+      if (created.length > 0) alog.info(`Scaffolded workspace: ${created.join(", ")}`);
     }
 
     // Load skills and workspace files per agent
@@ -92,7 +92,7 @@ async function main() {
       ...config.skillSources,
       legacyDirs: config.skillsDirs,
     });
-    console.log(`${label} Skills: ${skills.map((s) => s.name).join(", ") || "(none)"}`);
+    alog.info(`Skills: ${skills.map((s) => s.name).join(", ") || "(none)"}`);
     const workspaceFiles = loadWorkspaceFiles(config.workspaceDir);
 
     // Create Slack WebClient for cron delivery (before App, avoids chicken-and-egg)
@@ -107,12 +107,11 @@ async function main() {
     });
 
     // Initialize per-agent components (cron tool wired into registry, then filtered)
-    // Create tools (tutor gets relay/assignment/checkin/export/reset, student gets submit/checkin-respond/my-status)
     const { tools, cronSystemHandler } = createAgentTools(config, cronService, slackClient);
     if (cronSystemHandler) {
       cronService.setSystemMessageHandler(async (tag, params) => {
         const handled = await cronSystemHandler(tag, params);
-        if (handled) console.log(`${label} Cron system action: ${tag}`);
+        if (handled) alog.info(`Cron system action: ${tag}`);
         return handled;
       });
     }
@@ -126,8 +125,8 @@ async function main() {
       config.quietHours ? `quietHours=${config.quietHours}${config.quietHoursTimezone ? ` (${config.quietHoursTimezone})` : ""}` : "",
       config.rateLimitPerMinute ? `rateLimit=${config.rateLimitPerMinute}/min` : "",
     ].filter(Boolean).join(", ");
-    console.log(`${label} Provider: ${provider.name}, model: ${config.model}${extras ? `, ${extras}` : ""}`);
-    console.log(`${label} Tools: ${tools.map((t) => t.name).join(", ")}`);
+    alog.info(`Provider: ${provider.name}, model: ${config.model}${extras ? `, ${extras}` : ""}`);
+    alog.info(`Tools: ${tools.map((t) => t.name).join(", ")}`);
 
     entries.push({ config, agent, sessions, slackClient, cronService });
   }
@@ -143,24 +142,24 @@ async function main() {
       allowedUsers: entry.config.allowedUsers,
     });
   }
-  console.log(`[clawarts] Relay registry: ${entries.map((e) => e.config.id).join(", ")}`);
+  log.info(`Relay registry: ${entries.map((e) => e.config.id).join(", ")}`);
 
   // ─── Phase 3: Start Slack apps and cron services ───────────────────
   for (const entry of entries) {
-    const label = `[${entry.config.id}]`;
+    const alog = createLogger(entry.config.id);
 
     const app = createSlackApp(entry.config, entry.agent, entry.sessions);
     try {
       await app.start();
     } catch (err) {
-      throw new Error(`${label} Failed to start Slack Socket Mode — check that slackBotToken and slackAppToken are correct and that Socket Mode is enabled in your Slack app settings. Error: ${errMsg(err)}`);
+      throw new Error(`[${entry.config.id}] Failed to start Slack Socket Mode — check that slackBotToken and slackAppToken are correct and that Socket Mode is enabled in your Slack app settings. Error: ${errMsg(err)}`);
     }
     // Resolve and log bot identity (best-effort)
     try {
       const auth = await entry.slackClient.auth.test();
-      console.log(`${label} Slack bot running as @${auth.user} (Socket Mode)`);
+      alog.info(`Slack bot running as @${auth.user} (Socket Mode)`);
     } catch {
-      console.log(`${label} Slack bot running (Socket Mode)`);
+      alog.info("Slack bot running (Socket Mode)");
     }
 
     await entry.cronService.start();
@@ -174,25 +173,25 @@ async function main() {
   const tutors = entries.filter((e) => !e.config.linkedTutor).length;
   const students = entries.length - tutors;
   const elapsedMs = Date.now() - ((globalThis as Record<string, unknown>).__clawarts_start_ms as number ?? Date.now());
-  console.log(`[clawarts] Ready: ${tutors} tutor(s), ${students} student(s) — startup took ${(elapsedMs / 1000).toFixed(1)}s`);
+  log.info(`Ready: ${tutors} tutor(s), ${students} student(s) — startup took ${(elapsedMs / 1000).toFixed(1)}s`);
 
   // Graceful shutdown (guarded against double-fire from SIGINT + SIGTERM)
   let shuttingDown = false;
   const shutdown = async () => {
     if (shuttingDown) return;
     shuttingDown = true;
-    console.log("\n[clawarts] Shutting down...");
+    log.info("Shutting down...");
     const cronResults = await Promise.allSettled(allCronServices.map((c) => c.stop()));
     for (const r of cronResults) {
-      if (r.status === "rejected") console.warn("[clawarts] Cron stop error:", errMsg(r.reason));
+      if (r.status === "rejected") log.warn("Cron stop error:", errMsg(r.reason));
     }
-    console.log("[clawarts] Persisting sessions...");
+    log.info("Persisting sessions...");
     for (const s of allSessions) s.destroy();
     const appResults = await Promise.allSettled(apps.map((a) => a.stop()));
     for (const r of appResults) {
-      if (r.status === "rejected") console.warn("[clawarts] Slack app stop error:", errMsg(r.reason));
+      if (r.status === "rejected") log.warn("Slack app stop error:", errMsg(r.reason));
     }
-    console.log("[clawarts] Goodbye.");
+    log.info("Goodbye.");
     process.exit(0);
   };
 
@@ -201,17 +200,16 @@ async function main() {
 }
 
 // Global error handlers — prevent silent crashes.
-// Ported from claude-code's global error handling pattern.
 process.on("unhandledRejection", (reason) => {
-  console.error("[clawarts] Unhandled rejection:", reason);
+  log.error("Unhandled rejection:", reason);
 });
 
 process.on("uncaughtException", (err) => {
-  console.error("[clawarts] Uncaught exception:", err);
+  log.error("Uncaught exception:", err);
   process.exit(1);
 });
 
 main().catch((err) => {
-  console.error("[clawarts] Fatal error:", err);
+  log.error("Fatal error:", err);
   process.exit(1);
 });

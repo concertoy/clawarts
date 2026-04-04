@@ -47,10 +47,17 @@ export class CheckinStore {
   }
 
   async getActiveWindow(): Promise<CheckinWindow | undefined> {
-    // Auto-close any expired windows first (in case cron job was late)
-    await this.closeExpiredWindows();
+    // Auto-close expired then find active — single load
     const store = await loadStore<CheckinWindow>(this.windowsPath);
     const now = Date.now();
+    let dirty = false;
+    for (const w of store.items) {
+      if (w.status === "open" && !isWindowActive(w, now)) {
+        w.status = "closed";
+        dirty = true;
+      }
+    }
+    if (dirty) await saveStore(this.windowsPath, store);
     return store.items.find((w) => isWindowActive(w, now));
   }
 
@@ -145,6 +152,27 @@ export class CheckinStore {
   async getResponsesByUser(userId: string): Promise<CheckinResponse[]> {
     const store = await loadStore<CheckinResponse>(this.responsesPath);
     return store.items.filter((r) => r.userId === userId);
+  }
+
+  /** Count responses per window (avoids loading full content for reporting). */
+  async countByWindow(windowId: string): Promise<{ total: number; evaluated: number }> {
+    const store = await loadStore<CheckinResponse>(this.responsesPath);
+    const responses = store.items.filter((r) => r.windowId === windowId);
+    return {
+      total: responses.length,
+      evaluated: responses.filter((r) => r.evaluatedAt != null).length,
+    };
+  }
+
+  /** Count total windows and responses for a user across all check-ins. */
+  async countByUser(userId: string): Promise<{ responded: number; avgScore: number | null }> {
+    const store = await loadStore<CheckinResponse>(this.responsesPath);
+    const responses = store.items.filter((r) => r.userId === userId);
+    const scored = responses.filter((r) => r.score != null);
+    return {
+      responded: responses.length,
+      avgScore: scored.length > 0 ? scored.reduce((sum, r) => sum + r.score!, 0) / scored.length : null,
+    };
   }
 
   // ─── Evaluation (tutor only) ─────────────────────────────────────
