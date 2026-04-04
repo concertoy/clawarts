@@ -24,11 +24,13 @@ export function runDiagnostics(configs: AgentConfig[]): void {
       warnings.push(`${label}: no SOUL.md in workspace — agent will use generic persona`);
     }
 
-    // Check linked tutor exists
+    // Check linked tutor exists and is actually a tutor
     if (config.linkedTutor) {
-      const tutorExists = configs.some((c) => c.id === config.linkedTutor);
-      if (!tutorExists) {
+      const tutor = configs.find((c) => c.id === config.linkedTutor);
+      if (!tutor) {
         warnings.push(`${label}: linkedTutor "${config.linkedTutor}" not found in config — relay will fail`);
+      } else if (tutor.linkedTutor) {
+        warnings.push(`${label}: linkedTutor "${config.linkedTutor}" is itself a student agent — must link to a tutor`);
       }
     }
 

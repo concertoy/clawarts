@@ -31,10 +31,22 @@ Summarize the homework in a clean format and ask the tutor to confirm:
 
 If the tutor wants changes, update and re-confirm.
 
-## Step 3 — Announce
+## Step 3 — Create Assignment
 
-Once confirmed, call `relay` with:
+Once confirmed, call `assignment` with:
+- `action`: `create`
+- `title`: the homework title
+- `description`: the full description
+- `deadline`: ISO date string (e.g. "2026-09-14T23:59:00Z")
+- `format`: "individual" or "group"
+- `attachments`: array of URLs/filenames (or empty)
+
+This saves the assignment to the store so students can view and submit against it.
+
+## Step 4 — Announce
+
+Call `relay` with:
 - `action`: `broadcast`
-- `message`: the formatted homework summary from Step 2, prefixed with "📚 **New Homework Assignment**"
+- `message`: the formatted homework summary from Step 2, prefixed with "📚 **New Homework Assignment**". Include the assignment ID from Step 3 so students can reference it.
 
 This sends to all linked students in parallel. Report the delivery summary.

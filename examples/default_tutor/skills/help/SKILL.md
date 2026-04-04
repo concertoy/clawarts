@@ -29,6 +29,7 @@ Reply with:
 - `/progress` — View a student's or class-wide progress report
 - `/roster` — See the student roster with status flags
 - `/export` — Generate a downloadable grade/submission report
+- `/status` — Quick system health check (assignments, students, cron jobs)
 
 **Tips:**
 - You can also just chat naturally — ask me to do anything above in plain language.
