@@ -170,11 +170,14 @@ export function createRelayTool(): ToolDefinition {
           return `Broadcast skipped — same message was sent ${Math.round((Date.now() - lastSent) / 1000)}s ago. Wait ${Math.ceil(BROADCAST_DEDUP_MS / 1000)}s to re-send.`;
         }
         recentBroadcasts.set(dedupKey, Date.now());
-        // Cleanup old entries + hard cap at 100
+        // Cleanup old entries (FIFO eviction if over 100)
         for (const [k, t] of recentBroadcasts) {
           if (Date.now() - t > BROADCAST_DEDUP_MS * 2) recentBroadcasts.delete(k);
         }
-        if (recentBroadcasts.size > 100) recentBroadcasts.clear();
+        while (recentBroadcasts.size > 100) {
+          const oldest = recentBroadcasts.keys().next().value!;
+          recentBroadcasts.delete(oldest);
+        }
 
         // Fan out with bounded concurrency (5 at a time) to prevent resource spikes
         const pairs = students.flatMap((s) =>

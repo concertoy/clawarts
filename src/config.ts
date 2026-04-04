@@ -87,6 +87,9 @@ function validateAgentConfig(config: AgentConfig): void {
   if (config.thinkingBudgetTokens !== undefined && config.thinkingBudgetTokens < 0) {
     errors.push("thinkingBudgetTokens must be non-negative");
   }
+  if (config.thinkingBudgetTokens && config.thinkingBudgetTokens >= config.maxTokens) {
+    errors.push(`thinkingBudgetTokens (${config.thinkingBudgetTokens}) must be less than maxTokens (${config.maxTokens})`);
+  }
 
   if (config.provider === "anthropic-claude" && !process.env.ANTHROPIC_API_KEY) {
     errors.push("ANTHROPIC_API_KEY environment variable is required for anthropic-claude provider");
