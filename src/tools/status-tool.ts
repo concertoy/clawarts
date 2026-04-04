@@ -75,6 +75,16 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
         lines.push("\nNo cron jobs scheduled.");
       }
 
+      // Total class cost estimate (tutor + all students)
+      let totalCost = tutorTokens ? estimateCost(tutorTokens) : 0;
+      for (const s of students) {
+        const t = getTokenUsage(s.id);
+        if (t) totalCost += estimateCost(t);
+      }
+      if (totalCost > 0) {
+        lines.push(`\nEstimated total cost (this session): ~${formatUsd(totalCost)}`);
+      }
+
       return lines.join("\n");
     },
   };

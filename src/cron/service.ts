@@ -9,6 +9,7 @@ import { loadCronStore, saveCronStore } from "./store.js";
 const MIN_REFIRE_GAP_MS = 2_000;
 const RETRY_DELAY_MS = 10_000; // Retry failed deliveries after 10s
 const MAX_RETRIES = 1; // Single retry — don't spam on persistent failures
+const STALE_JOB_AGE_MS = 24 * 60 * 60 * 1000; // Remove executed one-shot jobs after 24h
 
 /**
  * Simplified cron scheduler service.
@@ -57,6 +58,7 @@ export class CronService {
 
   async start(): Promise<void> {
     this.store = await loadCronStore(this.opts.storePath);
+    this.cleanupStaleJobs();
     this.recomputeNextRuns();
     await this.persist();
     this.armTimer();
@@ -280,6 +282,23 @@ export class CronService {
   private async ensureLoaded(): Promise<void> {
     if (!this.store) {
       this.store = await loadCronStore(this.opts.storePath);
+    }
+  }
+
+  /** Remove disabled one-shot (at) jobs that fired more than 24h ago. */
+  private cleanupStaleJobs(): void {
+    if (!this.store) return;
+    const now = this.now();
+    const before = this.store.jobs.length;
+    this.store.jobs = this.store.jobs.filter((j) => {
+      if (j.schedule.kind !== "at") return true; // keep recurring jobs
+      if (j.enabled) return true; // keep active jobs
+      if (!j.state.lastRunAtMs) return true; // keep unexecuted jobs
+      return now - j.state.lastRunAtMs < STALE_JOB_AGE_MS;
+    });
+    const removed = before - this.store.jobs.length;
+    if (removed > 0) {
+      this.log.info(`Cleaned up ${removed} stale one-shot job(s)`);
     }
   }
 

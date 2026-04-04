@@ -61,7 +61,17 @@ export function createSubmitTool(
           notifyTutorOfSubmission(agentId, userId, assignment.title, submission.status === "late")
             .catch((err) => console.warn(`[submit] Failed to notify tutor:`, errMsg(err)));
 
-          return `Submitted${lateNote}${resubNote}:\n- Assignment: "${assignment.title}"\n- Submission ID: ${submission.id}\n- Time: ${new Date(submission.submittedAt).toISOString()}`;
+          const receipt = [
+            `Submitted${lateNote}${resubNote}:`,
+            `- Assignment: "${assignment.title}"`,
+            `- Submission ID: ${submission.id}`,
+            `- Time: ${new Date(submission.submittedAt).toISOString()}`,
+            submission.status === "late"
+              ? `\nNote: This submission was received after the deadline (${new Date(assignment.deadline).toISOString()}).`
+              : "",
+          ].filter(Boolean).join("\n");
+
+          return receipt;
         }
 
         case "list": {
