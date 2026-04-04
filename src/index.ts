@@ -43,8 +43,7 @@ async function createProvider(config: AgentConfig): Promise<ModelProvider> {
       if (!apiKey) throw new Error("ANTHROPIC_API_KEY environment variable is required for anthropic-claude provider");
       return new ClaudeProvider(apiKey);
     }
-    case "openai-codex":
-    default: {
+    case "openai-codex": {
       if (!sharedTokenProvider) {
         sharedTokenProvider = new TokenProvider(config.provider);
         await sharedTokenProvider.init();
