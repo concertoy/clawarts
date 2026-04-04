@@ -217,7 +217,20 @@ export async function agentRemoveCommand(prompter: WizardPrompter, id: string): 
 
   if (removeWorkspace) {
     const fs = await import("node:fs");
-    fs.rmSync(workspaceDir, { recursive: true, force: true });
-    console.log(`Workspace deleted: ${workspaceDir}`);
+    const os = await import("node:os");
+    // Safety: prevent deletion of dangerous paths
+    const home = os.homedir();
+    const normalized = workspaceDir.replace(/\/+$/, "");
+    if (
+      normalized === "/" ||
+      normalized === home ||
+      normalized === "/tmp" ||
+      normalized.split("/").filter(Boolean).length < 3
+    ) {
+      console.error(`Refusing to delete "${workspaceDir}" — path looks too broad. Remove manually if intended.`);
+    } else {
+      fs.rmSync(workspaceDir, { recursive: true, force: true });
+      console.log(`Workspace deleted: ${workspaceDir}`);
+    }
   }
 }

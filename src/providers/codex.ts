@@ -169,7 +169,11 @@ function formatCodexMessages(messages: ProviderMessage[]): unknown[] {
   const out: unknown[] = [];
   for (const msg of messages) {
     if (msg.role === "user") {
-      out.push({ role: "user", content: msg.content });
+      let content = msg.content;
+      if (msg.images && msg.images.length > 0) {
+        content = `[Note: ${msg.images.length} image(s) attached but not supported by this provider — describe what you see instead.]\n${content}`;
+      }
+      out.push({ role: "user", content });
     } else if (msg.role === "assistant") {
       if (msg.toolCalls && msg.toolCalls.length > 0) {
         // Emit function_call items for each tool call
