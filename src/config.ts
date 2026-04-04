@@ -105,6 +105,9 @@ function validateAgentConfig(config: AgentConfig): void {
   if (config.thinkingBudgetTokens && config.thinkingBudgetTokens >= config.maxTokens) {
     errors.push(`thinkingBudgetTokens (${config.thinkingBudgetTokens}) must be less than maxTokens (${config.maxTokens})`);
   }
+  if (config.rateLimitPerMinute !== undefined && config.rateLimitPerMinute < 1) {
+    errors.push("rateLimitPerMinute must be at least 1");
+  }
 
   if (config.provider === "anthropic-claude" && !process.env.ANTHROPIC_API_KEY) {
     errors.push("ANTHROPIC_API_KEY environment variable is required for anthropic-claude provider");
@@ -183,6 +186,7 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults, allEntri
     allowedUsers: entry.allowedUsers ?? defaults.allowedUsers,
     helpLevel: entry.helpLevel ?? defaults.helpLevel,
     maxToolIterations: entry.maxToolIterations ?? defaults.maxToolIterations,
+    rateLimitPerMinute: entry.rateLimitPerMinute ?? defaults.rateLimitPerMinute,
   };
 }
 

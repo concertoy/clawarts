@@ -30,6 +30,8 @@ export interface AgentConfig {
   helpLevel?: HelpLevel;
   /** Max tool execution iterations per reply. Higher = more complex tasks, more API cost. Default: 10. */
   maxToolIterations?: number;
+  /** Max agent replies per minute. Prevents runaway API costs. Default: 30. */
+  rateLimitPerMinute?: number;
 }
 
 /** Top-level config file shape. */
@@ -43,7 +45,7 @@ type AgentOverrides = Partial<Pick<AgentConfig,
   | "provider" | "model" | "maxTokens" | "systemPrompt"
   | "skillsDirs" | "skillSources" | "sessionTtlMinutes" | "workspaceDir"
   | "allowedTools" | "disallowedTools" | "thinkingBudgetTokens"
-  | "allowedUsers" | "helpLevel" | "maxToolIterations"
+  | "allowedUsers" | "helpLevel" | "maxToolIterations" | "rateLimitPerMinute"
 >>;
 
 export interface AgentDefaults extends AgentOverrides {}
