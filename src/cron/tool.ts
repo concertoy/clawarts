@@ -1,6 +1,7 @@
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import type { CronService } from "./service.js";
 import type { CronJobPatch, CronSchedule } from "./types.js";
+import { formatDuration } from "../utils/format.js";
 
 /**
  * Create a cron/reminder tool for the agent.
@@ -148,10 +149,3 @@ function formatSchedule(schedule: CronSchedule): string {
   return `every ${formatDuration(schedule.everyMs)}`;
 }
 
-function formatDuration(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) return "?";
-  if (ms >= 86_400_000) return `${(ms / 86_400_000).toFixed(1)}d`;
-  if (ms >= 3_600_000) return `${(ms / 3_600_000).toFixed(1)}h`;
-  if (ms >= 60_000) return `${(ms / 60_000).toFixed(1)}m`;
-  return `${(ms / 1_000).toFixed(1)}s`;
-}

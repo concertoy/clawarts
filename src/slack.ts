@@ -4,7 +4,7 @@ import type { AgentConfig } from "./types.js";
 import type { Agent } from "./agent.js";
 import { SessionStore } from "./session.js";
 import { BoundedMap } from "./utils/bounded-map.js";
-import { errMsg } from "./utils/errors.js";
+import { errMsg, isAbortError } from "./utils/errors.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
 import { downloadSlackImages } from "./utils/slack-images.js";
 import { downloadSlackFiles, formatFileAttachments } from "./utils/slack-files.js";
@@ -121,7 +121,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
         await handleMessage(params);
       }),
     ).catch((err) => {
-      if (err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"))) return;
+      if (isAbortError(err)) return;
       alog.error(`Dispatch error for ${params.sessionKey}:`, errMsg(err));
     });
   }
@@ -453,7 +453,7 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
     }
   } catch (err) {
     // Aborted requests (from AbortController) are expected — don't post error
-    if (err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"))) {
+    if (isAbortError(err)) {
       log.info(`Request aborted for ${sessionKey} — suppressing error`);
       return;
     }

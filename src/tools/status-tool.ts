@@ -5,7 +5,7 @@ import { getLaneDepth } from "../queue/command-queue.js";
 import { CommandLane } from "../queue/lanes.js";
 import type { CronService } from "../cron/service.js";
 import { getTokenUsage, estimateCost, formatLatencyStats, getToolUsage } from "../utils/token-tracker.js";
-import { formatTokenCount, formatUsd } from "../utils/format.js";
+import { formatTokenCount, formatUsd, formatTimeAgo } from "../utils/format.js";
 
 /**
  * Status tool for tutors — quick overview of student agents and scheduled jobs.
@@ -44,8 +44,7 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
       if (students.length > 0) {
         lines.push(`\nStudents (${students.length}):`);
         for (const s of students) {
-          const active = getAgentLastActive(s.id);
-          const ago = active ? `${Math.round((Date.now() - active) / 60_000)}m ago` : "never";
+          const ago = formatTimeAgo(getAgentLastActive(s.id));
           const users = s.allowedUsers.map((u) => `<@${u}>`).join(", ") || "(none)";
           const reg = getRegisteredAgent(s.id);
           const sessionCount = reg?.sessions.size ?? 0;

@@ -165,6 +165,10 @@ export function createAssignmentTool(
           const id = input.assignmentId as string;
           if (!id) return "Error: assignmentId is required.";
 
+          const existing = await assignmentStore.get(id);
+          if (!existing) return `No assignment found with ID ${id}.`;
+          if (existing.status === "closed") return `Assignment "${existing.title}" is already closed.`;
+
           const assignment = await assignmentStore.close(id);
           if (!assignment) return `No assignment found with ID ${id}.`;
           return `Assignment "${assignment.title}" closed. No more submissions accepted.`;

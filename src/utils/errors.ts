@@ -12,3 +12,8 @@ export function errMsg(err: unknown): string {
 export function isFileNotFound(err: unknown): boolean {
   return err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT";
 }
+
+/** Check if an error is an abort/cancellation error. */
+export function isAbortError(err: unknown): boolean {
+  return err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"));
+}

@@ -14,6 +14,7 @@ import { runWithConcurrency } from "./utils/concurrency.js";
 import { errMsg } from "./utils/errors.js";
 import { openDmChannel } from "./utils/slack-dm.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
+import { formatTimeAgo } from "./utils/format.js";
 
 // ─── Agent Registry ─────────────────────────────────────────────────
 
@@ -99,9 +100,8 @@ export function createListStudentsTool(): ToolDefinition {
       }
       const lines = students.map((s) => {
         const users = s.allowedUsers.length > 0 ? s.allowedUsers.map((u) => `<@${u}>`).join(", ") : "(none)";
-        const active = getAgentLastActive(s.id);
-        const ago = active ? `${Math.round((Date.now() - active) / 60_000)}m ago` : "never";
-        return `• ${s.id}: users ${users} (last active: ${ago})`;
+        const ago = formatTimeAgo(getAgentLastActive(s.id));
+        return `• ${s.id}: users ${users} (active: ${ago})`;
       });
       return `Students linked to ${tutorId}:\n${lines.join("\n")}`;
     },
