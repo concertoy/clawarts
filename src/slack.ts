@@ -86,8 +86,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     if (botDmChannels.has(channel)) return true;
     try {
       const resp = await client.conversations.members({ channel, limit: 10 });
-      const members = resp.members as string[] | undefined;
-      if (members?.includes(myId)) {
+      if (resp.members?.includes(myId)) {
         botDmChannels.add(channel);
         return true;
       }
