@@ -226,6 +226,7 @@ export class Agent {
     const reply = lastText || "[No response]";
     session.messages.push({ role: "assistant", content: reply });
     this.sessions.truncate(session);
+    this.sessions.persistSession(sessionKey);
     return reply;
   }
 

@@ -18,7 +18,7 @@ import type { AgentConfig } from "./types.js";
 import type { App } from "@slack/bolt";
 import { WebClient } from "@slack/web-api";
 import { scaffoldWorkspace } from "./cli/scaffold.js";
-import { runDiagnostics } from "./diagnostics.js";
+import { runDiagnostics, checkProviderHealth } from "./diagnostics.js";
 import { registerAgent, createRelayTool, createListStudentsTool } from "./relay.js";
 import { createSlackUploadTool } from "./slack-upload-tool.js";
 import { AssignmentStore } from "./store/assignment-store.js";
@@ -59,6 +59,7 @@ async function main() {
   const agentConfigs = loadAllAgentConfigs();
   console.log(`[clawarts] ${agentConfigs.length} agent(s): ${agentConfigs.map((a) => a.id).join(", ")}`);
   runDiagnostics(agentConfigs);
+  await checkProviderHealth(agentConfigs);
 
   const apps: App[] = [];
   const allSessions: SessionStore[] = [];
@@ -175,6 +176,7 @@ async function main() {
 
     const tools = filterToolsForAgent(allTools, config);
     const sessions = new SessionStore(config.sessionTtlMinutes * 60 * 1000);
+    sessions.enablePersistence(path.join(os.homedir(), ".clawarts", "agents", config.id, "sessions"));
     const provider = await createProvider(config);
     const agent = new Agent(config, provider, sessions, skills, tools, workspaceFiles);
     console.log(`${label} Provider: ${provider.name}, model: ${config.model}, tools: ${tools.map((t) => t.name).join(", ")}`);
