@@ -27,7 +27,10 @@ function readTemplate(templateDir: string, fileName: string, agentId: string): s
   try {
     const content = fs.readFileSync(filePath, "utf-8");
     return content.replace(/\{\{AGENT_ID\}\}/g, agentId);
-  } catch {
+  } catch (err) {
+    // ENOENT is expected when template file doesn't exist
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    console.warn(`[scaffold] Failed to read template ${fileName}:`, err instanceof Error ? err.message : err);
     return null;
   }
 }

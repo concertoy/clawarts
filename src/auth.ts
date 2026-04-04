@@ -248,7 +248,8 @@ export class TokenProvider {
     try {
       if (!fs.existsSync(this.authFile)) return null;
       return JSON.parse(fs.readFileSync(this.authFile, "utf-8")) as StoredAuth;
-    } catch {
+    } catch (err) {
+      console.warn(`[auth] Corrupted auth file ${this.authFile}, will re-login:`, err instanceof Error ? err.message : err);
       return null;
     }
   }
