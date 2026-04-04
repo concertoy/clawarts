@@ -414,12 +414,16 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
     };
 
     // Download image attachments if present (ported from claude-code attachment handling)
-    const images = await downloadSlackImages(params.files as any, botToken);
+    const { images, skipped: skippedImages } = await downloadSlackImages(params.files as any, botToken);
 
     // Download non-image file attachments and prepend text content to message
     const fileAttachments = await downloadSlackFiles(params.files as any, botToken);
     const filePrefix = formatFileAttachments(fileAttachments);
-    const messageWithFiles = filePrefix ? `${filePrefix}\n---\n${text}` : text;
+    // Notify user about skipped images so they know why their attachment wasn't processed
+    const skippedNotice = skippedImages.length > 0
+      ? `[Note: ${skippedImages.length} image(s) skipped — ${skippedImages.join("; ")}]\n`
+      : "";
+    const messageWithFiles = filePrefix || skippedNotice ? `${skippedNotice}${filePrefix}\n---\n${text}` : text;
 
     const rawReply = await agent.getReply(sessionKey, messageWithFiles, userId, { channelId: channel, threadTs: replyThreadTs }, onText, images.length > 0 ? images : undefined);
     console.log(`[slack] Reply (${rawReply.length} chars): ${rawReply.slice(0, 200)}`);

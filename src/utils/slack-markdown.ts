@@ -51,8 +51,11 @@ export function markdownToSlack(md: string): string {
   // Strikethrough: ~~text~~ → ~text~
   result = result.replace(/~~(.+?)~~/g, "~$1~");
 
-  // Horizontal rules: --- or *** → ───
+  // Horizontal rules: --- or *** → ─── (must run before bullet conversion)
   result = result.replace(/^[-*_]{3,}$/gm, "───────────────────────");
+
+  // Unordered list bullets: - item or * item → • item
+  result = result.replace(/^(\s*)[-*]\s+/gm, "$1• ");
 
   // Markdown tables → plaintext (Slack can't render tables)
   // Convert | col1 | col2 | rows into indented text, drop separator rows

@@ -1,9 +1,13 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { AgentType } from "./templates.js";
 
 // ─── Example template resolution ────────────────────────────────────
+
+/** Package root — anchored to this source file, not process.cwd(). */
+const PKG_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 /**
  * Resolve the example template directory for an agent type.
@@ -11,6 +15,9 @@ import type { AgentType } from "./templates.js";
  */
 function resolveTemplateDir(agentType: AgentType): string {
   const dirName = agentType === "student" ? "default_student" : "default_tutor";
+  // Try package-relative first, fall back to CWD-relative for development
+  const pkgPath = path.join(PKG_ROOT, "examples", dirName);
+  if (fs.existsSync(pkgPath)) return pkgPath;
   return path.resolve("examples", dirName);
 }
 

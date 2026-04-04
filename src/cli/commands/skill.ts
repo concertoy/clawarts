@@ -6,6 +6,14 @@ import { readConfig, findAgent, resolveWorkspaceDir } from "../config-io.js";
 import { buildSkillSources } from "../../config.js";
 import { loadSkills } from "../../skills.js";
 
+/** Quote a YAML value if it contains special characters (colons, quotes, etc.). */
+function yamlQuote(value: string): string {
+  if (/[:#\[\]{}|>&*!?,]/.test(value) || value.startsWith("'") || value.startsWith('"')) {
+    return JSON.stringify(value);
+  }
+  return value;
+}
+
 // ─── skill add ───────────────────────────────────────────────────────
 
 export async function skillAddCommand(prompter: WizardPrompter, agentId: string): Promise<void> {
@@ -49,9 +57,9 @@ export async function skillAddCommand(prompter: WizardPrompter, agentId: string)
 
   // Build frontmatter
   const frontmatter: string[] = ["---"];
-  frontmatter.push(`name: ${name}`);
-  frontmatter.push(`description: ${description}`);
-  if (whenToUse) frontmatter.push(`when_to_use: ${whenToUse}`);
+  frontmatter.push(`name: ${yamlQuote(name)}`);
+  frontmatter.push(`description: ${yamlQuote(description)}`);
+  if (whenToUse) frontmatter.push(`when_to_use: ${yamlQuote(whenToUse)}`);
   if (allowedToolsStr) {
     const tools = allowedToolsStr.split(",").map((s) => s.trim()).filter(Boolean);
     if (tools.length > 0) {

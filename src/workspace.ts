@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import matter from "gray-matter";
 import type { WorkspaceFile } from "./types.js";
 
 /**
@@ -23,21 +24,16 @@ export function loadWorkspaceFiles(workspaceDir: string): WorkspaceFile[] {
     const filePath = path.join(workspaceDir, name);
     try {
       if (!fs.existsSync(filePath)) continue;
-      let content = fs.readFileSync(filePath, "utf-8").trim();
-      if (!content) continue;
+      const raw = fs.readFileSync(filePath, "utf-8").trim();
+      if (!raw) continue;
 
-      // Strip YAML frontmatter if present
-      if (content.startsWith("---")) {
-        const endIndex = content.indexOf("\n---", 3);
-        if (endIndex !== -1) {
-          content = content.slice(endIndex + 4).trim();
-        }
-      }
+      // Strip YAML frontmatter using gray-matter (handles edge cases like --- in code blocks)
+      let content = matter(raw).content.trim();
 
       // Trim to budget
       if (content.length > MAX_CHARS_PER_FILE) {
-        const headLen = Math.floor(MAX_CHARS_PER_FILE * 0.7);
-        const tailLen = Math.floor(MAX_CHARS_PER_FILE * 0.2);
+        const headLen = Math.floor(MAX_CHARS_PER_FILE * 0.75);
+        const tailLen = Math.floor(MAX_CHARS_PER_FILE * 0.25);
         content =
           content.slice(0, headLen) +
           `\n\n[...truncated, read ${name} for full content...]\n\n` +
