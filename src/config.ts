@@ -116,6 +116,13 @@ function validateAgentConfig(config: AgentConfig): void {
     }
   }
 
+  if (config.welcomeMessage && config.welcomeMessage.length > 2000) {
+    errors.push(`welcomeMessage is too long (${config.welcomeMessage.length} chars, max 2000)`);
+  }
+  if (config.compactionThreshold !== undefined && config.compactionThreshold < 10_000) {
+    errors.push(`compactionThreshold (${config.compactionThreshold}) is too low — minimum 10000`);
+  }
+
   if (config.provider === "anthropic-claude" && !process.env.ANTHROPIC_API_KEY) {
     errors.push("ANTHROPIC_API_KEY environment variable is required for anthropic-claude provider");
   }
