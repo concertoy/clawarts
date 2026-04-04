@@ -63,9 +63,14 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   function isDuplicate(channel: string, ts: string): boolean {
     const key = `${channel}:${ts}`;
     if (processedMessages.has(key)) return true;
-    // Safety valve: if map is too large, clear all entries
+    // Safety valve: if map is too large, evict oldest entries (FIFO)
     if (processedMessages.size >= DEDUP_MAX_SIZE) {
-      processedMessages.clear();
+      const toEvict = Math.floor(DEDUP_MAX_SIZE * 0.25);
+      const iter = processedMessages.keys();
+      for (let i = 0; i < toEvict; i++) {
+        const k = iter.next().value;
+        if (k !== undefined) processedMessages.delete(k);
+      }
     }
     processedMessages.set(key, Date.now());
     return false;

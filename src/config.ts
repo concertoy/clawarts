@@ -28,8 +28,13 @@ function resolveConfigPath(): string {
 
 function loadConfigFile(): LegacyConfigFile {
   const configPath = resolveConfigPath();
-  if (!fs.existsSync(configPath)) return {};
-  const raw = fs.readFileSync(configPath, "utf-8");
+  let raw: string;
+  try {
+    raw = fs.readFileSync(configPath, "utf-8");
+  } catch (err) {
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") return {};
+    throw err;
+  }
   try {
     return JSON.parse(raw) as LegacyConfigFile;
   } catch (err) {
