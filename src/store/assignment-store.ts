@@ -66,4 +66,21 @@ export class AssignmentStore {
     const open = store.items.filter((a) => a.status === "open").length;
     return { open, closed: store.items.length - open, total: store.items.length };
   }
+
+  /** Auto-close assignments whose deadline has passed. Returns count of closed. */
+  async closeExpired(): Promise<number> {
+    return withStoreLock(this.storePath, async () => {
+      const store = await this.load();
+      const now = Date.now();
+      let closed = 0;
+      for (const a of store.items) {
+        if (a.status === "open" && a.deadline < now) {
+          a.status = "closed";
+          closed++;
+        }
+      }
+      if (closed > 0) await this.save(store.items);
+      return closed;
+    });
+  }
 }
