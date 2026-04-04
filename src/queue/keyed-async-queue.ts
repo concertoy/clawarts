@@ -37,6 +37,11 @@ export class KeyedAsyncQueue {
     return current;
   }
 
+  /** Check if a specific key has active/pending work. */
+  has(key: string): boolean {
+    return this.tails.has(key);
+  }
+
   /** Number of keys with active/pending work. */
   get size(): number {
     return this.tails.size;

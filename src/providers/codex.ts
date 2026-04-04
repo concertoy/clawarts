@@ -184,9 +184,8 @@ function formatCodexMessages(messages: ProviderMessage[]): unknown[] {
         out.push({ role: "assistant", content: msg.content });
       }
     } else if (msg.role === "tool_result") {
-      const item: Record<string, unknown> = { type: "function_call_output", call_id: msg.callId, output: msg.output };
-      if (msg.isError) item.status = "error";
-      out.push(item);
+      const output = msg.isError ? `[Error] ${msg.output}` : msg.output;
+      out.push({ type: "function_call_output", call_id: msg.callId, output });
     }
   }
   return out;

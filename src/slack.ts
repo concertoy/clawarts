@@ -20,6 +20,12 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     socketMode: true,
   });
 
+  // Increase ping timeout from default 5s to 30s to avoid constant reconnections
+  const receiver = (app as any).receiver;
+  if (receiver?.client) {
+    receiver.client.clientPingTimeoutMS = 30_000;
+  }
+
   const allowedUsers = config.allowedUsers ? new Set(config.allowedUsers) : null;
 
   // Per-session serialization: messages for the same session are processed
@@ -103,7 +109,10 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       enqueuedAt: Date.now(),
     };
 
-    enqueueFollowup(params.sessionKey, item, async (batch) => {
+    // Prefix with agent ID to prevent cross-agent pollution in the
+    // module-level followup queue (shared Maps between all agents).
+    const followupKey = `${config.id}:${params.sessionKey}`;
+    enqueueFollowup(followupKey, item, async (batch) => {
       // Combine batched messages into a single user message
       const combined = batch
         .map((i) => i.userId === "system" ? i.text : `[From: <@${i.userId}>]\n${i.text}`)
@@ -149,8 +158,9 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       files: (event as any).files,
     };
 
-    // If this session is already processing, route to followup queue
-    if (sessionQueue.size > 0) {
+    // If THIS session is already processing, route to followup queue.
+    // Only check the specific session — not all sessions (OpenClaw pattern).
+    if (sessionQueue.has(params.sessionKey)) {
       dispatchFollowup(params);
     } else {
       dispatch(params);
@@ -168,8 +178,6 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
 
     const channel = msg.channel as string;
     const ts = msg.ts as string;
-
-    if (isDuplicate(channel, ts)) return;
     const threadTs = msg.thread_ts as string | undefined;
 
     const myId = await resolveBotId(client);
@@ -182,7 +190,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     if (isDM && !(await isBotDM(client, channel, myId))) return;
 
     if (!isDM && !isThreadReply) {
-      // Top-level channel message without @mention — skip
+      // Top-level channel message without @mention — handled by app_mention
       return;
     }
 
@@ -191,6 +199,10 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       const sessionKey = SessionStore.deriveKey(channel, ts, threadTs);
       if (!sessions.has(sessionKey)) return;
     }
+
+    // Dedup AFTER skip checks — otherwise we poison the dedup set for
+    // messages this handler skips, blocking the app_mention handler.
+    if (isDuplicate(channel, ts)) return;
 
     const sessionKey = SessionStore.deriveKey(channel, ts, threadTs);
     const text = isDM ? (msg.text as string) : stripMention(msg.text as string, myId);
@@ -217,8 +229,9 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       files: msg.files as Array<Record<string, unknown>> | undefined,
     };
 
-    // If this session is already processing, route to followup queue
-    if (sessionQueue.size > 0) {
+    // If THIS session is already processing, route to followup queue.
+    // Only check the specific session — not all sessions (OpenClaw pattern).
+    if (sessionQueue.has(params.sessionKey)) {
       dispatchFollowup(params);
     } else {
       dispatch(params);
