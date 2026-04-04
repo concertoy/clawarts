@@ -147,7 +147,7 @@ const grepTool: ToolDefinition = {
           args.push("-n"); // line numbers for content mode
         }
 
-        args.push("--", shellQuote(pattern), searchPath);
+        args.push("--", shellQuote(pattern), shellQuote(searchPath));
 
         if (headLimit > 0) {
           command = args.join(" ") + ` | head -${headLimit}`;

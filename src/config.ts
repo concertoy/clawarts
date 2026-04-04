@@ -55,10 +55,15 @@ function expandTilde(p: string): string {
   return p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p;
 }
 
-/** Resolve a value that may be a $ENV_VAR reference. */
+/** Resolve a value that may be a $ENV_VAR or ${ENV_VAR} reference. */
 function resolveEnvRef(value: string): string {
-  if (value.startsWith("$")) {
-    const envName = value.slice(1);
+  let envName: string | undefined;
+  if (value.startsWith("${") && value.endsWith("}")) {
+    envName = value.slice(2, -1);
+  } else if (value.startsWith("$")) {
+    envName = value.slice(1);
+  }
+  if (envName) {
     const envValue = process.env[envName];
     if (!envValue) throw new Error(`Environment variable ${envName} is not set (referenced in config.json)`);
     return envValue;

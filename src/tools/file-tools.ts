@@ -167,7 +167,12 @@ const multiEditTool: ToolDefinition = {
       const results: string[] = [];
 
       for (let i = 0; i < edits.length; i++) {
-        const { oldText, newText } = edits[i];
+        const edit = edits[i];
+        if (!edit || typeof edit.oldText !== "string" || typeof edit.newText !== "string") {
+          results.push(`Edit ${i + 1}: invalid entry (missing oldText or newText) — skipped`);
+          continue;
+        }
+        const { oldText, newText } = edit;
         const idx = content.indexOf(oldText);
         if (idx === -1) {
           results.push(`Edit ${i + 1}: oldText not found — skipped`);
