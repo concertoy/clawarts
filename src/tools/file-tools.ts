@@ -7,7 +7,7 @@ import { errMsg } from "../utils/errors.js";
 // ─── Export ───────────────────────────────────────────────────────────
 
 export function createFileTools(workspaceDir: string): ToolDefinition[] {
-  const { resolveFilePath, workspaceRoot } = createPathResolver(workspaceDir);
+  const { resolveFilePath, validateWritePath, workspaceRoot } = createPathResolver(workspaceDir);
 
   // ─── read_file ─────────────────────────────────────────────────────────
 
@@ -69,10 +69,8 @@ export function createFileTools(workspaceDir: string): ToolDefinition[] {
       const filePath = resolveFilePath(input.path as string);
       const content = input.content as string;
 
-      const resolvedWorkspace = path.resolve(workspaceRoot);
-      if (!filePath.startsWith(resolvedWorkspace + path.sep) && filePath !== resolvedWorkspace) {
-        return `Error: write_file is restricted to the workspace directory (${resolvedWorkspace}). Path "${filePath}" is outside the workspace.`;
-      }
+      const pathErr = validateWritePath(filePath);
+      if (pathErr) return `Error: write_file restricted — ${pathErr}`;
 
       try {
         const dir = path.dirname(filePath);
@@ -114,10 +112,8 @@ export function createFileTools(workspaceDir: string): ToolDefinition[] {
       const oldText = input.oldText as string;
       const newText = input.newText as string;
 
-      const resolvedWorkspace = path.resolve(workspaceRoot);
-      if (!filePath.startsWith(resolvedWorkspace + path.sep) && filePath !== resolvedWorkspace) {
-        return `Error: edit is restricted to the workspace directory (${resolvedWorkspace}).`;
-      }
+      const pathErr = validateWritePath(filePath);
+      if (pathErr) return `Error: edit restricted — ${pathErr}`;
 
       try {
         const content = await fs.promises.readFile(filePath, "utf-8");
@@ -178,10 +174,8 @@ export function createFileTools(workspaceDir: string): ToolDefinition[] {
 
       if (!edits || edits.length === 0) return "Error: edits array is empty.";
 
-      const resolvedWorkspace = path.resolve(workspaceRoot);
-      if (!filePath.startsWith(resolvedWorkspace + path.sep) && filePath !== resolvedWorkspace) {
-        return `Error: multi_edit is restricted to the workspace directory (${resolvedWorkspace}).`;
-      }
+      const pathErr = validateWritePath(filePath);
+      if (pathErr) return `Error: multi_edit restricted — ${pathErr}`;
 
       try {
         let content = await fs.promises.readFile(filePath, "utf-8");

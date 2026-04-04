@@ -65,6 +65,25 @@ export async function notifyStudentsOfScores(
  * Auto-evaluate passphrase responses: compare each response against the expected passphrase.
  * Returns evaluation entries ready for bulkEvaluate.
  */
+/**
+ * Compute which users from allUserIds did not respond.
+ * Deduplicates the pattern repeated across checkin-tool evaluate + report actions.
+ */
+export function computeAbsentUsers(
+  allUserIds: string[],
+  responses: { userId: string }[],
+): string[] {
+  const responded = new Set(responses.map((r) => r.userId));
+  return allUserIds.filter((u) => !responded.has(u));
+}
+
+/** Compute average score from responses that have been evaluated. Returns null if none scored. */
+export function computeAverageScore(responses: { score?: number | null }[]): number | null {
+  const scored = responses.filter((r) => r.score != null);
+  if (scored.length === 0) return null;
+  return Math.round(scored.reduce((sum, r) => sum + (r.score ?? 0), 0) / scored.length);
+}
+
 export function autoEvaluatePassphrase(
   responses: { id: string; content: string }[],
   passphrase: string,
