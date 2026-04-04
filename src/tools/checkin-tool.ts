@@ -77,6 +77,11 @@ export function createCheckinTool(
           type: "boolean",
           description: "If true, DM each student their score and feedback after evaluation (default: false).",
         },
+        format: {
+          type: "string",
+          enum: ["text", "csv"],
+          description: "Output format for report action. 'csv' produces a spreadsheet-ready table. Default: text.",
+        },
       },
       required: ["action"],
     },
@@ -325,6 +330,7 @@ export function createCheckinTool(
 
           const pulseGroupId = input.pulseGroupId as string;
           const windowId = input.windowId as string;
+          const csvFormat = (input.format as string) === "csv";
 
           const students = getStudentsForTutor(agentId);
           const allUserIds = students.flatMap((s) => s.allowedUsers);
@@ -353,6 +359,17 @@ export function createCheckinTool(
             }
 
             const total = windows.length;
+
+            if (csvFormat) {
+              const csvLines = ["user_id,responded,total,attendance_pct,avg_score"];
+              for (const [uid, stats] of userStats) {
+                const pct = Math.round((stats.responded / total) * 100);
+                const avg = stats.evaluated > 0 ? Math.round(stats.totalScore / stats.evaluated) : "";
+                csvLines.push(`${uid},${stats.responded},${total},${pct},${avg}`);
+              }
+              return csvLines.join("\n");
+            }
+
             const lines = [...userStats.entries()].map(([uid, stats]) => {
               const pct = Math.round((stats.responded / total) * 100);
               const avgScore = stats.evaluated > 0 ? Math.round(stats.totalScore / stats.evaluated) : "N/A";
@@ -382,6 +399,18 @@ export function createCheckinTool(
           const responses = await checkinStore.getResponsesByWindow(targetWindow.id);
           const absent = computeAbsentUsers(allUserIds, responses);
           const avgScore = computeAverageScore(responses) ?? "N/A";
+
+          if (csvFormat) {
+            const csvLines = ["user_id,status,score,feedback"];
+            for (const r of responses) {
+              const fb = (r.feedback ?? "").replace(/"/g, '""');
+              csvLines.push(`${r.userId},${r.status ?? "pending"},${r.score ?? ""},${fb ? `"${fb}"` : ""}`);
+            }
+            for (const uid of absent) {
+              csvLines.push(`${uid},absent,,`);
+            }
+            return csvLines.join("\n");
+          }
 
           const statusCounts = {
             checked_in: responses.filter((r) => r.status === "checked_in").length,
