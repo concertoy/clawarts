@@ -18,6 +18,7 @@ import type { AgentConfig } from "./types.js";
 import type { App } from "@slack/bolt";
 import { WebClient } from "@slack/web-api";
 import { scaffoldWorkspace } from "./cli/scaffold.js";
+import { runDiagnostics } from "./diagnostics.js";
 import { registerAgent, createRelayTool, createListStudentsTool } from "./relay.js";
 import { createSlackUploadTool } from "./slack-upload-tool.js";
 import { AssignmentStore } from "./store/assignment-store.js";
@@ -57,6 +58,7 @@ async function main() {
 
   const agentConfigs = loadAllAgentConfigs();
   console.log(`[clawarts] ${agentConfigs.length} agent(s): ${agentConfigs.map((a) => a.id).join(", ")}`);
+  runDiagnostics(agentConfigs);
 
   const apps: App[] = [];
   const allSessions: SessionStore[] = [];
@@ -127,6 +129,35 @@ async function main() {
       // Check-in management for tutors (data in tutor's directory)
       const checkinStore = new CheckinStore(dataDir);
       allTools.push(createCheckinTool(checkinStore, cronService, config.id));
+
+      // Wire system message handler for auto-close cron jobs
+      cronService.setSystemMessageHandler(async (tag, params) => {
+        if (tag === "CLOSE_ASSIGNMENT" && params.assignmentId) {
+          await assignmentStore.close(params.assignmentId);
+          console.log(`[cron:${config.id}] Auto-closed assignment ${params.assignmentId}`);
+          return true;
+        }
+        if (tag === "CLOSE_CHECKIN" && params.windowId) {
+          await checkinStore.closeWindow(params.windowId);
+          console.log(`[cron:${config.id}] Auto-closed check-in ${params.windowId}`);
+          return true;
+        }
+        if (tag === "PULSE_CHECKIN" && params.pulseGroupId) {
+          const duration = parseInt(params.durationMinutes || "2") * 60 * 1000;
+          await checkinStore.createWindow({
+            tutorId: config.id,
+            mode: "pulse",
+            topic: params.topic || undefined,
+            pulseGroupId: params.pulseGroupId,
+            pulseIndex: parseInt(params.pulseIndex || "1"),
+            pulseTotal: parseInt(params.pulseTotal || "1"),
+            closesAt: Date.now() + duration,
+          });
+          console.log(`[cron:${config.id}] Opened pulse ${params.pulseIndex}/${params.pulseTotal}`);
+          return true;
+        }
+        return false;
+      });
     } else if (config.linkedTutor) {
       // Student agents share the tutor's data stores (read assignments, write submissions)
       const tutorDataDir = path.join(os.homedir(), ".clawarts", "agents", config.linkedTutor, "data");

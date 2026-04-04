@@ -18,6 +18,8 @@ export class CronService {
   private timer: NodeJS.Timeout | null = null;
   private running = false;
 
+  private systemHandler?: (tag: string, params: Record<string, string>, job: CronJob) => Promise<boolean>;
+
   constructor(
     private opts: {
       agentId: string;
@@ -26,6 +28,11 @@ export class CronService {
       nowMs?: () => number;
     },
   ) {}
+
+  /** Register a handler for [SYSTEM:*] cron messages. Return true to suppress Slack delivery. */
+  setSystemMessageHandler(handler: (tag: string, params: Record<string, string>, job: CronJob) => Promise<boolean>): void {
+    this.systemHandler = handler;
+  }
 
   private now(): number {
     return this.opts.nowMs ? this.opts.nowMs() : Date.now();
@@ -189,6 +196,21 @@ export class CronService {
   /** Deliver a job's message to Slack. Schedule is already advanced. */
   private async deliverJob(job: CronJob): Promise<void> {
     try {
+      // Intercept [SYSTEM:*] messages — handle silently without posting to Slack
+      const sysMatch = job.message.match(/^\[SYSTEM:(\w+)\]\s*(.*)/);
+      if (sysMatch && this.systemHandler) {
+        const tag = sysMatch[1];
+        const rest = sysMatch[2];
+        const params: Record<string, string> = {};
+        for (const m of rest.matchAll(/(\w+)=(\S+)/g)) params[m[1]] = m[2];
+        const handled = await this.systemHandler(tag, params, job);
+        if (handled) {
+          job.state.lastStatus = "ok";
+          console.log(`[cron:${this.opts.agentId}] System action "${tag}" handled for "${job.name}"`);
+          return;
+        }
+      }
+
       await this.opts.slackClient.chat.postMessage({
         channel: job.channelId,
         text: `\u{1f514} *${job.name}*\n${job.message}`,

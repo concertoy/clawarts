@@ -72,11 +72,11 @@ export function createAssignmentTool(
             createdBy: agentId,
           });
 
-          // Auto-schedule a reminder 24h before deadline
-          const reminderTime = deadline - 24 * 60 * 60 * 1000;
-          if (reminderTime > Date.now()) {
-            const channelId = context?.channelId || "";
-            if (channelId) {
+          const channelId = context?.channelId || "";
+          if (channelId) {
+            // Auto-schedule a reminder 24h before deadline
+            const reminderTime = deadline - 24 * 60 * 60 * 1000;
+            if (reminderTime > Date.now()) {
               await cronService.add({
                 name: `Reminder: ${title}`,
                 message: `⏰ Assignment "${title}" is due in 24 hours! Deadline: ${new Date(deadline).toISOString()}`,
@@ -86,6 +86,16 @@ export function createAssignmentTool(
                 enabled: true,
               });
             }
+
+            // Auto-close at deadline
+            await cronService.add({
+              name: `Auto-close: ${title}`,
+              message: `[SYSTEM:CLOSE_ASSIGNMENT] assignmentId=${assignment.id}`,
+              channelId,
+              agentId,
+              schedule: { kind: "at", atMs: deadline },
+              enabled: true,
+            });
           }
 
           return [
