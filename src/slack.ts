@@ -427,9 +427,9 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
       streamedText += delta;
       // Schedule a throttled edit
       if (!pendingEdit) {
-        pendingEdit = setTimeout(async () => {
+        pendingEdit = setTimeout(() => {
           pendingEdit = null;
-          await flushEdit();
+          void flushEdit().catch(() => {});
         }, STREAM_UPDATE_INTERVAL_MS);
       }
     };

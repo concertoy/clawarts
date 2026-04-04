@@ -30,7 +30,12 @@ function loadConfigFile(): LegacyConfigFile {
   const configPath = resolveConfigPath();
   if (!fs.existsSync(configPath)) return {};
   const raw = fs.readFileSync(configPath, "utf-8");
-  return JSON.parse(raw) as LegacyConfigFile;
+  try {
+    return JSON.parse(raw) as LegacyConfigFile;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to parse ${configPath}: ${msg}`);
+  }
 }
 
 export const AGENT_DEFAULTS = {

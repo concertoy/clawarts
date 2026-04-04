@@ -237,10 +237,15 @@ async function main() {
   process.on("SIGTERM", shutdown);
 }
 
-// Catch unhandled rejections — prevents silent crashes.
+// Global error handlers — prevent silent crashes.
 // Ported from claude-code's global error handling pattern.
 process.on("unhandledRejection", (reason) => {
   console.error("[clawarts] Unhandled rejection:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("[clawarts] Uncaught exception:", err);
+  process.exit(1);
 });
 
 main().catch((err) => {

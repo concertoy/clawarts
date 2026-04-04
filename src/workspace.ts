@@ -61,8 +61,8 @@ export function loadWorkspaceFiles(workspaceDir: string): WorkspaceFile[] {
       }
 
       files.push({ name, content });
-    } catch {
-      // Skip unreadable files
+    } catch (err) {
+      console.warn(`[workspace] Failed to read ${name}:`, err instanceof Error ? err.message : err);
     }
   }
 
