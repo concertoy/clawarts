@@ -79,6 +79,34 @@ skill
     await skillRemoveCommand(prompter, agentId, skillName);
   });
 
+// ─── clawarts check ─────────────────────────────────────────────
+
+program
+  .command("check")
+  .description("Validate config.json and environment variables without starting the bot")
+  .action(async () => {
+    const { loadAllAgentConfigs } = await import("../config.js");
+    const { runDiagnostics, checkProviderHealth, checkSlackTokens } = await import("../diagnostics.js");
+    try {
+      const configs = loadAllAgentConfigs();
+      console.log(`Config loaded: ${configs.length} agent(s) — ${configs.map((a) => a.id).join(", ")}`);
+      runDiagnostics(configs);
+      const results = await Promise.allSettled([checkProviderHealth(configs), checkSlackTokens(configs)]);
+      let hasErrors = false;
+      for (const r of results) {
+        if (r.status === "rejected") {
+          console.error(`Error: ${r.reason}`);
+          hasErrors = true;
+        }
+      }
+      if (!hasErrors) console.log("All checks passed.");
+      else process.exit(1);
+    } catch (err) {
+      console.error(`Config error: ${err instanceof Error ? err.message : err}`);
+      process.exit(1);
+    }
+  });
+
 // ─── Run ─────────────────────────────────────────────────────────────
 
 program.parseAsync(process.argv).catch((err) => {

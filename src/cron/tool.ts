@@ -17,7 +17,7 @@ export function createCronTool(cronService: CronService, agentId: string): ToolD
       properties: {
         action: {
           type: "string",
-          enum: ["add", "list", "remove", "update"],
+          enum: ["add", "list", "remove", "update", "purge"],
           description: "The action to perform.",
         },
         // For add:
@@ -95,7 +95,9 @@ export function createCronTool(cronService: CronService, agentId: string): ToolD
           const lines = jobs.map((j) => {
             const status = j.enabled ? "active" : "disabled";
             const next = j.state.nextRunAtMs ? new Date(j.state.nextRunAtMs).toISOString() : "—";
-            return `- [${status}] "${j.name}" (${j.id})\n  Schedule: ${formatSchedule(j.schedule)}\n  Next: ${next}\n  Channel: ${j.channelId}`;
+            const lastRun = j.state.lastRunAtMs ? new Date(j.state.lastRunAtMs).toISOString() : "never";
+            const lastStatus = j.state.lastStatus ? ` (${j.state.lastStatus}${j.state.lastError ? `: ${j.state.lastError.slice(0, 60)}` : ""})` : "";
+            return `- [${status}] "${j.name}" (${j.id})\n  Schedule: ${formatSchedule(j.schedule)}\n  Next: ${next} | Last: ${lastRun}${lastStatus}\n  Channel: ${j.channelId}`;
           });
           return `Scheduled reminders (${jobs.length}):\n\n${lines.join("\n\n")}`;
         }
@@ -135,8 +137,20 @@ export function createCronTool(cronService: CronService, agentId: string): ToolD
           return `Reminder updated:\n- ID: ${job.id}\n- Name: ${job.name}\n- Enabled: ${job.enabled}\n- Schedule: ${formatSchedule(job.schedule)}`;
         }
 
+        case "purge": {
+          const jobs = await cronService.listAll();
+          const includeActive = input.enabled === true; // purge with enabled=true removes ALL jobs
+          const toPurge = includeActive ? jobs : jobs.filter((j) => !j.enabled);
+          if (toPurge.length === 0) return includeActive ? "No jobs to purge." : "No disabled jobs to purge. Use enabled=true to purge all jobs.";
+          let removed = 0;
+          for (const j of toPurge) {
+            if (await cronService.remove(j.id)) removed++;
+          }
+          return `Purged ${removed} ${includeActive ? "" : "disabled "}job(s).`;
+        }
+
         default:
-          return `Unknown action: ${action}. Use add, list, remove, or update.`;
+          return `Unknown action: ${action}. Use add, list, remove, update, or purge.`;
       }
     },
   };
