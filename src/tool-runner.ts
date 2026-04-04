@@ -111,7 +111,7 @@ async function executeOne(tools: ToolDefinition[], tc: ToolCall, context?: ToolU
     let output = await withTimeout(tool.execute(args, context), TOOL_EXECUTION_TIMEOUT_MS, tc.name);
     // Detect tool-level errors (tools return error strings rather than throwing).
     // Ported from claude-code's tool error detection pattern.
-    const isError = output.startsWith("Error:") || output.startsWith("Error ") || output.startsWith("Blocked:");
+    const isError = /^(error\s*:|error\s|blocked:|\[error\])/i.test(output);
     output = truncateToolOutput(output, tc.name);
     return { callId: tc.id, name: tc.name, output, isError: isError || undefined };
   } catch (err) {

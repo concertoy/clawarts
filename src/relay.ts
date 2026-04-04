@@ -22,6 +22,8 @@ export interface RegisteredAgent {
   allowedUsers?: string[];
 }
 
+const BROADCAST_CONCURRENCY = 5;
+
 const registry = new Map<string, RegisteredAgent>();
 
 export function registerAgent(entry: RegisteredAgent): void {
@@ -159,12 +161,15 @@ export function createRelayTool(): ToolDefinition {
         const students = getStudentsForTutor(sourceAgent);
         if (students.length === 0) return `No student agents linked to "${sourceAgent}".`;
 
-        // Fan out to all (student, userId) pairs in parallel
-        const tasks = students.flatMap((s) =>
-          s.allowedUsers.map((uid) => relayToStudent(s.id, uid, message, sourceAgent)),
+        // Fan out with bounded concurrency (5 at a time) to prevent resource spikes
+        const pairs = students.flatMap((s) =>
+          s.allowedUsers.map((uid) => ({ agentId: s.id, uid })),
         );
-
-        const results = await Promise.allSettled(tasks);
+        const results = await boundedParallel(
+          pairs,
+          (p) => relayToStudent(p.agentId, p.uid, message, sourceAgent),
+          BROADCAST_CONCURRENCY,
+        );
         const ok = results.filter((r) => r.status === "fulfilled");
         const fail = results.filter((r) => r.status === "rejected");
 
@@ -199,4 +204,31 @@ export function createRelayTool(): ToolDefinition {
       }
     },
   };
+}
+
+// ─── Bounded concurrency ──────────────────────────────────────────────
+
+/** Run tasks with at most `limit` concurrent executions. Returns PromiseSettledResult[]. */
+async function boundedParallel<T, R>(
+  items: T[],
+  fn: (item: T) => Promise<R>,
+  limit: number,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let idx = 0;
+
+  async function worker(): Promise<void> {
+    while (idx < items.length) {
+      const i = idx++;
+      try {
+        results[i] = { status: "fulfilled", value: await fn(items[i]) };
+      } catch (err) {
+        results[i] = { status: "rejected", reason: err };
+      }
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
 }
