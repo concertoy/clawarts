@@ -341,7 +341,7 @@ export class Agent {
       }
       messages.push(...toKeep.slice(startIdx));
 
-      console.log(`[agent] Compacted ${sessionKey ?? "?"}: ${toSummarize.length} messages → summary (${summary.length} chars), kept ${toKeep.length} recent`);
+      console.log(`[agent] Compacted ${sessionKey ?? "?"}: ${toSummarize.length + toKeep.length} → ${messages.length} messages (${totalChars} → ~${summary.length} chars)`);
     } catch (err) {
       // Non-fatal — if compaction fails, just continue with full history
       console.warn("[agent] Compaction failed, continuing with full history:", errMsg(err));
