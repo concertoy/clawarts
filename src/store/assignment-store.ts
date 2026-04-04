@@ -3,7 +3,7 @@ import { loadStore, saveStore } from "./json-store.js";
 import type { Assignment } from "./types.js";
 
 export class AssignmentStore {
-  constructor(private storePath: string) {}
+  constructor(private readonly storePath: string) {}
 
   private async load() {
     return loadStore<Assignment>(this.storePath);

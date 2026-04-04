@@ -13,8 +13,8 @@ import type { CheckinWindow, CheckinResponse } from "./types.js";
  * - Score, status, feedback fields are only written by evaluateResponse/bulkEvaluate
  */
 export class CheckinStore {
-  private windowsPath: string;
-  private responsesPath: string;
+  private readonly windowsPath: string;
+  private readonly responsesPath: string;
 
   constructor(dataDir: string) {
     this.windowsPath = path.join(dataDir, "checkin-windows.json");

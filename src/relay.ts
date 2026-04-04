@@ -9,6 +9,7 @@ import type { WebClient } from "@slack/web-api";
 import type { Agent } from "./agent.js";
 import type { SessionStore } from "./session.js";
 import type { ToolDefinition, ToolUseContext } from "./types.js";
+import { BoundedMap } from "./utils/bounded-map.js";
 import { errMsg } from "./utils/errors.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
 
@@ -27,7 +28,7 @@ const BROADCAST_CONCURRENCY = 5;
 const BROADCAST_DEDUP_MS = 10_000; // 10s window to prevent accidental double-broadcast
 
 const registry = new Map<string, RegisteredAgent>();
-const recentBroadcasts = new Map<string, number>(); // hash → timestamp
+const recentBroadcasts = new BoundedMap<string, number>(100); // hash → timestamp
 
 export function registerAgent(entry: RegisteredAgent): void {
   registry.set(entry.id, entry);
@@ -171,13 +172,9 @@ export function createRelayTool(): ToolDefinition {
           return `Broadcast skipped — same message was sent ${Math.round((Date.now() - lastSent) / 1000)}s ago. Wait ${Math.ceil(BROADCAST_DEDUP_MS / 1000)}s to re-send.`;
         }
         recentBroadcasts.set(dedupKey, Date.now());
-        // Cleanup old entries (FIFO eviction if over 100)
+        // Expire stale entries (older than 2x dedup window)
         for (const [k, t] of recentBroadcasts) {
           if (Date.now() - t > BROADCAST_DEDUP_MS * 2) recentBroadcasts.delete(k);
-        }
-        while (recentBroadcasts.size > 100) {
-          const oldest = recentBroadcasts.keys().next().value!;
-          recentBroadcasts.delete(oldest);
         }
 
         // Fan out with bounded concurrency (5 at a time) to prevent resource spikes

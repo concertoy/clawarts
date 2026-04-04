@@ -3,7 +3,7 @@ import { loadStore, saveStore } from "./json-store.js";
 import type { Submission } from "./types.js";
 
 export class SubmissionStore {
-  constructor(private storePath: string) {}
+  constructor(private readonly storePath: string) {}
 
   private async load() {
     return loadStore<Submission>(this.storePath);
