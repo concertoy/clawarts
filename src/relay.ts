@@ -96,7 +96,7 @@ async function relayToStudent(
     throw new Error(`Could not open DM channel with user ${userId} via ${targetId}'s bot.`);
   }
 
-  const sessionKey = `relay:${sourceAgent}:${channelId}`;
+  const sessionKey = `relay:${sourceAgent}:${targetId}:${userId}`;
   const reply = await target.agent.getReply(
     sessionKey,
     `[Relayed from agent "${sourceAgent}"]\n${message}`,

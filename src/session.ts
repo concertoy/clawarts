@@ -128,7 +128,15 @@ export class SessionStore {
     try { fs.unlinkSync(filePath); } catch { /* ignore */ }
   }
 
+  /** Persist all in-memory sessions to disk before shutdown. */
+  persistAll(): void {
+    for (const session of this.sessions.values()) {
+      this.persistToDisk(session);
+    }
+  }
+
   destroy(): void {
+    this.persistAll();
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
       this.cleanupTimer = null;

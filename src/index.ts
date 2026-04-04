@@ -54,7 +54,10 @@ async function createProvider(config: AgentConfig): Promise<ModelProvider> {
 // ─── Main ─────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log("[clawarts] Starting...");
+  // Read version from package.json for startup banner
+  const pkgPath = new URL("../package.json", import.meta.url);
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  console.log(`[clawarts] v${pkg.version} starting (node ${process.version}, pid ${process.pid})`);
 
   const agentConfigs = loadAllAgentConfigs();
   console.log(`[clawarts] ${agentConfigs.length} agent(s): ${agentConfigs.map((a) => a.id).join(", ")}`);
@@ -216,8 +219,10 @@ async function main() {
   const shutdown = async () => {
     console.log("\n[clawarts] Shutting down...");
     for (const c of allCronServices) c.stop();
-    for (const s of allSessions) s.destroy();
+    console.log("[clawarts] Persisting sessions...");
+    for (const s of allSessions) s.destroy(); // destroy() calls persistAll() before clearing
     for (const a of apps) await a.stop();
+    console.log("[clawarts] Goodbye.");
     process.exit(0);
   };
 

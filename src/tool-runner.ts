@@ -98,6 +98,7 @@ async function executeOne(tools: ToolDefinition[], tc: ToolCall, context?: ToolU
   if (!tool) {
     return { callId: tc.id, name: tc.name, output: `Unknown tool: ${tc.name}`, isError: true };
   }
+  const startMs = Date.now();
   try {
     // Parse arguments, handling empty/malformed JSON gracefully.
     // Ported from claude-code's tool argument validation pattern.
@@ -109,13 +110,17 @@ async function executeOne(tools: ToolDefinition[], tc: ToolCall, context?: ToolU
     }
     // Execute with a timeout to prevent runaway tools from blocking the agent loop
     let output = await withTimeout(tool.execute(args, context), TOOL_EXECUTION_TIMEOUT_MS, tc.name);
+    const elapsed = Date.now() - startMs;
+    if (elapsed > 1000) console.log(`[tool-runner] ${tc.name} took ${(elapsed / 1000).toFixed(1)}s`);
     // Detect tool-level errors (tools return error strings rather than throwing).
     // Ported from claude-code's tool error detection pattern.
     const isError = /^(error\s*:|error\s|blocked:|\[error\])/i.test(output);
     output = truncateToolOutput(output, tc.name);
     return { callId: tc.id, name: tc.name, output, isError: isError || undefined };
   } catch (err) {
+    const elapsed = Date.now() - startMs;
     const msg = err instanceof Error ? err.message : String(err);
+    console.log(`[tool-runner] ${tc.name} failed after ${(elapsed / 1000).toFixed(1)}s: ${msg.slice(0, 100)}`);
     return { callId: tc.id, name: tc.name, output: `Tool execution error: ${msg}`, isError: true };
   }
 }
