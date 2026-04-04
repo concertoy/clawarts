@@ -8,16 +8,11 @@ import { errMsg } from "./utils/errors.js";
  * Warns about misconfigurations that would cause silent runtime failures.
  */
 export function runDiagnostics(configs: AgentConfig[]): void {
-  const warnings: string[] = [];
+  // Environment info
+  const memMB = Math.round(process.memoryUsage.rss() / 1024 / 1024);
+  console.log(`[clawarts] Environment: node ${process.version}, ${memMB}MB RSS, ${configs.length} agent(s)`);
 
-  // Check for duplicate agent IDs (would silently overwrite in registry)
-  const idCounts = new Map<string, number>();
-  for (const config of configs) {
-    idCounts.set(config.id, (idCounts.get(config.id) ?? 0) + 1);
-  }
-  for (const [id, count] of idCounts) {
-    if (count > 1) warnings.push(`${id}: duplicate agent ID appears ${count} times — only the last will be registered`);
-  }
+  const warnings: string[] = [];
 
   for (const config of configs) {
     const label = config.id;
@@ -39,12 +34,10 @@ export function runDiagnostics(configs: AgentConfig[]): void {
       warnings.push(`${label}: workspace "${config.workspaceDir}" will be created on start`);
     }
 
-    // Check linked tutor exists and is actually a tutor
+    // Check linked tutor is actually a tutor (not itself a student)
     if (config.linkedTutor) {
       const tutor = configs.find((c) => c.id === config.linkedTutor);
-      if (!tutor) {
-        warnings.push(`${label}: linkedTutor "${config.linkedTutor}" not found in config — relay will fail`);
-      } else if (tutor.linkedTutor) {
+      if (tutor?.linkedTutor) {
         warnings.push(`${label}: linkedTutor "${config.linkedTutor}" is itself a student agent — must link to a tutor`);
       }
     }
