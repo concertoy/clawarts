@@ -32,12 +32,19 @@ const BROADCAST_DEDUP_MS = 10_000; // 10s window to prevent accidental double-br
 const MAX_BROADCAST_TARGETS = 100; // safety limit to prevent runaway broadcasts
 
 const registry = new Map<string, RegisteredAgent>();
+const agentStartedAt = new Map<string, number>(); // agent ID → epoch ms
 const lastActiveAt = new Map<string, number>(); // agent ID → epoch ms
 const lastErrors = new Map<string, string>(); // agent ID → last error message
 const recentBroadcasts = new BoundedMap<string, number>(100); // hash → timestamp
 
 export function registerAgent(entry: RegisteredAgent): void {
   registry.set(entry.id, entry);
+  agentStartedAt.set(entry.id, Date.now());
+}
+
+/** Get when an agent was registered (startup time). */
+export function getAgentStartedAt(agentId: string): number | undefined {
+  return agentStartedAt.get(agentId);
 }
 
 export function getRegisteredAgent(id: string): RegisteredAgent | undefined {
