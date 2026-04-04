@@ -25,6 +25,8 @@ export interface AgentConfig {
   allowedUsers?: string[];
   /** How much help the agent provides. "hints" = questions only, "guided" = explain approach (default), "full" = no restriction. */
   helpLevel?: "hints" | "guided" | "full";
+  /** Max tool execution iterations per reply. Higher = more complex tasks, more API cost. Default: 10. */
+  maxToolIterations?: number;
 }
 
 /** Top-level config file shape. */
@@ -47,6 +49,7 @@ export interface AgentDefaults {
   thinkingBudgetTokens?: number;
   allowedUsers?: string[];
   helpLevel?: "hints" | "guided" | "full";
+  maxToolIterations?: number;
 }
 
 export interface AgentEntry {
@@ -69,6 +72,7 @@ export interface AgentEntry {
   /** If set, only these Slack user IDs can interact with this agent. */
   allowedUsers?: string[];
   helpLevel?: "hints" | "guided" | "full";
+  maxToolIterations?: number;
 }
 
 export interface WorkspaceFile {

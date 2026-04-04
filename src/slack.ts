@@ -41,10 +41,15 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   // Track recently processed message timestamps to avoid double-processing.
   const processedMessages = new Set<string>();
   const DEDUP_TTL_MS = 60_000; // Keep dedup entries for 1 minute
+  const DEDUP_MAX_SIZE = 1000; // Safety valve — prevent unbounded growth
 
   function isDuplicate(channel: string, ts: string): boolean {
     const key = `${channel}:${ts}`;
     if (processedMessages.has(key)) return true;
+    // Safety valve: if set is too large, clear old entries
+    if (processedMessages.size >= DEDUP_MAX_SIZE) {
+      processedMessages.clear();
+    }
     processedMessages.add(key);
     setTimeout(() => processedMessages.delete(key), DEDUP_TTL_MS);
     return false;

@@ -4,7 +4,7 @@ import { SessionStore } from "./session.js";
 import { buildSystemPrompt } from "./system-prompt.js";
 import { runToolBatch } from "./tool-runner.js";
 
-const MAX_TOOL_ITERATIONS = 10;
+const DEFAULT_MAX_TOOL_ITERATIONS = 10;
 
 /**
  * Estimated character threshold for triggering compaction.
@@ -180,8 +180,9 @@ export class Agent {
         }
 
         // Safety limit
-        if (turnCount >= MAX_TOOL_ITERATIONS) {
-          console.log(`[agent] Hit max tool iterations (${MAX_TOOL_ITERATIONS})`);
+        const maxIterations = this.config.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
+        if (turnCount >= maxIterations) {
+          console.log(`[agent] Hit max tool iterations (${maxIterations})`);
           break;
         }
 

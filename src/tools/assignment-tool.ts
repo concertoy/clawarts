@@ -44,7 +44,7 @@ export function createAssignmentTool(
       required: ["action"],
     },
     isReadOnly: false,
-    category: "academic" as any,
+    category: "academic",
 
     async execute(input: Record<string, unknown>, context?: ToolUseContext): Promise<string> {
       const action = input.action as string;
