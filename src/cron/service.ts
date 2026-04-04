@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { WebClient } from "@slack/web-api";
 import { errMsg } from "../utils/errors.js";
+import { createLogger } from "../utils/logger.js";
 import type { CronJob, CronJobCreate, CronJobPatch, CronStoreFile } from "./types.js";
 import { computeNextRunAtMs } from "./schedule.js";
 import { loadCronStore, saveCronStore } from "./store.js";
@@ -15,6 +16,7 @@ const MIN_REFIRE_GAP_MS = 2_000;
  * Execution: sends Slack messages directly via WebClient.
  */
 export class CronService {
+  private readonly log;
   private store: CronStoreFile | null = null;
   private timer: NodeJS.Timeout | null = null;
   private running = false;
@@ -28,7 +30,9 @@ export class CronService {
       slackClient: WebClient;
       nowMs?: () => number;
     },
-  ) {}
+  ) {
+    this.log = createLogger(`cron:${opts.agentId}`);
+  }
 
   /** Register a handler for [SYSTEM:*] cron messages. Return true to suppress Slack delivery. */
   setSystemMessageHandler(handler: (tag: string, params: Record<string, string>, job: CronJob) => Promise<boolean>): void {
@@ -58,7 +62,7 @@ export class CronService {
     if (enabled.length > 0) {
       const nextMs = Math.min(...enabled.map((j) => j.state.nextRunAtMs ?? Infinity));
       const nextStr = nextMs < Infinity ? new Date(nextMs).toISOString() : "none";
-      console.log(`[cron:${this.opts.agentId}] Started with ${enabled.length} active job(s), next fire: ${nextStr}`);
+      this.log.info(`Started with ${enabled.length} active job(s), next fire: ${nextStr}`);
     }
   }
 
@@ -89,7 +93,7 @@ export class CronService {
     this.jobs.push(job);
     await this.persist();
     this.armTimer();
-    console.log(`[cron:${this.opts.agentId}] Added job "${job.name}" (${job.id}), next: ${job.state.nextRunAtMs ? new Date(job.state.nextRunAtMs).toISOString() : "never"}`);
+    this.log.info(`Added job "${job.name}" (${job.id}), next: ${job.state.nextRunAtMs ? new Date(job.state.nextRunAtMs).toISOString() : "never"}`);
     return job;
   }
 
@@ -196,7 +200,7 @@ export class CronService {
       // Persist delivery status (lastStatus, lastError) to disk
       if (dueJobs.length > 0) await this.persist();
     } catch (err) {
-      console.error(`[cron:${this.opts.agentId}] Timer error:`, errMsg(err));
+      this.log.error(`Timer error:`, errMsg(err));
     } finally {
       this.running = false;
       this.armTimer();
@@ -227,7 +231,7 @@ export class CronService {
         const handled = await this.systemHandler(tag, params, job);
         if (handled) {
           job.state.lastStatus = "ok";
-          console.log(`[cron:${this.opts.agentId}] System action "${tag}" handled for "${job.name}"`);
+          this.log.info(`System action "${tag}" handled for "${job.name}"`);
           return;
         }
       }
@@ -238,12 +242,12 @@ export class CronService {
       });
       job.state.lastStatus = "ok";
       job.state.lastError = undefined;
-      console.log(`[cron:${this.opts.agentId}] Fired "${job.name}" → ${job.channelId}`);
+      this.log.info(`Fired "${job.name}" → ${job.channelId}`);
     } catch (err) {
       const msg = errMsg(err);
       job.state.lastStatus = "error";
       job.state.lastError = msg;
-      console.error(`[cron:${this.opts.agentId}] Job "${job.name}" failed:`, msg);
+      this.log.error(`Job "${job.name}" failed:`, msg);
     }
   }
 

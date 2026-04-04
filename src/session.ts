@@ -4,6 +4,9 @@ import path from "node:path";
 import type { ConversationSession } from "./types.js";
 import { errMsg, isFileNotFound } from "./utils/errors.js";
 import { safeJsonStringify } from "./utils/safe-json.js";
+import { createLogger } from "./utils/logger.js";
+
+const log = createLogger("session");
 
 const MAX_MESSAGES_PER_SESSION = 100;
 const PERSIST_MESSAGES = 30;
@@ -17,7 +20,7 @@ export class SessionStore {
 
   constructor(private readonly ttlMs: number) {
     this.cleanupTimer = setInterval(() => {
-      try { this.evictStale(); } catch (err) { console.error("[session] Cleanup error:", errMsg(err)); }
+      try { this.evictStale(); } catch (err) { log.error("Cleanup error:", errMsg(err)); }
     }, CLEANUP_INTERVAL_MS);
     if (this.cleanupTimer.unref) this.cleanupTimer.unref();
   }
@@ -137,7 +140,7 @@ export class SessionStore {
     } catch (err) {
       // Clean up orphan temp file on failure
       try { fs.unlinkSync(tmp); } catch { /* already gone */ }
-      console.warn(`[session] Failed to persist ${session.key}:`, errMsg(err));
+      log.warn(`Failed to persist ${session.key}:`, errMsg(err));
     }
   }
 
@@ -152,13 +155,13 @@ export class SessionStore {
         data.messages = data.messages.filter(
           (m) => m && typeof m.role === "string" && typeof m.content === "string",
         );
-        console.log(`[session] Restored ${data.messages.length} messages from disk for ${key}`);
+        log.debug(`Restored ${data.messages.length} messages from disk for ${key}`);
         return data;
       }
     } catch (err) {
       // ENOENT = no persisted session (normal); anything else = corrupted file
       if (!isFileNotFound(err)) {
-        console.warn(`[session] Corrupted session file for ${key}:`, errMsg(err));
+        log.warn(`Corrupted session file for ${key}:`, errMsg(err));
       }
     }
     return null;
@@ -168,7 +171,7 @@ export class SessionStore {
     const filePath = this.sessionFilePath(key);
     if (!filePath) return;
     try { fs.unlinkSync(filePath); } catch (err) {
-      if (!isFileNotFound(err)) console.warn(`[session] Failed to delete ${key}:`, errMsg(err));
+      if (!isFileNotFound(err)) log.warn(`Failed to delete ${key}:`, errMsg(err));
     }
   }
 

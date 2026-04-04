@@ -2,7 +2,9 @@
  * Retry wrapper with exponential backoff and jitter.
  * Ported from claude-code's withRetry.ts — simplified for Slack bot workload.
  */
+import { createLogger } from "./logger.js";
 
+const log = createLogger("retry");
 const DEFAULT_MAX_RETRIES = 5;
 const BASE_DELAY_MS = 500;
 const MAX_DELAY_MS = 32_000;
@@ -88,7 +90,7 @@ export async function withRetry<T>(
       const delay = getDelay(attempt + 1, retryAfter);
 
       opts?.onRetry?.(attempt + 1, delay, err);
-      console.warn(`[retry] Attempt ${attempt + 1}/${maxRetries} failed, retrying in ${Math.round(delay)}ms`);
+      log.warn(`Attempt ${attempt + 1}/${maxRetries} failed, retrying in ${Math.round(delay)}ms`);
 
       await sleep(delay);
     }
