@@ -180,8 +180,8 @@ const grepTool: ToolDefinition = {
         return output + `\n\n[Truncated at ${headLimit} lines]`;
       }
       return output;
-    } catch (err: any) {
-      if (err?.exitCode === 1) return "No matches found.";
+    } catch (err) {
+      if (err && typeof err === "object" && "exitCode" in err && (err as { exitCode: number }).exitCode === 1) return "No matches found.";
       return `Error: ${errMsg(err)}`;
     }
   },

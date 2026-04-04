@@ -19,11 +19,11 @@ export async function loadStore<T>(storePath: string): Promise<StoreFile<T>> {
       return parsed as StoreFile<T>;
     }
     return { version: 1, items: [] };
-  } catch (err: any) {
-    if (err?.code === "ENOENT") {
+  } catch (err) {
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
       return { version: 1, items: [] };
     }
-    console.warn(`[store] Failed to load ${storePath}:`, err);
+    console.warn(`[store] Failed to load ${storePath}:`, err instanceof Error ? err.message : err);
     return { version: 1, items: [] };
   }
 }

@@ -34,6 +34,11 @@ export function runDiagnostics(configs: AgentConfig[]): void {
       }
     }
 
+    // Check maxToolIterations
+    if (config.maxToolIterations && config.maxToolIterations > 25) {
+      warnings.push(`${label}: maxToolIterations is ${config.maxToolIterations} — high values can cause expensive runaway loops`);
+    }
+
     // Check for student agents without linkedTutor
     if (config.disallowedTools?.length && !config.linkedTutor) {
       warnings.push(`${label}: has disallowedTools but no linkedTutor — is this a student agent missing its tutor link?`);

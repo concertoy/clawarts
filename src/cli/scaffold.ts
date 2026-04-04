@@ -34,7 +34,7 @@ function readTemplate(templateDir: string, fileName: string, agentId: string): s
 
 // ─── Scaffold ────────────────────────────────────────────────────────
 
-const TEMPLATE_FILES = ["SOUL.md", "IDENTITY.md", "AGENTS.md", "TOOLS.md", "USER.md"];
+const TEMPLATE_FILES = ["SOUL.md", "IDENTITY.md", "AGENTS.md", "TOOLS.md", "USER.md", "COURSE.md"];
 
 /**
  * Create workspace directory structure and template files for a new agent.
