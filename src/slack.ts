@@ -1,4 +1,5 @@
 import { App } from "@slack/bolt";
+import type { WebClient } from "@slack/web-api";
 import type { AgentConfig } from "./types.js";
 import type { Agent } from "./agent.js";
 import { SessionStore } from "./session.js";
@@ -70,7 +71,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     return false;
   }
 
-  async function resolveBotId(client: any): Promise<string> {
+  async function resolveBotId(client: WebClient): Promise<string> {
     // Cache the promise (not just the result) to prevent duplicate auth.test()
     // calls when multiple events arrive before the first resolves.
     if (!botUserIdPromise) {
@@ -80,7 +81,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   }
 
   /** Check if a DM channel is a 1:1 conversation with this bot. */
-  async function isBotDM(client: any, channel: string, myId: string): Promise<boolean> {
+  async function isBotDM(client: WebClient, channel: string, myId: string): Promise<boolean> {
     if (botDmChannels.has(channel)) return true;
     try {
       const resp = await client.conversations.members({ channel, limit: 10 });
@@ -292,7 +293,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
  * Called on cold session so the bot has context even after restart.
  */
 async function hydrateFromDM(
-  client: any,
+  client: WebClient,
   sessions: SessionStore,
   sessionKey: string,
   channel: string,
@@ -331,7 +332,7 @@ async function hydrateFromDM(
  * Called on cold session for channel threads.
  */
 async function hydrateFromThread(
-  client: any,
+  client: WebClient,
   sessions: SessionStore,
   sessionKey: string,
   channel: string,
@@ -370,7 +371,7 @@ async function hydrateFromThread(
 
 interface HandleMessageParams {
   agent: Agent;
-  client: any;
+  client: WebClient;
   channel: string;
   ts: string;
   threadTs: string | undefined;
