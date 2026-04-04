@@ -6,7 +6,12 @@ import path from "node:path";
  * Each agent gets its own resolver — avoids the multi-agent bug where a
  * shared global workspaceRoot would be overwritten by the last agent.
  */
-export function createPathResolver(workspaceDir: string) {
+export interface PathResolver {
+  resolveFilePath: (filePath: string) => string;
+  workspaceRoot: string;
+}
+
+export function createPathResolver(workspaceDir: string): PathResolver {
   const workspaceRoot = workspaceDir;
 
   function resolveFilePath(filePath: string): string {
