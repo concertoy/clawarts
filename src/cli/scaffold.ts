@@ -3,106 +3,36 @@ import os from "node:os";
 import path from "node:path";
 import type { AgentType } from "./templates.js";
 
-// ─── Workspace template content ──────────────────────────────────────
+// ─── Example template resolution ────────────────────────────────────
 
-function soulContent(agentType: AgentType): string {
-  if (agentType === "tutor") {
-    return [
-      "# Soul",
-      "",
-      "You are a knowledgeable and approachable tutor.",
-      "Your tone is encouraging, patient, and precise.",
-      "You explain concepts step-by-step, using analogies and examples to make ideas stick.",
-      "When a student struggles, you adjust your approach rather than repeating the same explanation.",
-      "You celebrate progress and treat mistakes as learning opportunities.",
-    ].join("\n");
+/**
+ * Resolve the example template directory for an agent type.
+ * Templates live in examples/default_tutor/ and examples/default_student/.
+ */
+function resolveTemplateDir(agentType: AgentType): string {
+  const dirName = agentType === "student" ? "default_student" : "default_tutor";
+  return path.resolve("examples", dirName);
+}
+
+/** Read a template file and replace {{AGENT_ID}} placeholders. */
+function readTemplate(templateDir: string, fileName: string, agentId: string): string | null {
+  const filePath = path.join(templateDir, fileName);
+  try {
+    const content = fs.readFileSync(filePath, "utf-8");
+    return content.replace(/\{\{AGENT_ID\}\}/g, agentId);
+  } catch {
+    return null;
   }
-  if (agentType === "student") {
-    return [
-      "# Soul",
-      "",
-      "You are a supportive study companion.",
-      "Your tone is curious, collaborative, and upbeat.",
-      "You ask clarifying questions to help the student think through problems on their own.",
-      "You focus on building understanding, not just getting the right answer.",
-      "You encourage the student to explain their reasoning out loud.",
-    ].join("\n");
-  }
-  return [
-    "# Soul",
-    "",
-    "You are a helpful assistant in a Slack workspace.",
-    "Be clear, concise, and helpful.",
-  ].join("\n");
-}
-
-function identityContent(agentId: string, agentType: AgentType): string {
-  const role = agentType === "tutor" ? "Course Tutor" : agentType === "student" ? "Study Companion" : "Assistant";
-  return [
-    "# Identity",
-    "",
-    `- **Name:** ${agentId}`,
-    `- **Role:** ${role}`,
-  ].join("\n");
-}
-
-function agentsContent(): string {
-  return [
-    "# Agents",
-    "",
-    "This workspace may have multiple agents. Each agent has its own role and tools.",
-    "Coordinate with other agents when tasks cross boundaries.",
-  ].join("\n");
-}
-
-function toolsContent(agentType: AgentType): string {
-  if (agentType === "student") {
-    return [
-      "# Tools",
-      "",
-      "You have read-only access to the workspace:",
-      "- `read_file` — Read file contents",
-      "- `grep` — Search file contents",
-      "- `glob` — Find files by pattern",
-      "- `ls` — List directory contents",
-      "- `web_search` — Search the web",
-      "- `web_fetch` — Fetch web page content",
-      "",
-      "You do NOT have access to: `bash`, `write_file`, `edit`, `multi_edit`.",
-    ].join("\n");
-  }
-  return [
-    "# Tools",
-    "",
-    "You have full access to workspace tools:",
-    "- File operations: `read_file`, `write_file`, `edit`, `multi_edit`",
-    "- Shell: `bash`",
-    "- Search: `grep`, `glob`, `ls`",
-    "- Web: `web_search`, `web_fetch`",
-    "- Scheduling: `cron`",
-  ].join("\n");
-}
-
-function userContent(): string {
-  return [
-    "# User",
-    "",
-    "<!-- Add information about the user here: name, timezone, preferences, etc. -->",
-  ].join("\n");
 }
 
 // ─── Scaffold ────────────────────────────────────────────────────────
 
-const TEMPLATE_FILES: Array<{ name: string; content: (id: string, type: AgentType) => string }> = [
-  { name: "SOUL.md", content: (_id, type) => soulContent(type) },
-  { name: "IDENTITY.md", content: (id, type) => identityContent(id, type) },
-  { name: "AGENTS.md", content: () => agentsContent() },
-  { name: "TOOLS.md", content: (_id, type) => toolsContent(type) },
-  { name: "USER.md", content: () => userContent() },
-];
+const TEMPLATE_FILES = ["SOUL.md", "IDENTITY.md", "AGENTS.md", "TOOLS.md", "USER.md"];
 
 /**
  * Create workspace directory structure and template files for a new agent.
+ * Copies from examples/default_tutor/ or examples/default_student/.
+ * Falls back to inline defaults if example files are missing.
  * Idempotent: skips files that already exist.
  */
 export function scaffoldWorkspace(
@@ -120,16 +50,53 @@ export function scaffoldWorkspace(
   const agentSkillsDir = path.join(os.homedir(), ".clawarts", "agents", agentId, "skills");
   fs.mkdirSync(agentSkillsDir, { recursive: true });
 
+  const templateDir = resolveTemplateDir(agentType);
+
   // Write template files
-  for (const tmpl of TEMPLATE_FILES) {
-    const filePath = path.join(workspaceDir, tmpl.name);
+  for (const fileName of TEMPLATE_FILES) {
+    const filePath = path.join(workspaceDir, fileName);
     if (fs.existsSync(filePath)) {
-      skipped.push(tmpl.name);
+      skipped.push(fileName);
       continue;
     }
-    fs.writeFileSync(filePath, tmpl.content(agentId, agentType) + "\n", "utf-8");
-    created.push(tmpl.name);
+
+    const content = readTemplate(templateDir, fileName, agentId);
+    if (content) {
+      fs.writeFileSync(filePath, content, "utf-8");
+    } else {
+      // Fallback: minimal inline content if example file is missing
+      fs.writeFileSync(filePath, `# ${fileName.replace(".md", "")}\n`, "utf-8");
+    }
+    created.push(fileName);
+  }
+
+  // Copy example skills into the workspace skills directory
+  const exampleSkillsDir = path.join(templateDir, "skills");
+  if (fs.existsSync(exampleSkillsDir)) {
+    const destSkillsDir = path.join(workspaceDir, "skills");
+    copyDirRecursive(exampleSkillsDir, destSkillsDir, agentId, created, skipped);
   }
 
   return { created, skipped };
+}
+
+/** Recursively copy a directory, replacing {{AGENT_ID}} in file contents. Skips existing files. */
+function copyDirRecursive(src: string, dest: string, agentId: string, created: string[], skipped: string[]): void {
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      fs.mkdirSync(destPath, { recursive: true });
+      copyDirRecursive(srcPath, destPath, agentId, created, skipped);
+    } else {
+      const label = `skills/${path.relative(dest, destPath).replace(/\\/g, "/")}`;
+      if (fs.existsSync(destPath)) {
+        skipped.push(label);
+        continue;
+      }
+      const content = fs.readFileSync(srcPath, "utf-8").replace(/\{\{AGENT_ID\}\}/g, agentId);
+      fs.writeFileSync(destPath, content, "utf-8");
+      created.push(label);
+    }
+  }
 }

@@ -121,6 +121,16 @@ export async function agentAddCommand(prompter: WizardPrompter): Promise<AgentEn
   entry.slackBotToken = botTokenVar;
   entry.slackAppToken = appTokenVar;
 
+  // Allowed users (Slack user IDs that can interact with this agent)
+  const allowedUsersInput = await prompter.text({
+    message: "Allowed Slack user IDs (comma-separated, blank for unrestricted):",
+    placeholder: "e.g. U07ERPSNP6X, U08ABCD1234",
+    initialValue: "",
+  });
+  if (allowedUsersInput.trim()) {
+    entry.allowedUsers = allowedUsersInput.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+
   // Write config
   const updated = addAgent(config, entry);
   writeConfig(updated);

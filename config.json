@@ -29,7 +29,8 @@
         "edit",
         "multi_edit"
       ],
-      "linkedTutor": "tutor"
+      "linkedTutor": "tutor",
+      "allowedUsers": ["U07ERPSNP6X"]
     }
   ]
 }

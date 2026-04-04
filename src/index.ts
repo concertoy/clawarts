@@ -17,6 +17,8 @@ import type { ModelProvider } from "./provider.js";
 import type { AgentConfig } from "./types.js";
 import type { App } from "@slack/bolt";
 import { WebClient } from "@slack/web-api";
+import { scaffoldWorkspace } from "./cli/scaffold.js";
+import { registerAgent, createRelayTool, createListStudentsTool } from "./relay.js";
 
 // ─── Provider construction ────────────────────────────────────────────
 
@@ -52,12 +54,31 @@ async function main() {
   const allSessions: SessionStore[] = [];
   const allCronServices: CronService[] = [];
 
+  // ─── Phase 1: Create all agent components ──────────────────────────
+  // Build agents first so we can register them all in the relay registry
+  // before starting any Slack apps. The relay tool resolves targets at
+  // call time, so it's safe to add it to the tools list before registration.
+
+  interface AgentEntry {
+    config: AgentConfig;
+    agent: Agent;
+    sessions: SessionStore;
+    slackClient: WebClient;
+    cronService: CronService;
+  }
+
+  const entries: AgentEntry[] = [];
+
   for (const config of agentConfigs) {
     const label = `[${config.id}]`;
 
-    // Ensure workspace directory exists — ported from claude-code's workspace init pattern.
-    // Prevents tool failures when the workspace hasn't been created yet.
+    // Ensure workspace directory exists and scaffold template files if missing.
     fs.mkdirSync(config.workspaceDir, { recursive: true });
+    if (!fs.existsSync(path.join(config.workspaceDir, "SOUL.md"))) {
+      const agentType = config.linkedTutor ? "student" : config.disallowedTools?.length ? "student" : "tutor";
+      const { created } = scaffoldWorkspace(config.id, config.workspaceDir, agentType);
+      if (created.length > 0) console.log(`${label} Scaffolded workspace: ${created.join(", ")}`);
+    }
 
     // Load skills and workspace files per agent
     const skills = loadSkills({
@@ -80,23 +101,51 @@ async function main() {
 
     // Initialize per-agent components (cron tool wired into registry, then filtered)
     const allTools = createToolRegistry(config.workspaceDir, { cronService, agentId: config.id });
+
+    // Add relay tool for tutor agents (agents that manage students).
+    // The relay tool looks up targets from the registry at call time,
+    // so it works even though other agents aren't registered yet.
+    const isTutor = !config.linkedTutor;
+    if (isTutor) {
+      allTools.push(createRelayTool());
+      allTools.push(createListStudentsTool());
+    }
+
     const tools = filterToolsForAgent(allTools, config);
     const sessions = new SessionStore(config.sessionTtlMinutes * 60 * 1000);
     const provider = await createProvider(config);
     const agent = new Agent(config, provider, sessions, skills, tools, workspaceFiles);
     console.log(`${label} Provider: ${provider.name}, model: ${config.model}, tools: ${tools.map((t) => t.name).join(", ")}`);
 
-    // Create and start Slack app
-    const app = createSlackApp(config, agent, sessions);
+    entries.push({ config, agent, sessions, slackClient, cronService });
+  }
+
+  // ─── Phase 2: Register all agents in relay registry ────────────────
+  for (const entry of entries) {
+    registerAgent({
+      id: entry.config.id,
+      agent: entry.agent,
+      sessions: entry.sessions,
+      slackClient: entry.slackClient,
+      linkedTutor: entry.config.linkedTutor,
+      allowedUsers: entry.config.allowedUsers,
+    });
+  }
+  console.log(`[clawarts] Relay registry: ${entries.map((e) => e.config.id).join(", ")}`);
+
+  // ─── Phase 3: Start Slack apps and cron services ───────────────────
+  for (const entry of entries) {
+    const label = `[${entry.config.id}]`;
+
+    const app = createSlackApp(entry.config, entry.agent, entry.sessions);
     await app.start();
     console.log(`${label} Slack bot running (Socket Mode)`);
 
-    // Start cron scheduler (loads persisted jobs, arms timer)
-    await cronService.start();
+    await entry.cronService.start();
 
     apps.push(app);
-    allSessions.push(sessions);
-    allCronServices.push(cronService);
+    allSessions.push(entry.sessions);
+    allCronServices.push(entry.cronService);
   }
 
   // Graceful shutdown
