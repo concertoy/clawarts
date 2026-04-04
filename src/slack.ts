@@ -215,7 +215,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     const text_raw = msg.subtype === "message_changed" ? msg.message?.text : msg.text;
     const user_raw = msg.subtype === "message_changed" ? msg.message?.user : msg.user;
     if (!text_raw) return;
-    if (allowedUsers && user_raw && !allowedUsers.has(user_raw as string)) return;
+    if (allowedUsers && user_raw && !allowedUsers.has(user_raw)) return;
 
     const channel = msg.channel as string;
     const ts = msg.ts as string;
@@ -246,7 +246,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     if (isDuplicate(channel, ts)) return;
 
     const sessionKey = SessionStore.deriveKey(channel, ts, threadTs);
-    const text = isDM ? (text_raw as string) : stripMention(text_raw as string, myId);
+    const text = isDM ? text_raw : stripMention(text_raw, myId);
 
     // Hydrate from Slack API if session is cold (new or after restart).
     // Call get() first to trigger disk restore — only fetch from Slack if truly empty.
@@ -255,8 +255,8 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       if (restored.messages.length === 0) {
         if (isDM) {
           await hydrateFromDM(client, sessions, sessionKey, channel, myId);
-        } else if (isThreadReply) {
-          await hydrateFromThread(client, sessions, sessionKey, channel, threadTs!, myId);
+        } else if (isThreadReply && threadTs) {
+          await hydrateFromThread(client, sessions, sessionKey, channel, threadTs, myId);
         }
       }
     }
@@ -268,7 +268,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       ts,
       threadTs,
       text,
-      userId: (user_raw as string) ?? "unknown",
+      userId: user_raw ?? "unknown",
       sessionKey,
       botToken: config.slackBotToken,
       files: msg.subtype === "message_changed" ? msg.message?.files : msg.files,
@@ -453,7 +453,9 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
 
     // Download image and file attachments in parallel (ported from claude-code attachment handling)
     // Slack file objects match the SlackFile interface but come as Record<string, unknown> from event typing
-    const slackFiles = params.files as any;
+    // Slack event typing gives Record<string, unknown>[] but download helpers
+    // use structural SlackFile interface — all fields optional, so this is safe.
+    const slackFiles = params.files as Parameters<typeof downloadSlackImages>[0];
     const [{ images, skipped: skippedImages }, fileAttachments] = await Promise.all([
       downloadSlackImages(slackFiles, botToken),
       downloadSlackFiles(slackFiles, botToken),
