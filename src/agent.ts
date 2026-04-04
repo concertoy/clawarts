@@ -67,7 +67,7 @@ export class Agent {
     onToolStart?: (toolNames: string[]) => void,
   ): Promise<string> {
     // Quiet hours: return canned message without calling the API
-    if (this.config.quietHours && isQuietHours(this.config.quietHours)) {
+    if (this.config.quietHours && isQuietHours(this.config.quietHours, this.config.quietHoursTimezone)) {
       touchAgent(this.config.id);
       return "I'm currently offline during quiet hours. Please try again later, or save your question and I'll be available during regular hours.";
     }
@@ -393,13 +393,23 @@ function ensureAlternatingRoles(messages: ProviderMessage[]): void {
 
 // ─── Quiet hours ────────────────────────────────────────────────────
 
-/** Check if current local time falls within quiet hours (format: "HH:MM-HH:MM"). */
-function isQuietHours(range: string): boolean {
+/** Check if current time falls within quiet hours (format: "HH:MM-HH:MM"). */
+function isQuietHours(range: string, timezone?: string): boolean {
   const match = range.match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/);
   if (!match) return false;
 
   const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  let currentMinutes: number;
+  if (timezone) {
+    // Use Intl.DateTimeFormat to get hours/minutes in the specified timezone
+    const fmt = new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", minute: "numeric", hour12: false });
+    const parts = fmt.formatToParts(now);
+    const hour = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10);
+    const minute = parseInt(parts.find((p) => p.type === "minute")?.value ?? "0", 10);
+    currentMinutes = hour * 60 + minute;
+  } else {
+    currentMinutes = now.getHours() * 60 + now.getMinutes();
+  }
   const startMinutes = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
   const endMinutes = parseInt(match[3], 10) * 60 + parseInt(match[4], 10);
 
