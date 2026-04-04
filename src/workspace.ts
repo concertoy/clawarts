@@ -13,6 +13,7 @@ const BOOTSTRAP_FILES = [
   "AGENTS.md",
   "TOOLS.md",
   "USER.md",
+  "COURSE.md",
 ];
 
 const MAX_CHARS_PER_FILE = 20_000;

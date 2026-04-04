@@ -217,7 +217,7 @@ function parseCodexResponse(result: CodexResponse): ProviderResponse {
 
   const hasToolCalls = toolCalls.length > 0;
   return {
-    text: textParts.join("\n"),
+    text: textParts.join(""),
     toolCalls,
     stopReason: hasToolCalls ? "tool_use" : "end_turn",
     raw: result,

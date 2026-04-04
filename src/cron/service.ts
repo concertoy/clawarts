@@ -45,9 +45,11 @@ export class CronService {
     this.recomputeNextRuns();
     await this.persist();
     this.armTimer();
-    const enabled = this.store.jobs.filter((j) => j.enabled).length;
-    if (enabled > 0) {
-      console.log(`[cron:${this.opts.agentId}] Started with ${enabled} active job(s)`);
+    const enabled = this.store.jobs.filter((j) => j.enabled);
+    if (enabled.length > 0) {
+      const nextMs = Math.min(...enabled.map((j) => j.state.nextRunAtMs ?? Infinity));
+      const nextStr = nextMs < Infinity ? new Date(nextMs).toISOString() : "none";
+      console.log(`[cron:${this.opts.agentId}] Started with ${enabled.length} active job(s), next fire: ${nextStr}`);
     }
   }
 
