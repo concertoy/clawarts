@@ -4,6 +4,7 @@ import type { Agent } from "./agent.js";
 import { SessionStore } from "./session.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
 import { downloadSlackImages } from "./utils/slack-images.js";
+import { downloadSlackFiles, formatFileAttachments } from "./utils/slack-files.js";
 import { KeyedAsyncQueue } from "./queue/keyed-async-queue.js";
 import { enqueueCommand } from "./queue/command-queue.js";
 import { CommandLane } from "./queue/lanes.js";
@@ -409,7 +410,12 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
     // Download image attachments if present (ported from claude-code attachment handling)
     const images = await downloadSlackImages(params.files as any, botToken);
 
-    const rawReply = await agent.getReply(sessionKey, text, userId, { channelId: channel, threadTs: replyThreadTs }, onText, images.length > 0 ? images : undefined);
+    // Download non-image file attachments and prepend text content to message
+    const fileAttachments = await downloadSlackFiles(params.files as any, botToken);
+    const filePrefix = formatFileAttachments(fileAttachments);
+    const messageWithFiles = filePrefix ? `${filePrefix}\n---\n${text}` : text;
+
+    const rawReply = await agent.getReply(sessionKey, messageWithFiles, userId, { channelId: channel, threadTs: replyThreadTs }, onText, images.length > 0 ? images : undefined);
     console.log(`[slack] Reply (${rawReply.length} chars): ${rawReply.slice(0, 200)}`);
 
     // Clear any pending throttled edit
