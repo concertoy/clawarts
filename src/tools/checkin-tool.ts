@@ -212,8 +212,9 @@ export function createCheckinTool(
           // Close active window
           const active = await checkinStore.getActiveWindow();
           if (!active) return "No active check-in window to close.";
-          const window = await checkinStore.closeWindow(active.id);
-          return `Check-in window "${window!.id}" (${window!.mode}) closed.`;
+          const closed = await checkinStore.closeWindow(active.id);
+          if (!closed) return "Failed to close the active window.";
+          return `Check-in window "${closed.id}" (${closed.mode}) closed.`;
         }
 
         case "evaluate": {
@@ -293,8 +294,9 @@ export function createCheckinTool(
           // For quiz/reflect/pulse: return responses for AI to evaluate
           if (responses.length === 0) return `No responses for window ${targetWindow.id}. All students absent.`;
 
+          const challenges = targetWindow.challenges;
           const lines = responses.map((r) => {
-            const challenge = targetWindow!.challenges?.find((c) => c.userId === r.userId);
+            const challenge = challenges?.find((c) => c.userId === r.userId);
             return [
               `- Response ID: ${r.id}`,
               `  Student: <@${r.userId}>`,
@@ -384,7 +386,7 @@ export function createCheckinTool(
           const absent = allUserIds.filter((u) => !respondedUserIds.has(u));
           const evaluated = responses.filter((r) => r.score != null);
           const avgScore = evaluated.length > 0
-            ? Math.round(evaluated.reduce((sum, r) => sum + r.score!, 0) / evaluated.length)
+            ? Math.round(evaluated.reduce((sum, r) => sum + (r.score ?? 0), 0) / evaluated.length)
             : "N/A";
 
           const statusCounts = {
