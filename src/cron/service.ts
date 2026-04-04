@@ -178,6 +178,8 @@ export class CronService {
       for (const job of dueJobs) {
         await this.deliverJob(job);
       }
+      // Persist delivery status (lastStatus, lastError) to disk
+      if (dueJobs.length > 0) await this.persist();
     } catch (err) {
       console.error(`[cron:${this.opts.agentId}] Timer error:`, err);
     } finally {

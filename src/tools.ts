@@ -3,9 +3,8 @@ import { createFileTools } from "./tools/file-tools.js";
 import { createShellTools } from "./tools/shell-tools.js";
 import { createWebTools } from "./tools/web-tools.js";
 import { createCronTool } from "./cron/tool.js";
-import type { ToolDefinition } from "./types.js";
+import type { ToolDefinition, ToolUseContext } from "./types.js";
 import type { CronService } from "./cron/service.js";
-import type { ToolUseContext } from "./types.js";
 import { errMsg } from "./tools/paths.js";
 
 // ─── Registry ──────────────────────────────────────────────────────────

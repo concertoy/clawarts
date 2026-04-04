@@ -60,7 +60,11 @@ Student       | Assignments | Check-ins | Avg Score
 Class average: 67% assignments, 73% check-ins, avg score 72
 ```
 
-## Step 5 — Recommendations
+## Step 5 — Handle Missing Data
+
+If there are no assignments yet, say so. If a student has no submissions or check-in responses, note it without alarm — they may be new.
+
+## Step 6 — Recommendations
 
 Based on the data, highlight:
 - Students at risk (< 50% on any metric)
