@@ -29,6 +29,7 @@ import { createSubmitTool } from "./tools/submit-tool.js";
 import { CheckinStore } from "./store/checkin-store.js";
 import { createCheckinTool } from "./tools/checkin-tool.js";
 import { createCheckinRespondTool } from "./tools/checkin-respond-tool.js";
+import { createStatusTool } from "./tools/status-tool.js";
 
 // ─── Provider construction ────────────────────────────────────────────
 
@@ -134,6 +135,7 @@ async function main() {
       // Check-in management for tutors (data in tutor's directory)
       const checkinStore = new CheckinStore(dataDir);
       allTools.push(createCheckinTool(checkinStore, cronService, config.id));
+      allTools.push(createStatusTool(cronService));
 
       // Wire system message handler for auto-close cron jobs
       cronService.setSystemMessageHandler(async (tag, params) => {

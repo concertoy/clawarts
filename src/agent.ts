@@ -52,7 +52,7 @@ export class Agent {
     });
     this.toolDefs = tools;
     this.rateLimiter = createRateLimiter({
-      maxRequests: DEFAULT_RATE_LIMIT_REQUESTS,
+      maxRequests: config.rateLimitPerMinute ?? DEFAULT_RATE_LIMIT_REQUESTS,
       windowMs: DEFAULT_RATE_LIMIT_WINDOW_MS,
     });
   }
