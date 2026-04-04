@@ -2,6 +2,9 @@ import type { ToolDefinition, ToolUseContext } from "./types.js";
 import type { ToolCall } from "./provider.js";
 import { errMsg } from "./utils/errors.js";
 import { sanitizeForUser } from "./utils/sanitize.js";
+import { createLogger } from "./utils/logger.js";
+
+const log = createLogger("tool-runner");
 
 const MAX_CONCURRENCY = 10;
 
@@ -116,7 +119,7 @@ async function executeOne(tools: ToolDefinition[], tc: ToolCall, context?: ToolU
     // Execute with a timeout to prevent runaway tools from blocking the agent loop
     let output = await withTimeout(tool.execute(args, context), TOOL_EXECUTION_TIMEOUT_MS, tc.name);
     const elapsed = Date.now() - startMs;
-    if (elapsed > SLOW_TOOL_LOG_THRESHOLD_MS) console.log(`[tool-runner] ${tc.name} took ${(elapsed / 1000).toFixed(1)}s`);
+    if (elapsed > SLOW_TOOL_LOG_THRESHOLD_MS) log.debug(`${tc.name} took ${(elapsed / 1000).toFixed(1)}s`);
     // Detect tool-level errors (tools return error strings rather than throwing).
     // Ported from claude-code's tool error detection pattern.
     const isError = /^(error\s*:|error\s|blocked:|\[error\])/i.test(output);
@@ -125,7 +128,7 @@ async function executeOne(tools: ToolDefinition[], tc: ToolCall, context?: ToolU
   } catch (err) {
     const elapsed = Date.now() - startMs;
     const msg = errMsg(err);
-    console.error(`[tool-runner] ${tc.name} failed after ${(elapsed / 1000).toFixed(1)}s: ${msg.slice(0, 100)}`);
+    log.error(`${tc.name} failed after ${(elapsed / 1000).toFixed(1)}s: ${msg.slice(0, 100)}`);
     return { callId: tc.id, name: tc.name, output: `Tool execution error: ${sanitizeForUser(msg)}`, isError: true };
   }
 }
@@ -146,7 +149,7 @@ function truncateToolOutput(output: string, toolName: string): string {
   const originalLines = output.split("\n").length;
   const keptLines = output.slice(0, breakPoint).split("\n").length;
 
-  console.log(`[tool-runner] Truncated ${toolName} output: ${output.length} → ${breakPoint} chars (${keptLines}/${originalLines} lines)`);
+  log.debug(`Truncated ${toolName} output: ${output.length} → ${breakPoint} chars (${keptLines}/${originalLines} lines)`);
 
   return output.slice(0, breakPoint) + `\n\n[Truncated: showing ${keptLines} of ${originalLines} lines. Output was ${Math.round(output.length / 1024)}KB — use offset/limit parameters to read specific sections.]`;
 }
