@@ -139,9 +139,11 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
 
     const sessionKey = SessionStore.deriveKey(event.channel, event.ts, event.thread_ts);
 
-    // Hydrate from Slack API if session is cold (new or after restart)
+    // Hydrate from Slack API if session is cold (new or after restart).
+    // Call get() first to trigger disk restore — only fetch from Slack if truly empty.
     if (!sessions.has(sessionKey)) {
-      if (event.thread_ts) {
+      const restored = sessions.get(sessionKey);
+      if (restored.messages.length === 0 && event.thread_ts) {
         await hydrateFromThread(client, sessions, sessionKey, event.channel, event.thread_ts, myId);
       }
     }
@@ -214,12 +216,16 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     const sessionKey = SessionStore.deriveKey(channel, ts, threadTs);
     const text = isDM ? (text_raw as string) : stripMention(text_raw as string, myId);
 
-    // Hydrate from Slack API if session is cold (new or after restart)
+    // Hydrate from Slack API if session is cold (new or after restart).
+    // Call get() first to trigger disk restore — only fetch from Slack if truly empty.
     if (!sessions.has(sessionKey)) {
-      if (isDM) {
-        await hydrateFromDM(client, sessions, sessionKey, channel, myId);
-      } else if (isThreadReply) {
-        await hydrateFromThread(client, sessions, sessionKey, channel, threadTs!, myId);
+      const restored = sessions.get(sessionKey);
+      if (restored.messages.length === 0) {
+        if (isDM) {
+          await hydrateFromDM(client, sessions, sessionKey, channel, myId);
+        } else if (isThreadReply) {
+          await hydrateFromThread(client, sessions, sessionKey, channel, threadTs!, myId);
+        }
       }
     }
 

@@ -114,7 +114,7 @@ export class Agent {
         turnCount++;
 
         // Compact conversation if it's getting too large (ported from claude-code autoCompact)
-        await this.compactIfNeeded(messages, systemPromptWithContext);
+        await this.compactIfNeeded(messages, systemPromptWithContext, sessionKey);
 
         // Check if aborted before making API call
         if (abortController.signal.aborted) {
@@ -239,6 +239,7 @@ export class Agent {
   private async compactIfNeeded(
     messages: ProviderMessage[],
     systemPrompt: string,
+    sessionKey?: string,
   ): Promise<void> {
     const totalChars = messages.reduce((sum, m) => {
       let size = m.role === "tool_result" ? m.output.length : m.content.length;
@@ -292,7 +293,7 @@ export class Agent {
       }
       messages.push(...toKeep.slice(startIdx));
 
-      console.log(`[agent] Compacted conversation: ${toSummarize.length} messages → summary (${summary.length} chars), kept ${toKeep.length} recent`);
+      console.log(`[agent] Compacted ${sessionKey ?? "?"}: ${toSummarize.length} messages → summary (${summary.length} chars), kept ${toKeep.length} recent`);
     } catch (err) {
       // Non-fatal — if compaction fails, just continue with full history
       console.warn("[agent] Compaction failed, continuing with full history:", err);
