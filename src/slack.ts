@@ -408,8 +408,7 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
   let pendingEdit: ReturnType<typeof setTimeout> | null = null;
 
   try {
-    console.log(`[slack] Message from ${userId} in ${channel}: ${text.slice(0, 100)}`);
-    console.log(`[slack] Session key: ${sessionKey}, replyThreadTs: ${replyThreadTs ?? "(flat)"}`);
+    console.log(`[slack] ${sessionKey} from ${userId}: ${text.slice(0, 80)}${text.length > 80 ? "…" : ""}`);
 
     // Post a placeholder message that we'll progressively update as text streams in
     const placeholder = await client.chat.postMessage({
