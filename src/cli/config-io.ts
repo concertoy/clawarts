@@ -25,7 +25,13 @@ export function readConfig(): RootConfig {
     return { defaults: {}, agents: [] };
   }
   const raw = fs.readFileSync(CONFIG_PATH, "utf-8");
-  const parsed = JSON.parse(raw) as Partial<RootConfig>;
+  let parsed: Partial<RootConfig>;
+  try {
+    parsed = JSON.parse(raw) as Partial<RootConfig>;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to parse ${CONFIG_PATH}: ${msg}`);
+  }
   return {
     defaults: parsed.defaults ?? {},
     agents: parsed.agents ?? [],
@@ -38,7 +44,7 @@ export function readConfig(): RootConfig {
  */
 export function writeConfig(config: RootConfig): void {
   const json = JSON.stringify(config, null, 2) + "\n";
-  const tmp = CONFIG_PATH + ".tmp";
+  const tmp = CONFIG_PATH + `.tmp.${process.pid}`;
   fs.writeFileSync(tmp, json, "utf-8");
   fs.renameSync(tmp, CONFIG_PATH);
 }
