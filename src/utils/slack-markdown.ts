@@ -72,10 +72,10 @@ export function markdownToSlack(md: string): string {
   });
 
   // Restore inline codes
-  result = result.replace(/\x00INLINE(\d+)\x00/g, (_, idx) => inlineCodes[parseInt(idx)]);
+  result = result.replace(/\x00INLINE(\d+)\x00/g, (_, idx) => inlineCodes[parseInt(idx)] ?? "");
 
   // Restore code blocks
-  result = result.replace(/\x00CODEBLOCK(\d+)\x00/g, (_, idx) => codeBlocks[parseInt(idx)]);
+  result = result.replace(/\x00CODEBLOCK(\d+)\x00/g, (_, idx) => codeBlocks[parseInt(idx)] ?? "");
 
   // Clean up excess blank lines left by transformations
   result = result.replace(/\n{3,}/g, "\n\n");

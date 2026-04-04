@@ -216,6 +216,7 @@ export function createCheckinTool(
 
         case "evaluate": {
           await checkinStore.closeExpiredWindows();
+          type CheckinStatus = "checked_in" | "late" | "absent" | "needs_review";
 
           const evaluations = input.evaluations as { responseId: string; score: number; status: string; feedback?: string }[];
 
@@ -225,7 +226,7 @@ export function createCheckinTool(
               evaluations.map((e) => ({
                 responseId: e.responseId,
                 score: e.score,
-                status: e.status as any,
+                status: e.status as CheckinStatus,
                 feedback: e.feedback,
               })),
             );
@@ -263,7 +264,7 @@ export function createCheckinTool(
             const evals = responses.map((r) => ({
               responseId: r.id,
               score: r.content.trim().toLowerCase() === targetWindow!.passphrase!.trim().toLowerCase() ? 100 : 0,
-              status: (r.content.trim().toLowerCase() === targetWindow!.passphrase!.trim().toLowerCase() ? "checked_in" : "needs_review") as any,
+              status: (r.content.trim().toLowerCase() === targetWindow!.passphrase!.trim().toLowerCase() ? "checked_in" : "needs_review") as CheckinStatus,
               feedback: r.content.trim().toLowerCase() === targetWindow!.passphrase!.trim().toLowerCase() ? "Correct passphrase." : `Incorrect. Expected "${targetWindow!.passphrase}".`,
             }));
             const updated = await checkinStore.bulkEvaluate(evals);

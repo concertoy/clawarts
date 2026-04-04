@@ -129,7 +129,11 @@ export class CodexProvider implements ModelProvider {
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          // Flush any remaining multi-byte UTF-8 bytes from the decoder
+          buffer += decoder.decode(undefined, { stream: false });
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
 

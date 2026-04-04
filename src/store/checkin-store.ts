@@ -46,7 +46,7 @@ export class CheckinStore {
     await this.closeExpiredWindows();
     const store = await loadStore<CheckinWindow>(this.windowsPath);
     const now = Date.now();
-    return store.items.find((w) => w.status === "open" && w.closesAt > now);
+    return store.items.find((w) => w.status === "open" && w.closesAt != null && w.closesAt > now);
   }
 
   async closeWindow(id: string): Promise<CheckinWindow | undefined> {
