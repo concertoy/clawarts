@@ -55,10 +55,10 @@ export async function downloadSlackFiles(
 
     // Binary files we can't extract text from
     if (!TEXT_EXTENSIONS.has(ext)) {
-      const sizeKB = file.size ? Math.round(file.size / 1024) : 0;
+      const sizeStr = file.size != null ? ` (${Math.round(file.size / 1024)}KB)` : "";
       attachments.push({
         name: fileName,
-        content: `[File: ${fileName}${sizeKB ? ` (${sizeKB}KB)` : ""} — binary, cannot extract text]`,
+        content: `[File: ${fileName}${sizeStr} — binary, cannot extract text]`,
         truncated: false,
       });
       continue;

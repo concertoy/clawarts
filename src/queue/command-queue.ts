@@ -27,6 +27,8 @@ interface LaneState {
 
 // ─── State ───────────────────────────────────────────────────────────
 
+const STALE_TASK_MS = 5 * 60 * 1000; // 5 minutes — tasks queued longer are evicted
+
 const lanes = new Map<string, LaneState>();
 
 function getLaneState(lane: string): LaneState {
@@ -55,6 +57,11 @@ function drainLane(lane: string): void {
     try {
       while (state.queue.length > 0 && state.activeCount < state.maxConcurrent) {
         const entry = state.queue.shift()!;
+        // Evict stale tasks — prevents pileup when the bot is slow
+        if (Date.now() - entry.enqueuedAt > STALE_TASK_MS) {
+          entry.reject(new Error(`Task evicted: queued for ${Math.round((Date.now() - entry.enqueuedAt) / 1000)}s (limit: ${STALE_TASK_MS / 1000}s)`));
+          continue;
+        }
         state.activeCount++;
 
         // Fire-and-forget: task runs concurrently, pump continues

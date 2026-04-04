@@ -16,8 +16,15 @@ const BOOTSTRAP_FILES = [
 ];
 
 const MAX_CHARS_PER_FILE = 20_000;
+const CACHE_TTL_MS = 60_000; // 60s — workspace files change rarely
+
+const cache = new Map<string, { files: WorkspaceFile[]; loadedAt: number }>();
 
 export function loadWorkspaceFiles(workspaceDir: string): WorkspaceFile[] {
+  const cached = cache.get(workspaceDir);
+  if (cached && Date.now() - cached.loadedAt < CACHE_TTL_MS) {
+    return cached.files;
+  }
   const files: WorkspaceFile[] = [];
 
   for (const name of BOOTSTRAP_FILES) {
@@ -50,5 +57,6 @@ export function loadWorkspaceFiles(workspaceDir: string): WorkspaceFile[] {
     console.log(`[workspace] Loaded ${files.length} file(s): ${files.map((f) => f.name).join(", ")}`);
   }
 
+  cache.set(workspaceDir, { files, loadedAt: Date.now() });
   return files;
 }
