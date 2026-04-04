@@ -34,6 +34,7 @@ export function execAsync(
     const timer = setTimeout(() => {
       ac.abort(new Error(`Command timed out after ${timeout}ms`));
     }, timeout);
+    if (timer.unref) timer.unref();
 
     const child = spawn("sh", ["-c", command], {
       cwd,

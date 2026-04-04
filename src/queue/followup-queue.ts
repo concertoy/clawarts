@@ -154,7 +154,7 @@ async function waitForDebounce(q: FollowupQueueState): Promise<void> {
   while (true) {
     const elapsed = Date.now() - q.lastEnqueuedAt;
     if (elapsed >= q.debounceMs) return;
-    await new Promise((r) => setTimeout(r, q.debounceMs - elapsed));
+    await new Promise((r) => { const t = setTimeout(r, q.debounceMs - elapsed); if (t.unref) t.unref(); });
   }
 }
 

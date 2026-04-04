@@ -39,6 +39,7 @@ const webSearchTool: ToolDefinition = {
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), DDG_TIMEOUT);
+    if (timer.unref) timer.unref();
     try {
       const params = new URLSearchParams({ q: query, kp: "-1" });
       const url = `${DDG_URL}?${params}`;
@@ -215,6 +216,7 @@ const webFetchTool: ToolDefinition = {
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), WEB_FETCH_TIMEOUT);
+    if (timer.unref) timer.unref();
     try {
       const resp = await fetch(url, {
         headers: {

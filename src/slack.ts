@@ -446,6 +446,7 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
           pendingEdit = null;
           void flushEdit().catch((err) => console.debug("[slack] Stream edit failed:", errMsg(err)));
         }, STREAM_UPDATE_INTERVAL_MS);
+        if (pendingEdit.unref) pendingEdit.unref();
       }
     };
 
