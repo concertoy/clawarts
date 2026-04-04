@@ -32,8 +32,10 @@ export interface AgentConfig {
   maxToolIterations?: number;
   /** Max agent replies per minute. Prevents runaway API costs. Default: 30. */
   rateLimitPerMinute?: number;
-  /** Quiet hours: agent returns a canned message instead of calling the API. Format: "HH:MM-HH:MM" (24h, local time). */
+  /** Quiet hours: agent returns a canned message instead of calling the API. Format: "HH:MM-HH:MM" (24h). Uses quietHoursTimezone or local time. */
   quietHours?: string;
+  /** IANA timezone for quiet hours (e.g., "Asia/Hong_Kong"). Defaults to system local time. */
+  quietHoursTimezone?: string;
   /** Character threshold for conversation compaction. Lower = more frequent compaction, less API cost. Default: 80000. */
   compactionThreshold?: number;
 }
@@ -49,7 +51,8 @@ type AgentOverrides = Partial<Pick<AgentConfig,
   | "provider" | "model" | "maxTokens" | "systemPrompt"
   | "skillsDirs" | "skillSources" | "sessionTtlMinutes" | "workspaceDir"
   | "allowedTools" | "disallowedTools" | "thinkingBudgetTokens"
-  | "allowedUsers" | "helpLevel" | "maxToolIterations" | "rateLimitPerMinute" | "quietHours" | "compactionThreshold"
+  | "allowedUsers" | "helpLevel" | "maxToolIterations" | "rateLimitPerMinute"
+  | "quietHours" | "quietHoursTimezone" | "compactionThreshold"
 >>;
 
 export interface AgentDefaults extends AgentOverrides {}

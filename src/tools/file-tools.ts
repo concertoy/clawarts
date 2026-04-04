@@ -257,7 +257,7 @@ export function createFileTools(workspaceDir: string): ToolDefinition[] {
           .map((e) => (e.isDirectory() ? `${e.name}/` : e.name));
 
         if (lines.length > 200) {
-          return lines.slice(0, 200).join("\n") + `\n\n[Truncated: ${lines.length} total entries]`;
+          return lines.slice(0, 200).join("\n") + `\n\n[Truncated: ${lines.length} total entries. Use glob to search for specific patterns.]`;
         }
         return lines.join("\n");
       } catch (err) {

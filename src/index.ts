@@ -191,7 +191,7 @@ async function main() {
     const agent = new Agent(config, provider, sessions, skills, tools, workspaceFiles);
     const extras = [
       config.helpLevel ? `helpLevel=${config.helpLevel}` : "",
-      config.quietHours ? `quietHours=${config.quietHours}` : "",
+      config.quietHours ? `quietHours=${config.quietHours}${config.quietHoursTimezone ? ` (${config.quietHoursTimezone})` : ""}` : "",
       config.rateLimitPerMinute ? `rateLimit=${config.rateLimitPerMinute}/min` : "",
     ].filter(Boolean).join(", ");
     console.log(`${label} Provider: ${provider.name}, model: ${config.model}${extras ? `, ${extras}` : ""}`);

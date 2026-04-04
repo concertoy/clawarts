@@ -108,6 +108,13 @@ function validateAgentConfig(config: AgentConfig): void {
   if (config.quietHours && !/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(config.quietHours)) {
     errors.push(`quietHours "${config.quietHours}" must be "HH:MM-HH:MM" format (e.g. "23:00-07:00")`);
   }
+  if (config.quietHoursTimezone) {
+    try {
+      Intl.DateTimeFormat("en-US", { timeZone: config.quietHoursTimezone });
+    } catch {
+      errors.push(`quietHoursTimezone "${config.quietHoursTimezone}" is not a valid IANA timezone`);
+    }
+  }
 
   if (config.provider === "anthropic-claude" && !process.env.ANTHROPIC_API_KEY) {
     errors.push("ANTHROPIC_API_KEY environment variable is required for anthropic-claude provider");
@@ -188,6 +195,7 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults, allEntri
     maxToolIterations: entry.maxToolIterations ?? defaults.maxToolIterations,
     rateLimitPerMinute: entry.rateLimitPerMinute ?? defaults.rateLimitPerMinute,
     quietHours: entry.quietHours ?? defaults.quietHours,
+    quietHoursTimezone: entry.quietHoursTimezone ?? defaults.quietHoursTimezone,
     compactionThreshold: entry.compactionThreshold ?? defaults.compactionThreshold,
   };
 }

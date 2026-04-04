@@ -6,8 +6,8 @@
  */
 
 const PATTERNS: [RegExp, string][] = [
-  // API keys (xoxb-, xapp-, sk-ant-, sk-...)
-  [/\b(xoxb|xapp|sk-ant|sk-)[a-zA-Z0-9\-_]{10,}/g, "[REDACTED]"],
+  // Slack tokens (xoxb-, xapp-, xoxp-)
+  [/\b(xoxb|xapp|xoxp|sk-ant|sk-)[a-zA-Z0-9\-_]{10,}/g, "[REDACTED]"],
   // Absolute file paths (/Users/..., /home/..., C:\...)
   [/(?:\/(?:Users|home|tmp|var|etc)\/[^\s"']+|[A-Z]:\\[^\s"']+)/g, "[PATH]"],
   // Bearer tokens
