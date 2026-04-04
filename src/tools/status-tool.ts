@@ -2,7 +2,7 @@ import fs from "node:fs";
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import { getStudentsForTutor, getAgentLastActive, getAgentLastError, getRegisteredAgent } from "../relay.js";
 import type { CronService } from "../cron/service.js";
-import { getTokenUsage, estimateCost, formatLatencyStats } from "../utils/token-tracker.js";
+import { getTokenUsage, estimateCost, formatLatencyStats, getToolUsage } from "../utils/token-tracker.js";
 import { formatTokenCount, formatUsd } from "../utils/format.js";
 
 /**
@@ -74,6 +74,18 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
         if (enabled.length > 10) lines.push(`  ... and ${enabled.length - 10} more`);
       } else {
         lines.push("\nNo cron jobs scheduled.");
+      }
+
+      // Top tool usage across all agents
+      const allToolUsage = new Map<string, number>();
+      for (const id of [tutorId, ...students.map((s) => s.id)]) {
+        for (const { name, count } of getToolUsage(id)) {
+          allToolUsage.set(name, (allToolUsage.get(name) ?? 0) + count);
+        }
+      }
+      if (allToolUsage.size > 0) {
+        const top = [...allToolUsage.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+        lines.push(`\nTop tools: ${top.map(([n, c]) => `${n}(${c})`).join(", ")}`);
       }
 
       // Total class cost estimate (tutor + all students)

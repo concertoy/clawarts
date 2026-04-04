@@ -45,6 +45,8 @@ async function createProvider(config: AgentConfig): Promise<ModelProvider> {
 // ─── Main ─────────────────────────────────────────────────────────────
 
 async function main() {
+  (globalThis as Record<string, unknown>).__clawarts_start_ms = Date.now();
+
   // Read version from package.json for startup banner
   const pkgPath = new URL("../package.json", import.meta.url);
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
@@ -167,6 +169,12 @@ async function main() {
     allSessions.push(entry.sessions);
     allCronServices.push(entry.cronService);
   }
+
+  // Startup complete
+  const tutors = entries.filter((e) => !e.config.linkedTutor).length;
+  const students = entries.length - tutors;
+  const elapsedMs = Date.now() - ((globalThis as Record<string, unknown>).__clawarts_start_ms as number ?? Date.now());
+  console.log(`[clawarts] Ready: ${tutors} tutor(s), ${students} student(s) — startup took ${(elapsedMs / 1000).toFixed(1)}s`);
 
   // Graceful shutdown (guarded against double-fire from SIGINT + SIGTERM)
   let shuttingDown = false;

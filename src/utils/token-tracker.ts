@@ -97,3 +97,26 @@ export function formatLatencyStats(u: AgentTokenUsage): string {
 export function getTokenUsage(agentId: string): AgentTokenUsage | undefined {
   return usage.get(agentId);
 }
+
+// ─── Tool usage tracking ─────────────────────────────────────────────
+
+const toolUsage = new Map<string, Map<string, number>>(); // agentId → toolName → count
+
+/** Record a tool invocation. */
+export function recordToolUsage(agentId: string, toolName: string): void {
+  let agent = toolUsage.get(agentId);
+  if (!agent) {
+    agent = new Map();
+    toolUsage.set(agentId, agent);
+  }
+  agent.set(toolName, (agent.get(toolName) ?? 0) + 1);
+}
+
+/** Get tool usage counts for an agent (sorted by count desc). */
+export function getToolUsage(agentId: string): { name: string; count: number }[] {
+  const agent = toolUsage.get(agentId);
+  if (!agent) return [];
+  return [...agent.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+}

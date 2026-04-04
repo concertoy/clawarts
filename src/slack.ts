@@ -8,6 +8,8 @@ import { errMsg } from "./utils/errors.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
 import { downloadSlackImages } from "./utils/slack-images.js";
 import { downloadSlackFiles, formatFileAttachments } from "./utils/slack-files.js";
+import { chunkText, stripMention } from "./utils/slack-text.js";
+import { hydrateFromDM, hydrateFromThread } from "./utils/slack-hydrate.js";
 import type { SlackFile } from "./utils/slack-types.js";
 import { KeyedAsyncQueue } from "./queue/keyed-async-queue.js";
 import { enqueueCommand } from "./queue/command-queue.js";
@@ -15,7 +17,6 @@ import { CommandLane } from "./queue/lanes.js";
 import { enqueueFollowup, type FollowupItem } from "./queue/followup-queue.js";
 
 const SLACK_TEXT_LIMIT = 4000;
-const HISTORY_LIMIT = 20;
 const STREAM_UPDATE_INTERVAL_MS = 1500;
 const SOCKET_PING_TIMEOUT_MS = 30_000;
 
@@ -297,91 +298,6 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   return app;
 }
 
-// ─── History hydration from Slack API ───────────────────────────────────
-
-type SlackMessage = { text?: string; user?: string; ts?: string };
-
-/** Convert raw Slack messages to session messages and append to session. */
-function ingestMessages(
-  sessions: SessionStore,
-  sessionKey: string,
-  messages: SlackMessage[],
-  botUserId: string,
-): number {
-  const session = sessions.get(sessionKey);
-  let count = 0;
-  for (const msg of messages) {
-    if (!msg.text || !msg.user) continue;
-    const role = msg.user === botUserId ? "assistant" : "user";
-    const content = role === "user" ? `[From: <@${msg.user}>]\n${msg.text}` : msg.text;
-    session.messages.push({ role, content });
-    count++;
-  }
-  return count;
-}
-
-/**
- * Fetch recent DM history via conversations.history().
- * Called on cold session so the bot has context even after restart.
- */
-async function hydrateFromDM(
-  client: WebClient,
-  sessions: SessionStore,
-  sessionKey: string,
-  channel: string,
-  botUserId: string,
-): Promise<void> {
-  try {
-    const response = await client.conversations.history({
-      channel,
-      limit: HISTORY_LIMIT,
-    });
-
-    const messages = response?.messages as SlackMessage[] | undefined;
-    if (!messages || messages.length === 0) return;
-
-    // conversations.history returns newest-first, reverse for chronological order
-    const count = ingestMessages(sessions, sessionKey, [...messages].reverse(), botUserId);
-    if (count > 0) {
-      console.debug(`[slack] Hydrated ${count} messages from DM history (${sessionKey})`);
-    }
-  } catch (err) {
-    console.warn(`[slack] Failed to fetch DM history (${sessionKey}):`, errMsg(err));
-  }
-}
-
-/**
- * Fetch thread replies via conversations.replies().
- * Called on cold session for channel threads.
- */
-async function hydrateFromThread(
-  client: WebClient,
-  sessions: SessionStore,
-  sessionKey: string,
-  channel: string,
-  threadTs: string,
-  botUserId: string,
-): Promise<void> {
-  try {
-    const response = await client.conversations.replies({
-      channel,
-      ts: threadTs,
-      limit: HISTORY_LIMIT,
-      inclusive: true,
-    });
-
-    const messages = response?.messages as SlackMessage[] | undefined;
-    if (!messages || messages.length === 0) return;
-
-    const count = ingestMessages(sessions, sessionKey, messages, botUserId);
-    if (count > 0) {
-      console.debug(`[slack] Hydrated ${count} messages from thread history (${sessionKey})`);
-    }
-  } catch (err) {
-    console.warn(`[slack] Failed to fetch thread history (${sessionKey}):`, errMsg(err));
-  }
-}
-
 // ─── Message handling ───────────────────────────────────────────────────
 
 interface HandleMessageParams {
@@ -563,41 +479,3 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
   }
 }
 
-const mentionRegexCache = new Map<string, RegExp>();
-function stripMention(text: string, botUserId: string): string {
-  let re = mentionRegexCache.get(botUserId);
-  if (!re) {
-    re = new RegExp(`<@${botUserId}>`, "g");
-    mentionRegexCache.set(botUserId, re);
-  }
-  re.lastIndex = 0; // reset stateful global regex
-  return text.replace(re, "").trim();
-}
-
-function chunkText(text: string, limit: number): string[] {
-  if (text.length <= limit) return [text];
-
-  const chunks: string[] = [];
-  let remaining = text;
-
-  while (remaining.length > 0) {
-    if (remaining.length <= limit) {
-      chunks.push(remaining);
-      break;
-    }
-
-    // Try to break at a newline
-    let breakPoint = remaining.lastIndexOf("\n", limit);
-    if (breakPoint <= 0) {
-      breakPoint = remaining.lastIndexOf(" ", limit);
-    }
-    if (breakPoint <= 0) {
-      breakPoint = limit;
-    }
-
-    chunks.push(remaining.slice(0, breakPoint));
-    remaining = remaining.slice(breakPoint).trimStart();
-  }
-
-  return chunks;
-}
