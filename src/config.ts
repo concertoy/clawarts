@@ -188,6 +188,7 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults, allEntri
     maxToolIterations: entry.maxToolIterations ?? defaults.maxToolIterations,
     rateLimitPerMinute: entry.rateLimitPerMinute ?? defaults.rateLimitPerMinute,
     quietHours: entry.quietHours ?? defaults.quietHours,
+    compactionThreshold: entry.compactionThreshold ?? defaults.compactionThreshold,
   };
 }
 

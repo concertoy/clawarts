@@ -1,5 +1,6 @@
+import fs from "node:fs";
 import type { ToolDefinition, ToolUseContext } from "../types.js";
-import { getStudentsForTutor, getAgentLastActive, getRegisteredAgent } from "../relay.js";
+import { getStudentsForTutor, getAgentLastActive, getAgentLastError, getRegisteredAgent } from "../relay.js";
 import type { CronService } from "../cron/service.js";
 
 /**
@@ -18,9 +19,16 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
       const tutorId = context?.agentId ?? "unknown";
       const uptimeMin = Math.round(process.uptime() / 60);
       const memMB = Math.round(process.memoryUsage.rss() / 1024 / 1024);
+
+      // Read version from package.json
+      let version = "?";
+      try {
+        const pkg = JSON.parse(fs.readFileSync(new URL("../../package.json", import.meta.url), "utf-8"));
+        version = pkg.version ?? "?";
+      } catch { /* non-fatal */ }
       const tutorReg = getRegisteredAgent(tutorId);
       const tutorSessions = tutorReg?.sessions.size ?? 0;
-      const lines: string[] = [`Status for ${tutorId} (uptime: ${uptimeMin}m, ${memMB}MB, ${tutorSessions} session(s)):`];
+      const lines: string[] = [`Status for ${tutorId} v${version} (uptime: ${uptimeMin}m, ${memMB}MB, ${tutorSessions} session(s)):`];
 
       // Student agents
       const students = getStudentsForTutor(tutorId);
@@ -32,7 +40,9 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
           const users = s.allowedUsers.map((u) => `<@${u}>`).join(", ") || "(none)";
           const reg = getRegisteredAgent(s.id);
           const sessionCount = reg?.sessions.size ?? 0;
-          lines.push(`  ${s.id}: last active ${ago}, ${sessionCount} session(s), users: ${users}`);
+          const lastErr = getAgentLastError(s.id);
+          const errNote = lastErr ? ` [last error: ${lastErr.slice(0, 80)}]` : "";
+          lines.push(`  ${s.id}: last active ${ago}, ${sessionCount} session(s), users: ${users}${errNote}`);
         }
       } else {
         lines.push("\nNo student agents linked.");

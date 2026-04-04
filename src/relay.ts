@@ -31,6 +31,7 @@ const BROADCAST_DEDUP_MS = 10_000; // 10s window to prevent accidental double-br
 
 const registry = new Map<string, RegisteredAgent>();
 const lastActiveAt = new Map<string, number>(); // agent ID → epoch ms
+const lastErrors = new Map<string, string>(); // agent ID → last error message
 const recentBroadcasts = new BoundedMap<string, number>(100); // hash → timestamp
 
 export function registerAgent(entry: RegisteredAgent): void {
@@ -53,6 +54,16 @@ export function touchAgent(agentId: string): void {
 /** Get last-active timestamp for an agent. */
 export function getAgentLastActive(agentId: string): number | undefined {
   return lastActiveAt.get(agentId);
+}
+
+/** Record the last error for an agent (for health reporting). */
+export function recordAgentError(agentId: string, error: string): void {
+  lastErrors.set(agentId, error);
+}
+
+/** Get the last recorded error for an agent. */
+export function getAgentLastError(agentId: string): string | undefined {
+  return lastErrors.get(agentId);
 }
 
 /** Find all student agents linked to a given tutor, with their allowed users. */

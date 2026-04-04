@@ -189,7 +189,13 @@ async function main() {
     sessions.enablePersistence(path.join(os.homedir(), ".clawarts", "agents", config.id, "sessions"));
     const provider = await createProvider(config);
     const agent = new Agent(config, provider, sessions, skills, tools, workspaceFiles);
-    console.log(`${label} Provider: ${provider.name}, model: ${config.model}, tools: ${tools.map((t) => t.name).join(", ")}`);
+    const extras = [
+      config.helpLevel ? `helpLevel=${config.helpLevel}` : "",
+      config.quietHours ? `quietHours=${config.quietHours}` : "",
+      config.rateLimitPerMinute ? `rateLimit=${config.rateLimitPerMinute}/min` : "",
+    ].filter(Boolean).join(", ");
+    console.log(`${label} Provider: ${provider.name}, model: ${config.model}${extras ? `, ${extras}` : ""}`);
+    console.log(`${label} Tools: ${tools.map((t) => t.name).join(", ")}`);
 
     entries.push({ config, agent, sessions, slackClient, cronService });
   }
@@ -217,7 +223,13 @@ async function main() {
     } catch (err) {
       throw new Error(`${label} Failed to start Slack Socket Mode — check that slackBotToken and slackAppToken are correct and that Socket Mode is enabled in your Slack app settings. Error: ${errMsg(err)}`);
     }
-    console.log(`${label} Slack bot running (Socket Mode)`);
+    // Resolve and log bot identity (best-effort)
+    try {
+      const auth = await entry.slackClient.auth.test();
+      console.log(`${label} Slack bot running as @${auth.user} (Socket Mode)`);
+    } catch {
+      console.log(`${label} Slack bot running (Socket Mode)`);
+    }
 
     await entry.cronService.start();
 

@@ -34,6 +34,8 @@ export interface AgentConfig {
   rateLimitPerMinute?: number;
   /** Quiet hours: agent returns a canned message instead of calling the API. Format: "HH:MM-HH:MM" (24h, local time). */
   quietHours?: string;
+  /** Character threshold for conversation compaction. Lower = more frequent compaction, less API cost. Default: 80000. */
+  compactionThreshold?: number;
 }
 
 /** Top-level config file shape. */
@@ -47,7 +49,7 @@ type AgentOverrides = Partial<Pick<AgentConfig,
   | "provider" | "model" | "maxTokens" | "systemPrompt"
   | "skillsDirs" | "skillSources" | "sessionTtlMinutes" | "workspaceDir"
   | "allowedTools" | "disallowedTools" | "thinkingBudgetTokens"
-  | "allowedUsers" | "helpLevel" | "maxToolIterations" | "rateLimitPerMinute" | "quietHours"
+  | "allowedUsers" | "helpLevel" | "maxToolIterations" | "rateLimitPerMinute" | "quietHours" | "compactionThreshold"
 >>;
 
 export interface AgentDefaults extends AgentOverrides {}

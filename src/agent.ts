@@ -3,7 +3,7 @@ import type { ImageContent, ModelProvider, ProviderMessage } from "./provider.js
 import { SessionStore } from "./session.js";
 import { buildSystemPrompt } from "./system-prompt.js";
 import { runToolBatch } from "./tool-runner.js";
-import { touchAgent } from "./relay.js";
+import { touchAgent, recordAgentError } from "./relay.js";
 import { errMsg } from "./utils/errors.js";
 import { createRateLimiter, type RateLimiter } from "./utils/rate-limit.js";
 
@@ -260,6 +260,7 @@ export class Agent {
       }
       // Log unexpected errors but still save partial response
       console.error(`[agent] Error in agent loop (turn ${turnCount}):`, err);
+      recordAgentError(this.config.id, errMsg(err));
       if (!lastText) {
         lastText = "[An error occurred while processing your request. Please try again.]";
       }
@@ -303,7 +304,8 @@ export class Agent {
       return sum + size;
     }, 0);
 
-    if (totalChars < COMPACTION_CHAR_THRESHOLD || messages.length < 6) return;
+    const threshold = this.config.compactionThreshold ?? COMPACTION_CHAR_THRESHOLD;
+    if (totalChars < threshold || messages.length < 6) return;
 
     // Keep the last few messages intact, summarize the rest
     const keepCount = Math.min(4, Math.floor(messages.length / 2));
