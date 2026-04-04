@@ -288,8 +288,8 @@ function extractHtmlContent(html: string, url: string, mode: string): string {
         const result = title + normalizeWhitespace(content);
         if (result.trim().length > 50) return result;
       }
-    } catch {
-      // Readability failed — fall through
+    } catch (err) {
+      console.warn(`[web-tools] Readability failed for ${url}:`, err instanceof Error ? err.message : err);
     }
   }
 
