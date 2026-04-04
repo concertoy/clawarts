@@ -36,6 +36,12 @@ export async function saveStore<T>(storePath: string, store: StoreFile<T>): Prom
   const dir = path.dirname(storePath);
   await fs.promises.mkdir(dir, { recursive: true });
   const tmp = storePath + `.tmp.${process.pid}`;
-  await fs.promises.writeFile(tmp, JSON.stringify(store, null, 2), "utf-8");
-  await fs.promises.rename(tmp, storePath);
+  try {
+    await fs.promises.writeFile(tmp, JSON.stringify(store, null, 2), "utf-8");
+    await fs.promises.rename(tmp, storePath);
+  } catch (err) {
+    // Clean up orphan temp file on failure
+    await fs.promises.unlink(tmp).catch(() => {});
+    throw err;
+  }
 }

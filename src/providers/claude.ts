@@ -80,6 +80,9 @@ export class ClaudeProvider implements ModelProvider {
     // Extended thinking support (ported from claude-code's thinking.ts)
     if (params.thinking?.budgetTokens && params.thinking.budgetTokens > 0) {
       const budgetTokens = Math.min(params.maxTokens - 1, params.thinking.budgetTokens);
+      if (budgetTokens < params.thinking.budgetTokens) {
+        console.warn(`[claude] Thinking budget clamped from ${params.thinking.budgetTokens} to ${budgetTokens} (maxTokens=${params.maxTokens})`);
+      }
       body.thinking = {
         type: "enabled",
         budget_tokens: budgetTokens,
