@@ -120,7 +120,7 @@ async function executeOne(tools: ToolDefinition[], tc: ToolCall, context?: ToolU
   } catch (err) {
     const elapsed = Date.now() - startMs;
     const msg = err instanceof Error ? err.message : String(err);
-    console.log(`[tool-runner] ${tc.name} failed after ${(elapsed / 1000).toFixed(1)}s: ${msg.slice(0, 100)}`);
+    console.error(`[tool-runner] ${tc.name} failed after ${(elapsed / 1000).toFixed(1)}s: ${msg.slice(0, 100)}`);
     return { callId: tc.id, name: tc.name, output: `Tool execution error: ${msg}`, isError: true };
   }
 }
