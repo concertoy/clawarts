@@ -148,9 +148,10 @@ async function main() {
           return true;
         }
         if (tag === "PULSE_CHECKIN" && params.pulseGroupId) {
-          const duration = (parseInt(String(params.durationMinutes), 10) || 2) * 60 * 1000;
-          const pulseIndex = parseInt(String(params.pulseIndex), 10) || 1;
-          const pulseTotal = parseInt(String(params.pulseTotal), 10) || 1;
+          const toInt = (v: string | undefined, fallback: number) => parseInt(v ?? "", 10) || fallback;
+          const duration = toInt(params.durationMinutes, 2) * 60 * 1000;
+          const pulseIndex = toInt(params.pulseIndex, 1);
+          const pulseTotal = toInt(params.pulseTotal, 1);
           await checkinStore.createWindow({
             tutorId: config.id,
             mode: "pulse",

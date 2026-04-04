@@ -190,10 +190,8 @@ export function createRelayTool(): ToolDefinition {
         const fail = results.filter((r) => r.status === "rejected");
 
         const summary = [`Broadcast complete: ${ok.length} delivered, ${fail.length} failed.`];
-        if (fail.length > 0) {
-          for (const f of fail) {
-            summary.push(`  ✗ ${(f as PromiseRejectedResult).reason}`);
-          }
+        for (const f of fail) {
+          if (f.status === "rejected") summary.push(`  ✗ ${f.reason}`);
         }
         return summary.join("\n");
       }
