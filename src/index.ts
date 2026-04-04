@@ -225,10 +225,16 @@ async function main() {
   // Graceful shutdown
   const shutdown = async () => {
     console.log("\n[clawarts] Shutting down...");
-    await Promise.allSettled(allCronServices.map((c) => c.stop()));
+    const cronResults = await Promise.allSettled(allCronServices.map((c) => c.stop()));
+    for (const r of cronResults) {
+      if (r.status === "rejected") console.warn("[clawarts] Cron stop error:", errMsg(r.reason));
+    }
     console.log("[clawarts] Persisting sessions...");
-    for (const s of allSessions) s.destroy(); // destroy() calls persistAll() before clearing
-    await Promise.allSettled(apps.map((a) => a.stop()));
+    for (const s of allSessions) s.destroy();
+    const appResults = await Promise.allSettled(apps.map((a) => a.stop()));
+    for (const r of appResults) {
+      if (r.status === "rejected") console.warn("[clawarts] Slack app stop error:", errMsg(r.reason));
+    }
     console.log("[clawarts] Goodbye.");
     process.exit(0);
   };
