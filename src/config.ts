@@ -2,13 +2,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import dotenv from "dotenv";
-import type { AgentConfig, AgentEntry, AgentDefaults, SkillSources } from "./types.js";
+import type { AgentConfig, AgentEntry, AgentDefaults, Provider, SkillSources } from "./types.js";
 import { errMsg, isFileNotFound } from "./utils/errors.js";
 
 dotenv.config();
 
 interface LegacyConfigFile {
-  provider?: string;
+  provider?: Provider;
   model?: string;
   maxTokens?: number;
   systemPrompt?: string;
@@ -47,7 +47,13 @@ function loadConfigFile(): LegacyConfigFile {
   }
 }
 
-export const AGENT_DEFAULTS = {
+export const AGENT_DEFAULTS: {
+  provider: Provider;
+  model: string;
+  maxTokens: number;
+  systemPrompt: string;
+  sessionTtlMinutes: number;
+} = {
   provider: "openai-codex",
   model: "gpt-5.4",
   maxTokens: 8192,
@@ -80,7 +86,7 @@ function resolveEnvRef(value: string): string {
   return value;
 }
 
-const VALID_PROVIDERS = new Set(["openai-codex", "anthropic-claude"]);
+const VALID_PROVIDERS: Set<Provider> = new Set(["openai-codex", "anthropic-claude"]);
 
 function validateAgentConfig(config: AgentConfig): void {
   const errors: string[] = [];
@@ -142,7 +148,7 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults, allEntri
 
   return {
     id: entry.id,
-    provider: (entry.provider ?? defaults.provider ?? AGENT_DEFAULTS.provider) as AgentConfig["provider"],
+    provider: entry.provider ?? defaults.provider ?? AGENT_DEFAULTS.provider,
     model: entry.model ?? defaults.model ?? DEFAULT_MODELS[entry.provider ?? defaults.provider ?? AGENT_DEFAULTS.provider] ?? AGENT_DEFAULTS.model,
     maxTokens: entry.maxTokens ?? defaults.maxTokens ?? AGENT_DEFAULTS.maxTokens,
     systemPrompt: entry.systemPrompt ?? defaults.systemPrompt ?? AGENT_DEFAULTS.systemPrompt,
@@ -197,7 +203,7 @@ export function loadAllAgentConfigs(): AgentConfig[] {
 
   const config: AgentConfig = {
     id: "default",
-    provider: (file.provider ?? AGENT_DEFAULTS.provider) as AgentConfig["provider"],
+    provider: file.provider ?? AGENT_DEFAULTS.provider,
     model: file.model ?? AGENT_DEFAULTS.model,
     maxTokens: file.maxTokens ?? AGENT_DEFAULTS.maxTokens,
     systemPrompt: file.systemPrompt ?? AGENT_DEFAULTS.systemPrompt,
