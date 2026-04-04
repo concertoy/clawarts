@@ -4,6 +4,9 @@ import type { SubmissionStore } from "../store/submission-store.js";
 import { getRegisteredAgent } from "../relay.js";
 import { errMsg } from "../utils/errors.js";
 import { openDmChannel } from "../utils/slack-dm.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("submit");
 
 /**
  * Submission tool for student agents.
@@ -59,7 +62,7 @@ export function createSubmitTool(
 
           // Notify tutor of new submission (best-effort, fire-and-forget)
           notifyTutorOfSubmission(agentId, userId, assignment.title, submission.status === "late")
-            .catch((err) => console.warn(`[submit] Failed to notify tutor:`, errMsg(err)));
+            .catch((err) => log.warn("Failed to notify tutor:", errMsg(err)));
 
           const receipt = [
             `Submitted${lateNote}${resubNote}:`,

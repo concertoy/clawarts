@@ -7,6 +7,9 @@ import type { CheckinStore } from "../store/checkin-store.js";
 import type { CheckinStatus } from "../store/types.js";
 import { getStudentsForTutor, getRegisteredAgent } from "../relay.js";
 import { errMsg } from "../utils/errors.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("checkin");
 import { openDmChannel } from "../utils/slack-dm.js";
 import { markdownToSlack } from "../utils/slack-markdown.js";
 
@@ -50,7 +53,7 @@ export async function notifyStudentsOfScores(
       await agent.slackClient.chat.postMessage({ channel: channelId, text: markdownToSlack(msg) });
       notified++;
     } catch (err) {
-      console.warn(`[checkin] Failed to notify student:`, errMsg(err));
+      log.warn("Failed to notify student:", errMsg(err));
     }
   });
 
