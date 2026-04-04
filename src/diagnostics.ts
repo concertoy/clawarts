@@ -28,10 +28,15 @@ export function runDiagnostics(configs: AgentConfig[]): void {
     }
 
     // Check workspace exists
-    if (!fs.existsSync(config.workspaceDir)) {
+    try {
+      fs.accessSync(config.workspaceDir, fs.constants.R_OK);
+      try {
+        fs.accessSync(path.join(config.workspaceDir, "SOUL.md"), fs.constants.R_OK);
+      } catch {
+        warnings.push(`${label}: no SOUL.md in workspace — agent will use generic persona`);
+      }
+    } catch {
       warnings.push(`${label}: workspace "${config.workspaceDir}" will be created on start`);
-    } else if (!fs.existsSync(path.join(config.workspaceDir, "SOUL.md"))) {
-      warnings.push(`${label}: no SOUL.md in workspace — agent will use generic persona`);
     }
 
     // Check linked tutor exists and is actually a tutor

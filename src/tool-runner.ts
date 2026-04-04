@@ -155,6 +155,7 @@ function withTimeout(promise: Promise<string>, ms: number, toolName: string): Pr
     const timer = setTimeout(() => {
       reject(new Error(`Tool "${toolName}" timed out after ${Math.round(ms / 1000)}s`));
     }, ms);
+    if (timer.unref) timer.unref();
     promise
       .then((val) => { clearTimeout(timer); resolve(val); })
       .catch((err) => { clearTimeout(timer); reject(err); });
