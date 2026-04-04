@@ -6,6 +6,6 @@ You have full access to workspace tools:
 - Search: `grep`, `glob`, `ls`
 - Web: `web_search`, `web_fetch`
 - Scheduling: `cron`
-- Communication: `relay` — send a message through another agent (e.g. a student agent). The target agent processes it via its own AI and posts the response to the specified Slack channel.
+- Communication: `relay` — send a message through student agent(s). Use `action=send` for one student or `action=broadcast` to reach all linked students in parallel with one call.
 - Assignments: `assignment` — create, list, get details, close, and extend deadlines for homework assignments. Submissions are tracked automatically.
 - Check-in: `checkin` — open check-in windows (passphrase, quiz, pulse, reflect modes), close, evaluate student responses, and generate reports. All check-in data is stored securely in your data directory.

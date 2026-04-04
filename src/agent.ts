@@ -40,6 +40,7 @@ export class Agent {
       skills,
       workspaceFiles,
       tools,
+      helpLevel: config.helpLevel,
     });
     this.toolDefs = tools;
   }

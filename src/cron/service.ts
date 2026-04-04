@@ -4,7 +4,6 @@ import type { CronJob, CronJobCreate, CronJobPatch, CronStoreFile } from "./type
 import { computeNextRunAtMs } from "./schedule.js";
 import { loadCronStore, saveCronStore } from "./store.js";
 
-const MAX_TIMER_DELAY_MS = 60_000;
 const MIN_REFIRE_GAP_MS = 2_000;
 
 /**
@@ -133,12 +132,8 @@ export class CronService {
     if (enabledJobs.length === 0) return;
 
     const nextWake = Math.min(...enabledJobs.map((j) => j.state.nextRunAtMs!));
-    let delay = Math.max(0, nextWake - now);
-
-    // Clamp: never sleep longer than MAX_TIMER_DELAY_MS (periodic wakeup)
-    delay = Math.min(delay, MAX_TIMER_DELAY_MS);
-    // Floor: prevent tight loops
-    delay = Math.max(delay, MIN_REFIRE_GAP_MS);
+    // Precise wakeup — no clamping. Node.js setTimeout handles large delays fine.
+    const delay = Math.max(MIN_REFIRE_GAP_MS, nextWake - now);
 
     this.timer = setTimeout(() => void this.onTimer(), delay);
   }
@@ -161,11 +156,16 @@ export class CronService {
       );
 
       for (const job of dueJobs) {
-        await this.executeJob(job, now);
+        // Advance schedule and persist BEFORE execution to prevent
+        // double-firing if the process crashes mid-delivery.
+        this.advanceSchedule(job, now);
       }
-
       if (dueJobs.length > 0) {
         await this.persist();
+      }
+
+      for (const job of dueJobs) {
+        await this.deliverJob(job);
       }
     } catch (err) {
       console.error(`[cron:${this.opts.agentId}] Timer error:`, err);
@@ -175,42 +175,31 @@ export class CronService {
     }
   }
 
-  private async executeJob(job: CronJob, nowMs: number): Promise<void> {
+  /** Advance a job's schedule state (called BEFORE delivery to prevent double-fire on crash). */
+  private advanceSchedule(job: CronJob, nowMs: number): void {
+    job.state.lastRunAtMs = nowMs;
+    if (job.schedule.kind === "at") {
+      job.enabled = false;
+      job.state.nextRunAtMs = undefined;
+    } else {
+      job.state.nextRunAtMs = computeNextRunAtMs(job.schedule, nowMs);
+    }
+  }
+
+  /** Deliver a job's message to Slack. Schedule is already advanced. */
+  private async deliverJob(job: CronJob): Promise<void> {
     try {
       await this.opts.slackClient.chat.postMessage({
         channel: job.channelId,
         text: `\u{1f514} *${job.name}*\n${job.message}`,
       });
-
-      job.state.lastRunAtMs = nowMs;
       job.state.lastStatus = "ok";
       job.state.lastError = undefined;
-
-      // Advance schedule
-      if (job.schedule.kind === "at") {
-        // One-shot: disable after firing
-        job.enabled = false;
-        job.state.nextRunAtMs = undefined;
-      } else {
-        // Recurring: compute next run
-        job.state.nextRunAtMs = computeNextRunAtMs(job.schedule, nowMs);
-      }
-
       console.log(`[cron:${this.opts.agentId}] Fired "${job.name}" → ${job.channelId}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      job.state.lastRunAtMs = nowMs;
       job.state.lastStatus = "error";
       job.state.lastError = msg;
-
-      // Still advance schedule so we don't get stuck
-      if (job.schedule.kind === "every") {
-        job.state.nextRunAtMs = computeNextRunAtMs(job.schedule, nowMs);
-      } else {
-        job.enabled = false;
-        job.state.nextRunAtMs = undefined;
-      }
-
       console.error(`[cron:${this.opts.agentId}] Job "${job.name}" failed:`, msg);
     }
   }

@@ -24,12 +24,8 @@ If the tutor wants changes, let them edit and re-confirm.
 
 ## Step 3 — Send
 
-Once confirmed:
+Once confirmed, call `relay` with:
+- `action`: `broadcast`
+- `message`: the confirmed announcement, prefixed with ":loudspeaker: *Announcement from your tutor*"
 
-1. Call `list_students` to discover all linked student agents and their user IDs.
-2. For each student, call `relay` with:
-   - `targetAgentId`: the student's agent ID
-   - `userId`: the student's Slack user ID
-   - `message`: the confirmed announcement, prefixed with ":loudspeaker: *Announcement from your tutor*"
-
-Report how many students were notified. If any relay fails, report which students were missed.
+This sends to all linked students in parallel — one tool call reaches everyone. Report the delivery summary.

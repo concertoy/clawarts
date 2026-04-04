@@ -49,15 +49,12 @@ For quiz mode, include the `challenges` array with per-student questions.
 
 ## Step 4 — Distribute to Students
 
-Use `list_students` and `relay` to notify each student:
+**passphrase / pulse / reflect:** Use `relay` with `action=broadcast` to notify all students at once. Messages:
+- passphrase: "A check-in is open! Enter the passphrase shown in class using `/checkin`." — Do NOT include the actual passphrase.
+- pulse: "Pulse check-ins are active for this class. You'll be prompted periodically to describe what's being discussed. Stay engaged!"
+- reflect: "An exit ticket is open. Describe the most important thing you learned today using `/checkin`."
 
-**passphrase:** Relay message: "A check-in is open! Enter the passphrase shown in class using `/checkin`." — Do NOT include the actual passphrase in the relay message.
-
-**quiz:** Relay each student their unique question: "Check-in time! Answer this question: [their specific question]. Use `/checkin` to respond."
-
-**pulse:** Relay: "Pulse check-ins are active for this class. You'll be prompted periodically to describe what's being discussed. Stay engaged!"
-
-**reflect:** Relay: "An exit ticket is open. Describe the most important thing you learned today using `/checkin`."
+**quiz:** Since each student gets a unique question, use `list_students` then call `relay` with `action=send` for each student individually, including their specific question: "Check-in time! Answer this question: [their specific question]. Use `/checkin` to respond."
 
 ## Step 5 — Confirm
 
