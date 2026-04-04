@@ -3,7 +3,20 @@ import os from "node:os";
 import path from "node:path";
 import type { AgentEntry, RootConfig } from "../types.js";
 
-const CONFIG_PATH = path.resolve("config.json");
+/**
+ * Config path resolution order:
+ * 1. CLAWARTS_CONFIG env var (explicit override)
+ * 2. ./config.json (CWD, for development)
+ * 3. ~/.clawarts/config.json (canonical home-dir location)
+ */
+function resolveConfigPath(): string {
+  if (process.env.CLAWARTS_CONFIG) return path.resolve(process.env.CLAWARTS_CONFIG);
+  const cwdPath = path.resolve("config.json");
+  if (fs.existsSync(cwdPath)) return cwdPath;
+  return path.join(os.homedir(), ".clawarts", "config.json");
+}
+
+const CONFIG_PATH = resolveConfigPath();
 
 // ─── Read / Write ────────────────────────────────────────────────────
 

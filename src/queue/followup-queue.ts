@@ -31,6 +31,7 @@ const drainCallbacks = new Map<string, DrainCallback>();
 
 const DEFAULT_DEBOUNCE_MS = 1500;
 const DEFAULT_CAP = 20;
+const MAX_ITEM_AGE_MS = 3 * 60 * 1000; // 3 minutes — stale followups are dropped
 
 function getQueue(key: string): FollowupQueueState {
   let q = queues.get(key);
@@ -102,6 +103,14 @@ function scheduleDrain(sessionKey: string): void {
 
         const callback = drainCallbacks.get(sessionKey);
         if (!callback) break; // Don't splice — items stay queued until a callback is registered
+
+        // Evict stale items before batching
+        const now = Date.now();
+        const stale = q.items.filter((i) => now - i.enqueuedAt > MAX_ITEM_AGE_MS);
+        if (stale.length > 0) {
+          q.items = q.items.filter((i) => now - i.enqueuedAt <= MAX_ITEM_AGE_MS);
+          q.droppedCount += stale.length;
+        }
 
         // Collect all current items into a batch
         const batch = q.items.splice(0);

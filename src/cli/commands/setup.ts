@@ -70,6 +70,13 @@ export async function setupWizardCommand(prompter: WizardPrompter): Promise<void
     addMore = true;
   }
 
+  if (config.agents.length === 0) {
+    await prompter.note(
+      "No agents configured. The bot won't do anything until at least one agent is added.\nRun `clawarts agent add` to add one later.",
+      "Warning: no agents",
+    );
+  }
+
   // Show required env vars
   if (config.agents.length > 0) {
     const envVars: string[] = [];
