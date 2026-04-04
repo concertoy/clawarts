@@ -3,6 +3,8 @@
  * Companion to slack-images.ts — handles everything that isn't an image.
  */
 
+import { errMsg } from "./errors.js";
+
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp"]);
 
 const TEXT_EXTENSIONS = new Set([
@@ -101,7 +103,7 @@ export async function downloadSlackFiles(
       attachments.push({ name: fileName, content: text, truncated });
       console.log(`[slack-files] Downloaded ${fileName} (${text.length} chars${truncated ? ", truncated" : ""})`);
     } catch (err) {
-      console.warn(`[slack-files] Error downloading ${fileName}:`, err instanceof Error ? err.message : err);
+      console.warn(`[slack-files] Error downloading ${fileName}:`, errMsg(err));
     } finally {
       clearTimeout(timer);
     }

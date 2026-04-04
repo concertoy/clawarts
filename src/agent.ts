@@ -1,8 +1,9 @@
 import type { AgentConfig, Skill, ToolDefinition, ToolUseContext, WorkspaceFile } from "./types.js";
-import type { ImageContent, ModelProvider, ProviderMessage, ToolCall } from "./provider.js";
+import type { ImageContent, ModelProvider, ProviderMessage } from "./provider.js";
 import { SessionStore } from "./session.js";
 import { buildSystemPrompt } from "./system-prompt.js";
 import { runToolBatch } from "./tool-runner.js";
+import { errMsg } from "./utils/errors.js";
 
 const DEFAULT_MAX_TOOL_ITERATIONS = 10;
 
@@ -120,7 +121,7 @@ export class Agent {
         turnCount++;
 
         // Compact conversation if it's getting too large (ported from claude-code autoCompact)
-        await this.compactIfNeeded(messages, systemPromptWithContext, sessionKey);
+        await this.compactIfNeeded(messages, sessionKey);
 
         // Check if aborted before making API call
         if (abortController.signal.aborted) {
@@ -261,7 +262,6 @@ export class Agent {
    */
   private async compactIfNeeded(
     messages: ProviderMessage[],
-    systemPrompt: string,
     sessionKey?: string,
   ): Promise<void> {
     const totalChars = messages.reduce((sum, m) => {
@@ -323,7 +323,7 @@ export class Agent {
       console.log(`[agent] Compacted ${sessionKey ?? "?"}: ${toSummarize.length} messages → summary (${summary.length} chars), kept ${toKeep.length} recent`);
     } catch (err) {
       // Non-fatal — if compaction fails, just continue with full history
-      console.warn("[agent] Compaction failed, continuing with full history:", err instanceof Error ? err.message : err);
+      console.warn("[agent] Compaction failed, continuing with full history:", errMsg(err));
     }
   }
 }

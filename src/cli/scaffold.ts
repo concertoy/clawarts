@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AgentType } from "./templates.js";
+import { errMsg, isFileNotFound } from "../utils/errors.js";
 
 // ─── Example template resolution ────────────────────────────────────
 
@@ -29,8 +30,8 @@ function readTemplate(templateDir: string, fileName: string, agentId: string): s
     return content.replace(/\{\{AGENT_ID\}\}/g, agentId);
   } catch (err) {
     // ENOENT is expected when template file doesn't exist
-    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") return null;
-    console.warn(`[scaffold] Failed to read template ${fileName}:`, err instanceof Error ? err.message : err);
+    if (isFileNotFound(err)) return null;
+    console.warn(`[scaffold] Failed to read template ${fileName}:`, errMsg(err));
     return null;
   }
 }

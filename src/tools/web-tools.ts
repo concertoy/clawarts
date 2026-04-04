@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import type { ToolDefinition } from "../types.js";
-import { errMsg } from "./paths.js";
+import { errMsg } from "../utils/errors.js";
 
 // ─── web_search (DuckDuckGo) ──────────────────────────────────────────
 

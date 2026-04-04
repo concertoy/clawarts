@@ -2,6 +2,7 @@ import { App } from "@slack/bolt";
 import type { AgentConfig } from "./types.js";
 import type { Agent } from "./agent.js";
 import { SessionStore } from "./session.js";
+import { errMsg } from "./utils/errors.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
 import { downloadSlackImages } from "./utils/slack-images.js";
 import { downloadSlackFiles, formatFileAttachments } from "./utils/slack-files.js";
@@ -97,7 +98,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       }
       return false;
     } catch (err) {
-      console.warn(`[slack] isBotDM check failed for ${channel}:`, err instanceof Error ? err.message : err);
+      console.warn(`[slack] isBotDM check failed for ${channel}:`, errMsg(err));
       return false;
     }
   }
@@ -121,7 +122,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       }),
     ).catch((err) => {
       if (err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"))) return;
-      console.error(`[slack] Dispatch error for ${params.sessionKey}:`, err instanceof Error ? err.message : err);
+      console.error(`[slack] Dispatch error for ${params.sessionKey}:`, errMsg(err));
     });
   }
 
@@ -328,7 +329,7 @@ async function hydrateFromDM(
       console.log(`[slack] Hydrated ${session.messages.length} messages from DM history (${sessionKey})`);
     }
   } catch (err) {
-    console.warn(`[slack] Failed to fetch DM history (${sessionKey}):`, err instanceof Error ? err.message : err);
+    console.warn(`[slack] Failed to fetch DM history (${sessionKey}):`, errMsg(err));
   }
 }
 
@@ -368,7 +369,7 @@ async function hydrateFromThread(
       console.log(`[slack] Hydrated ${session.messages.length} messages from thread history (${sessionKey})`);
     }
   } catch (err) {
-    console.warn(`[slack] Failed to fetch thread history (${sessionKey}):`, err instanceof Error ? err.message : err);
+    console.warn(`[slack] Failed to fetch thread history (${sessionKey}):`, errMsg(err));
   }
 }
 

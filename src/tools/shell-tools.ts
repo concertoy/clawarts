@@ -1,6 +1,7 @@
 import type { ToolDefinition } from "../types.js";
 import { execAsync } from "../utils/exec-async.js";
-import { createPathResolver, errMsg } from "./paths.js";
+import { createPathResolver } from "./paths.js";
+import { errMsg } from "../utils/errors.js";
 
 /** Shell-safe quoting: wraps value in single quotes, escaping any embedded single quotes. */
 function shellQuote(s: string): string {

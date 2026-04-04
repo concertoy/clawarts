@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { WebClient } from "@slack/web-api";
+import { errMsg } from "../utils/errors.js";
 import type { CronJob, CronJobCreate, CronJobPatch, CronStoreFile } from "./types.js";
 import { computeNextRunAtMs } from "./schedule.js";
 import { loadCronStore, saveCronStore } from "./store.js";
@@ -182,7 +183,7 @@ export class CronService {
       // Persist delivery status (lastStatus, lastError) to disk
       if (dueJobs.length > 0) await this.persist();
     } catch (err) {
-      console.error(`[cron:${this.opts.agentId}] Timer error:`, err instanceof Error ? err.message : err);
+      console.error(`[cron:${this.opts.agentId}] Timer error:`, errMsg(err));
     } finally {
       this.running = false;
       this.armTimer();
@@ -226,7 +227,7 @@ export class CronService {
       job.state.lastError = undefined;
       console.log(`[cron:${this.opts.agentId}] Fired "${job.name}" → ${job.channelId}`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = errMsg(err);
       job.state.lastStatus = "error";
       job.state.lastError = msg;
       console.error(`[cron:${this.opts.agentId}] Job "${job.name}" failed:`, msg);

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { ConversationSession } from "./types.js";
+import { errMsg, isFileNotFound } from "./utils/errors.js";
 
 const MAX_MESSAGES_PER_SESSION = 100;
 const PERSIST_MESSAGES = 30; // Persist last N messages to disk
@@ -14,7 +15,7 @@ export class SessionStore {
 
   constructor(private ttlMs: number) {
     this.cleanupTimer = setInterval(() => {
-      try { this.evictStale(); } catch (err) { console.error("[session] Cleanup error:", err instanceof Error ? err.message : err); }
+      try { this.evictStale(); } catch (err) { console.error("[session] Cleanup error:", errMsg(err)); }
     }, 5 * 60 * 1000);
     if (this.cleanupTimer.unref) this.cleanupTimer.unref();
   }
@@ -133,7 +134,7 @@ export class SessionStore {
     } catch (err) {
       // Clean up orphan temp file on failure
       try { fs.unlinkSync(tmp); } catch { /* already gone */ }
-      console.warn(`[session] Failed to persist ${session.key}:`, err instanceof Error ? err.message : err);
+      console.warn(`[session] Failed to persist ${session.key}:`, errMsg(err));
     }
   }
 
@@ -153,8 +154,8 @@ export class SessionStore {
       }
     } catch (err) {
       // ENOENT = no persisted session (normal); anything else = corrupted file
-      if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code !== "ENOENT") {
-        console.warn(`[session] Corrupted session file for ${key}:`, err instanceof Error ? err.message : err);
+      if (!isFileNotFound(err)) {
+        console.warn(`[session] Corrupted session file for ${key}:`, errMsg(err));
       }
     }
     return null;

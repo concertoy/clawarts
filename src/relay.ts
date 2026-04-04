@@ -9,6 +9,7 @@ import type { WebClient } from "@slack/web-api";
 import type { Agent } from "./agent.js";
 import type { SessionStore } from "./session.js";
 import type { ToolDefinition, ToolUseContext } from "./types.js";
+import { errMsg } from "./utils/errors.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
 
 // ─── Agent Registry ─────────────────────────────────────────────────
@@ -217,8 +218,8 @@ export function createRelayTool(): ToolDefinition {
         const result = await relayToStudent(targetId, userId, message, sourceAgent);
         return `Relayed: ${result}`;
       } catch (err) {
-        const errMsg = err instanceof Error ? err.message : String(err);
-        return `[Error] Relay to "${targetId}" failed: ${errMsg}`;
+        const errText = errMsg(err);
+        return `[Error] Relay to "${targetId}" failed: ${errText}`;
       }
     },
   };

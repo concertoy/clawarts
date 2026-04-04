@@ -2,6 +2,7 @@ import type { ToolDefinition, ToolUseContext } from "../types.js";
 import type { AssignmentStore } from "../store/assignment-store.js";
 import type { SubmissionStore } from "../store/submission-store.js";
 import { getRegisteredAgent } from "../relay.js";
+import { errMsg } from "../utils/errors.js";
 
 /**
  * Submission tool for student agents.
@@ -57,7 +58,7 @@ export function createSubmitTool(
 
           // Notify tutor of new submission (best-effort, fire-and-forget)
           notifyTutorOfSubmission(agentId, userId, assignment.title, submission.status === "late")
-            .catch((err) => console.warn(`[submit] Failed to notify tutor:`, err instanceof Error ? err.message : err));
+            .catch((err) => console.warn(`[submit] Failed to notify tutor:`, errMsg(err)));
 
           return `Submitted${lateNote}${resubNote}:\n- Assignment: "${assignment.title}"\n- Submission ID: ${submission.id}\n- Time: ${new Date(submission.submittedAt).toISOString()}`;
         }

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { errMsg, isFileNotFound } from "../utils/errors.js";
 
 /**
  * Generic JSON file store. Same pattern as src/cron/store.ts but typed.
@@ -20,10 +21,10 @@ export async function loadStore<T>(storePath: string): Promise<StoreFile<T>> {
     }
     return { version: 1, items: [] };
   } catch (err) {
-    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+    if (isFileNotFound(err)) {
       return { version: 1, items: [] };
     }
-    console.warn(`[store] Failed to load ${storePath}:`, err instanceof Error ? err.message : err);
+    console.warn(`[store] Failed to load ${storePath}:`, errMsg(err));
     return { version: 1, items: [] };
   }
 }
