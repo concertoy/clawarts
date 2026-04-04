@@ -12,8 +12,12 @@ import type { AgentEntry, RootConfig } from "../types.js";
 function resolveConfigPath(): string {
   if (process.env.CLAWARTS_CONFIG) return path.resolve(process.env.CLAWARTS_CONFIG);
   const cwdPath = path.resolve("config.json");
-  if (fs.existsSync(cwdPath)) return cwdPath;
-  return path.join(os.homedir(), ".clawarts", "config.json");
+  try {
+    fs.accessSync(cwdPath, fs.constants.R_OK);
+    return cwdPath;
+  } catch {
+    return path.join(os.homedir(), ".clawarts", "config.json");
+  }
 }
 
 const CONFIG_PATH = resolveConfigPath();
@@ -21,10 +25,15 @@ const CONFIG_PATH = resolveConfigPath();
 // ─── Read / Write ────────────────────────────────────────────────────
 
 export function readConfig(): RootConfig {
-  if (!fs.existsSync(CONFIG_PATH)) {
-    return { defaults: {}, agents: [] };
+  let raw: string;
+  try {
+    raw = fs.readFileSync(CONFIG_PATH, "utf-8");
+  } catch (err) {
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+      return { defaults: {}, agents: [] };
+    }
+    throw err;
   }
-  const raw = fs.readFileSync(CONFIG_PATH, "utf-8");
   let parsed: Partial<RootConfig>;
   try {
     parsed = JSON.parse(raw) as Partial<RootConfig>;
@@ -45,8 +54,13 @@ export function readConfig(): RootConfig {
 export function writeConfig(config: RootConfig): void {
   const json = JSON.stringify(config, null, 2) + "\n";
   const tmp = CONFIG_PATH + `.tmp.${process.pid}`;
-  fs.writeFileSync(tmp, json, "utf-8");
-  fs.renameSync(tmp, CONFIG_PATH);
+  try {
+    fs.writeFileSync(tmp, json, "utf-8");
+    fs.renameSync(tmp, CONFIG_PATH);
+  } catch (err) {
+    try { fs.unlinkSync(tmp); } catch { /* already gone */ }
+    throw err;
+  }
 }
 
 // ─── Agent CRUD ──────────────────────────────────────────────────────
