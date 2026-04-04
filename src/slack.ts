@@ -282,6 +282,18 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     }
   });
 
+  // Log Socket Mode connection lifecycle for debugging WiFi/network issues
+  try {
+    const receiver = (app as unknown as { receiver?: { client?: { on?: (e: string, cb: () => void) => void } } }).receiver;
+    if (receiver?.client?.on) {
+      receiver.client.on("connected", () => console.log(`[slack:${config.id}] Socket Mode connected`));
+      receiver.client.on("reconnecting", () => console.warn(`[slack:${config.id}] Socket Mode reconnecting...`));
+      receiver.client.on("disconnected", () => console.warn(`[slack:${config.id}] Socket Mode disconnected`));
+    }
+  } catch {
+    // Bolt internals may change — non-fatal
+  }
+
   return app;
 }
 

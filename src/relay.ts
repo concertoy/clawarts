@@ -29,6 +29,7 @@ const BROADCAST_CONCURRENCY = 5;
 const BROADCAST_DEDUP_MS = 10_000; // 10s window to prevent accidental double-broadcast
 
 const registry = new Map<string, RegisteredAgent>();
+const lastActiveAt = new Map<string, number>(); // agent ID → epoch ms
 const recentBroadcasts = new BoundedMap<string, number>(100); // hash → timestamp
 
 export function registerAgent(entry: RegisteredAgent): void {
@@ -41,6 +42,16 @@ export function getRegisteredAgent(id: string): RegisteredAgent | undefined {
 
 export function listRegisteredAgentIds(): string[] {
   return [...registry.keys()];
+}
+
+/** Mark an agent as active (called from agent loop after each reply). */
+export function touchAgent(agentId: string): void {
+  lastActiveAt.set(agentId, Date.now());
+}
+
+/** Get last-active timestamp for an agent. */
+export function getAgentLastActive(agentId: string): number | undefined {
+  return lastActiveAt.get(agentId);
 }
 
 /** Find all student agents linked to a given tutor, with their allowed users. */
@@ -73,9 +84,12 @@ export function createListStudentsTool(): ToolDefinition {
       if (students.length === 0) {
         return `No student agents linked to "${tutorId}".`;
       }
-      const lines = students.map(
-        (s) => `• ${s.id}: users ${s.allowedUsers.length > 0 ? s.allowedUsers.map((u) => `<@${u}>`).join(", ") : "(none)"}`,
-      );
+      const lines = students.map((s) => {
+        const users = s.allowedUsers.length > 0 ? s.allowedUsers.map((u) => `<@${u}>`).join(", ") : "(none)";
+        const active = getAgentLastActive(s.id);
+        const ago = active ? `${Math.round((Date.now() - active) / 60_000)}m ago` : "never";
+        return `• ${s.id}: users ${users} (last active: ${ago})`;
+      });
       return `Students linked to ${tutorId}:\n${lines.join("\n")}`;
     },
   };

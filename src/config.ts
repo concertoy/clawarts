@@ -115,6 +115,24 @@ function validateAgentConfig(config: AgentConfig): void {
   }
 }
 
+/** Validate cross-agent references (linkedTutor, duplicate IDs). */
+function validateCrossReferences(configs: AgentConfig[]): void {
+  const ids = new Set<string>();
+  const errors: string[] = [];
+  for (const c of configs) {
+    if (ids.has(c.id)) errors.push(`Duplicate agent ID: "${c.id}"`);
+    ids.add(c.id);
+  }
+  for (const c of configs) {
+    if (c.linkedTutor && !ids.has(c.linkedTutor)) {
+      errors.push(`Agent "${c.id}" references linkedTutor "${c.linkedTutor}" which does not exist`);
+    }
+  }
+  if (errors.length > 0) {
+    throw new Error(`Config validation errors:\n  - ${errors.join("\n  - ")}`);
+  }
+}
+
 export function buildSkillSources(agentBase: string, workspaceDir: string): SkillSources {
   return {
     bundledDir: path.resolve("skills"),
@@ -187,6 +205,7 @@ export function loadAllAgentConfigs(): AgentConfig[] {
     const defaults = file.defaults ?? {};
     const configs = file.agents.map((entry) => resolveAgentConfig(entry, defaults, file.agents));
     for (const config of configs) validateAgentConfig(config);
+    validateCrossReferences(configs);
     return configs;
   }
 
