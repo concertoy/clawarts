@@ -66,6 +66,12 @@ export class Agent {
     images?: ImageContent[],
     onToolStart?: (toolNames: string[]) => void,
   ): Promise<string> {
+    // Quiet hours: return canned message without calling the API
+    if (this.config.quietHours && isQuietHours(this.config.quietHours)) {
+      touchAgent(this.config.id);
+      return "I'm currently offline during quiet hours. Please try again later, or save your question and I'll be available during regular hours.";
+    }
+
     // Rate limit: prevent runaway API calls (ported from openclaw's fixed-window limiter)
     const limit = this.rateLimiter.consume();
     if (!limit.allowed) {
@@ -381,4 +387,23 @@ function ensureAlternatingRoles(messages: ProviderMessage[]): void {
   if (messages.length > 0 && messages[0].role === "assistant") {
     messages.splice(0, 0, { role: "user", content: "[Conversation start]" });
   }
+}
+
+// ─── Quiet hours ────────────────────────────────────────────────────
+
+/** Check if current local time falls within quiet hours (format: "HH:MM-HH:MM"). */
+function isQuietHours(range: string): boolean {
+  const match = range.match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/);
+  if (!match) return false;
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const startMinutes = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+  const endMinutes = parseInt(match[3], 10) * 60 + parseInt(match[4], 10);
+
+  // Handle overnight ranges (e.g., 23:00-07:00)
+  if (startMinutes > endMinutes) {
+    return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+  }
+  return currentMinutes >= startMinutes && currentMinutes < endMinutes;
 }

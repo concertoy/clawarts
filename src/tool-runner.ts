@@ -1,6 +1,7 @@
 import type { ToolDefinition, ToolUseContext } from "./types.js";
 import type { ToolCall } from "./provider.js";
 import { errMsg } from "./utils/errors.js";
+import { sanitizeForUser } from "./utils/sanitize.js";
 
 const MAX_CONCURRENCY = 10;
 
@@ -125,7 +126,7 @@ async function executeOne(tools: ToolDefinition[], tc: ToolCall, context?: ToolU
     const elapsed = Date.now() - startMs;
     const msg = errMsg(err);
     console.error(`[tool-runner] ${tc.name} failed after ${(elapsed / 1000).toFixed(1)}s: ${msg.slice(0, 100)}`);
-    return { callId: tc.id, name: tc.name, output: `Tool execution error: ${msg}`, isError: true };
+    return { callId: tc.id, name: tc.name, output: `Tool execution error: ${sanitizeForUser(msg)}`, isError: true };
   }
 }
 
