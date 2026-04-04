@@ -5,19 +5,10 @@
 
 import type { ImageContent } from "../provider.js";
 import { errMsg } from "./errors.js";
+import { IMAGE_EXTENSIONS, type SlackFile } from "./slack-types.js";
 
-const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp"]);
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const DOWNLOAD_TIMEOUT_MS = 30_000;
-
-interface SlackFile {
-  url_private?: string;
-  url_private_download?: string;
-  mimetype?: string;
-  filetype?: string;
-  size?: number;
-  name?: string;
-}
 
 /**
  * Extract downloadable image files from a Slack message event.

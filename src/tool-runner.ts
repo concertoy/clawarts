@@ -18,6 +18,9 @@ const MAX_TOOL_OUTPUT_CHARS = 100_000;
  */
 const TOOL_EXECUTION_TIMEOUT_MS = 120_000;
 
+/** Log a warning when a tool takes longer than this. */
+const SLOW_TOOL_LOG_THRESHOLD_MS = 1_000;
+
 export interface ToolResult {
   callId: string;
   name: string;
@@ -112,7 +115,7 @@ async function executeOne(tools: ToolDefinition[], tc: ToolCall, context?: ToolU
     // Execute with a timeout to prevent runaway tools from blocking the agent loop
     let output = await withTimeout(tool.execute(args, context), TOOL_EXECUTION_TIMEOUT_MS, tc.name);
     const elapsed = Date.now() - startMs;
-    if (elapsed > 1000) console.log(`[tool-runner] ${tc.name} took ${(elapsed / 1000).toFixed(1)}s`);
+    if (elapsed > SLOW_TOOL_LOG_THRESHOLD_MS) console.log(`[tool-runner] ${tc.name} took ${(elapsed / 1000).toFixed(1)}s`);
     // Detect tool-level errors (tools return error strings rather than throwing).
     // Ported from claude-code's tool error detection pattern.
     const isError = /^(error\s*:|error\s|blocked:|\[error\])/i.test(output);

@@ -8,6 +8,7 @@ import { errMsg } from "./utils/errors.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
 import { downloadSlackImages } from "./utils/slack-images.js";
 import { downloadSlackFiles, formatFileAttachments } from "./utils/slack-files.js";
+import type { SlackFile } from "./utils/slack-types.js";
 import { KeyedAsyncQueue } from "./queue/keyed-async-queue.js";
 import { enqueueCommand } from "./queue/command-queue.js";
 import { CommandLane } from "./queue/lanes.js";
@@ -217,9 +218,8 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     if (!text_raw) return;
     if (allowedUsers && user_raw && !allowedUsers.has(user_raw)) return;
 
-    const channel = msg.channel as string;
-    const ts = msg.ts as string;
-    const threadTs = msg.thread_ts as string | undefined;
+    const { channel, ts } = msg;
+    const threadTs = msg.thread_ts;
 
     const myId = await resolveBotId(client);
     if (user_raw === myId) return;
@@ -453,9 +453,7 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
 
     // Download image and file attachments in parallel (ported from claude-code attachment handling)
     // Slack file objects match the SlackFile interface but come as Record<string, unknown> from event typing
-    // Slack event typing gives Record<string, unknown>[] but download helpers
-    // use structural SlackFile interface — all fields optional, so this is safe.
-    const slackFiles = params.files as Parameters<typeof downloadSlackImages>[0];
+    const slackFiles = params.files as SlackFile[] | undefined;
     const [{ images, skipped: skippedImages }, fileAttachments] = await Promise.all([
       downloadSlackImages(slackFiles, botToken),
       downloadSlackFiles(slackFiles, botToken),
