@@ -263,12 +263,16 @@ export function createCheckinTool(
 
           if (targetWindow.mode === "passphrase" && targetWindow.passphrase) {
             // Auto-evaluate passphrase mode
-            const evals = responses.map((r) => ({
-              responseId: r.id,
-              score: r.content.trim().toLowerCase() === targetWindow!.passphrase!.trim().toLowerCase() ? 100 : 0,
-              status: (r.content.trim().toLowerCase() === targetWindow!.passphrase!.trim().toLowerCase() ? "checked_in" : "needs_review") as CheckinStatus,
-              feedback: r.content.trim().toLowerCase() === targetWindow!.passphrase!.trim().toLowerCase() ? "Correct passphrase." : `Incorrect. Expected "${targetWindow!.passphrase}".`,
-            }));
+            const expected = targetWindow.passphrase.trim().toLowerCase();
+            const evals = responses.map((r) => {
+              const correct = r.content.trim().toLowerCase() === expected;
+              return {
+                responseId: r.id,
+                score: correct ? 100 : 0,
+                status: (correct ? "checked_in" : "needs_review") as CheckinStatus,
+                feedback: correct ? "Correct passphrase." : `Incorrect. Expected "${targetWindow.passphrase}".`,
+              };
+            });
             const updated = await checkinStore.bulkEvaluate(evals);
 
             // Mark absent students

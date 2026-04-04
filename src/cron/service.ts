@@ -39,6 +39,14 @@ export class CronService {
     return this.opts.nowMs ? this.opts.nowMs() : Date.now();
   }
 
+  /** Access jobs array. Only valid after ensureLoaded()/start(). */
+  private get jobs(): CronJob[] {
+    return this.store!.jobs;
+  }
+  private set jobs(value: CronJob[]) {
+    this.store!.jobs = value;
+  }
+
   // ─── Lifecycle ────────────────────────────────────────────────────────
 
   async start(): Promise<void> {
@@ -78,7 +86,7 @@ export class CronService {
       },
     };
 
-    this.store!.jobs.push(job);
+    this.jobs.push(job);
     await this.persist();
     this.armTimer();
     console.log(`[cron:${this.opts.agentId}] Added job "${job.name}" (${job.id}), next: ${job.state.nextRunAtMs ? new Date(job.state.nextRunAtMs).toISOString() : "never"}`);
@@ -87,7 +95,7 @@ export class CronService {
 
   async update(id: string, patch: CronJobPatch): Promise<CronJob | null> {
     await this.ensureLoaded();
-    const job = this.store!.jobs.find((j) => j.id === id);
+    const job = this.jobs.find((j) => j.id === id);
     if (!job) return null;
 
     if (patch.name !== undefined) job.name = patch.name;
@@ -105,9 +113,9 @@ export class CronService {
 
   async remove(id: string): Promise<boolean> {
     await this.ensureLoaded();
-    const before = this.store!.jobs.length;
-    this.store!.jobs = this.store!.jobs.filter((j) => j.id !== id);
-    if (this.store!.jobs.length === before) return false;
+    const before = this.jobs.length;
+    this.jobs = this.jobs.filter((j) => j.id !== id);
+    if (this.jobs.length === before) return false;
     await this.persist();
     this.armTimer();
     return true;
@@ -115,14 +123,14 @@ export class CronService {
 
   async list(): Promise<CronJob[]> {
     await this.ensureLoaded();
-    return this.store!.jobs
+    return this.jobs
       .filter((j) => j.enabled)
       .sort((a, b) => (a.state.nextRunAtMs ?? Infinity) - (b.state.nextRunAtMs ?? Infinity));
   }
 
   async listAll(): Promise<CronJob[]> {
     await this.ensureLoaded();
-    return [...this.store!.jobs];
+    return [...this.jobs];
   }
 
   getJob(id: string): CronJob | undefined {
@@ -164,7 +172,7 @@ export class CronService {
       const now = this.now();
 
       // Collect due jobs
-      const dueJobs = this.store!.jobs.filter(
+      const dueJobs = this.jobs.filter(
         (j) => j.enabled && j.state.nextRunAtMs != null && j.state.nextRunAtMs <= now,
       );
 

@@ -1,6 +1,11 @@
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import type { CheckinStore } from "../store/checkin-store.js";
 
+function formatTimeRemaining(closesAt: number): string {
+  const remaining = Math.max(0, Math.round((closesAt - Date.now()) / 1000));
+  return `${Math.floor(remaining / 60)}m ${remaining % 60}s`;
+}
+
 /**
  * Minimal check-in response tool for student agents.
  * Actions: respond, view.
@@ -55,24 +60,17 @@ export function createCheckinRespondTool(
 
           if ("error" in result) return `Error: ${result.error}`;
 
-          const remaining = Math.max(0, Math.round((active.closesAt - Date.now()) / 1000));
-          const mins = Math.floor(remaining / 60);
-          const secs = remaining % 60;
-          return `Check-in response submitted! (${mins}m ${secs}s remaining in window)`;
+          return `Check-in response submitted! (${formatTimeRemaining(active.closesAt)} remaining in window)`;
         }
 
         case "view": {
           const active = await checkinStore.getActiveWindow();
           if (!active) return "No active check-in window right now.";
 
-          const remaining = Math.max(0, Math.round((active.closesAt - Date.now()) / 1000));
-          const mins = Math.floor(remaining / 60);
-          const secs = remaining % 60;
-
           const lines = [
             `Active check-in:`,
             `- Mode: ${active.mode}`,
-            `- Time remaining: ${mins}m ${secs}s`,
+            `- Time remaining: ${formatTimeRemaining(active.closesAt)}`,
           ];
 
           if (active.topic) {
