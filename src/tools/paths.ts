@@ -1,3 +1,4 @@
+import os from "node:os";
 import path from "node:path";
 
 export let workspaceRoot = "";
@@ -8,7 +9,7 @@ export function setWorkspaceRoot(dir: string): void {
 
 export function resolveFilePath(filePath: string): string {
   if (filePath.startsWith("~/")) {
-    return path.resolve(path.join(process.env.HOME ?? "", filePath.slice(2)));
+    return path.resolve(path.join(os.homedir(), filePath.slice(2)));
   }
   if (path.isAbsolute(filePath)) return path.resolve(filePath);
   return path.resolve(workspaceRoot, filePath);

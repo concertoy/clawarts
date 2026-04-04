@@ -158,7 +158,10 @@ export class Agent {
           // arguments and would create dangling tool_use blocks without matching tool_result.
           // Ported from claude-code's max_tokens recovery that only preserves text.
           const validToolCalls = response.toolCalls.filter((tc) => {
-            try { JSON.parse(tc.arguments); return true; } catch { return false; }
+            try { JSON.parse(tc.arguments); return true; } catch {
+              console.warn(`[agent] Dropped truncated tool call: ${tc.name} (invalid JSON in arguments)`);
+              return false;
+            }
           });
           if (validToolCalls.length > 0) {
             // Some tool calls have valid JSON — execute them before continuing

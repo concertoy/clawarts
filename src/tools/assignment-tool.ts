@@ -178,6 +178,12 @@ export function createAssignmentTool(
           if (!newDeadline || isNaN(newDeadline)) return "Error: invalid newDeadline format.";
           if (newDeadline <= Date.now()) return "Error: new deadline must be in the future.";
 
+          const existing = await assignmentStore.get(id);
+          if (!existing) return `No assignment found with ID ${id}.`;
+          if (existing.deadline && newDeadline <= existing.deadline) {
+            return `Error: new deadline must be after current deadline (${new Date(existing.deadline).toISOString()}).`;
+          }
+
           const assignment = await assignmentStore.update(id, { deadline: newDeadline });
           if (!assignment) return `No assignment found with ID ${id}.`;
           return `Deadline extended to ${new Date(newDeadline).toISOString()} for "${assignment.title}".`;

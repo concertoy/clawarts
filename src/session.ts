@@ -140,6 +140,10 @@ export class SessionStore {
       const raw = fs.readFileSync(filePath, "utf-8");
       const data = JSON.parse(raw) as ConversationSession;
       if (data.key === key && Array.isArray(data.messages)) {
+        // Validate message structure — filter out corrupted entries
+        data.messages = data.messages.filter(
+          (m) => m && typeof m.role === "string" && typeof m.content === "string",
+        );
         console.log(`[session] Restored ${data.messages.length} messages from disk for ${key}`);
         return data;
       }
