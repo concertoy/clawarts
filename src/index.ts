@@ -5,8 +5,6 @@ import { loadAllAgentConfigs } from "./config.js";
 import { TokenProvider } from "./auth.js";
 import { loadSkills } from "./skills.js";
 import { loadWorkspaceFiles } from "./workspace.js";
-import { createToolRegistry } from "./tools.js";
-import { filterToolsForAgent } from "./tool-filter.js";
 import { SessionStore } from "./session.js";
 import { Agent } from "./agent.js";
 import { createSlackApp } from "./slack.js";
@@ -19,21 +17,9 @@ import type { App } from "@slack/bolt";
 import { WebClient } from "@slack/web-api";
 import { scaffoldWorkspace } from "./cli/scaffold.js";
 import { runDiagnostics, checkProviderHealth, checkSlackTokens } from "./diagnostics.js";
-import { registerAgent, createRelayTool, createListStudentsTool } from "./relay.js";
-import { createSlackUploadTool } from "./slack-upload-tool.js";
+import { registerAgent } from "./relay.js";
 import { errMsg } from "./utils/errors.js";
-import { AssignmentStore } from "./store/assignment-store.js";
-import { SubmissionStore } from "./store/submission-store.js";
-import { createAssignmentTool } from "./tools/assignment-tool.js";
-import { createSubmitTool } from "./tools/submit-tool.js";
-import { CheckinStore } from "./store/checkin-store.js";
-import { createCheckinTool } from "./tools/checkin-tool.js";
-import { createCheckinRespondTool } from "./tools/checkin-respond-tool.js";
-import { createStatusTool } from "./tools/status-tool.js";
-import { createMyStatusTool } from "./tools/my-status-tool.js";
-import { createHelpTool } from "./tools/help-tool.js";
-import { createExportTool } from "./tools/export-tool.js";
-import { createResetTool } from "./tools/reset-tool.js";
+import { createAgentTools } from "./agent-tools.js";
 
 // ─── Provider construction ────────────────────────────────────────────
 
@@ -119,78 +105,16 @@ async function main() {
     });
 
     // Initialize per-agent components (cron tool wired into registry, then filtered)
-    const allTools = createToolRegistry(config.workspaceDir, { cronService, agentId: config.id });
-
-    // Add relay tool for tutor agents (agents that manage students).
-    // The relay tool looks up targets from the registry at call time,
-    // so it works even though other agents aren't registered yet.
-    const isTutor = !config.linkedTutor;
-    if (isTutor) {
-      allTools.push(createRelayTool());
-      allTools.push(createListStudentsTool());
-
-      // Assignment management for tutors
-      const dataDir = path.join(os.homedir(), ".clawarts", "agents", config.id, "data");
-      const assignmentStore = new AssignmentStore(path.join(dataDir, "assignments.json"));
-      const submissionStore = new SubmissionStore(path.join(dataDir, "submissions.json"));
-      allTools.push(createAssignmentTool(assignmentStore, submissionStore, cronService, config.id));
-
-      // Check-in management for tutors (data in tutor's directory)
-      const checkinStore = new CheckinStore(dataDir);
-      allTools.push(createCheckinTool(checkinStore, cronService, config.id));
-      allTools.push(createStatusTool(cronService));
-      allTools.push(createExportTool());
-      allTools.push(createResetTool());
-
-      // Wire system message handler for auto-close cron jobs
+    // Create tools (tutor gets relay/assignment/checkin/export/reset, student gets submit/checkin-respond/my-status)
+    const { tools, cronSystemHandler } = createAgentTools(config, cronService, slackClient);
+    if (cronSystemHandler) {
       cronService.setSystemMessageHandler(async (tag, params) => {
-        if (tag === "CLOSE_ASSIGNMENT" && params.assignmentId) {
-          await assignmentStore.close(params.assignmentId);
-          console.log(`[cron:${config.id}] Auto-closed assignment ${params.assignmentId}`);
-          return true;
-        }
-        if (tag === "CLOSE_CHECKIN" && params.windowId) {
-          await checkinStore.closeWindow(params.windowId);
-          console.log(`[cron:${config.id}] Auto-closed check-in ${params.windowId}`);
-          return true;
-        }
-        if (tag === "PULSE_CHECKIN" && params.pulseGroupId) {
-          const toInt = (v: string | undefined, fallback: number) => parseInt(v ?? "", 10) || fallback;
-          const duration = toInt(params.durationMinutes, 2) * 60 * 1000;
-          const pulseIndex = toInt(params.pulseIndex, 1);
-          const pulseTotal = toInt(params.pulseTotal, 1);
-          await checkinStore.createWindow({
-            tutorId: config.id,
-            mode: "pulse",
-            topic: params.topic || undefined,
-            pulseGroupId: params.pulseGroupId,
-            pulseIndex,
-            pulseTotal,
-            closesAt: Date.now() + duration,
-          });
-          console.log(`[cron:${config.id}] Opened pulse ${pulseIndex}/${pulseTotal}`);
-          return true;
-        }
-        return false;
+        const handled = await cronSystemHandler(tag, params);
+        if (handled) console.log(`${label} Cron system action: ${tag}`);
+        return handled;
       });
-    } else if (config.linkedTutor) {
-      // Student agents share the tutor's data stores (read assignments, write submissions)
-      const tutorDataDir = path.join(os.homedir(), ".clawarts", "agents", config.linkedTutor, "data");
-      const assignmentStore = new AssignmentStore(path.join(tutorDataDir, "assignments.json"));
-      const submissionStore = new SubmissionStore(path.join(tutorDataDir, "submissions.json"));
-      allTools.push(createSubmitTool(assignmentStore, submissionStore));
-
-      // Check-in respond tool for students (reads/writes tutor's checkin store)
-      const checkinStore = new CheckinStore(tutorDataDir);
-      allTools.push(createCheckinRespondTool(checkinStore));
-      allTools.push(createMyStatusTool(assignmentStore, submissionStore, checkinStore));
     }
 
-    // Add Slack file upload tool (all agents can upload files to their conversation)
-    allTools.push(createSlackUploadTool(slackClient));
-
-    const tools = filterToolsForAgent(allTools, config);
-    tools.push(createHelpTool(tools));
     const sessions = new SessionStore(config.sessionTtlMinutes * 60 * 1000);
     sessions.enablePersistence(path.join(os.homedir(), ".clawarts", "agents", config.id, "sessions"));
     const provider = await createProvider(config);
