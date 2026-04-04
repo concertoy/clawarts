@@ -10,6 +10,7 @@ const MIN_REFIRE_GAP_MS = 2_000;
 const RETRY_DELAY_MS = 10_000; // Retry failed deliveries after 10s
 const MAX_RETRIES = 1; // Single retry — don't spam on persistent failures
 const STALE_JOB_AGE_MS = 24 * 60 * 60 * 1000; // Remove executed one-shot jobs after 24h
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // Run stale cleanup at most once per hour
 
 /**
  * Simplified cron scheduler service.
@@ -22,7 +23,9 @@ export class CronService {
   private readonly log;
   private store: CronStoreFile | null = null;
   private timer: NodeJS.Timeout | null = null;
+  private readonly retryTimers = new Set<NodeJS.Timeout>();
   private running = false;
+  private lastCleanupMs = 0;
 
   private systemHandler?: (tag: string, params: Record<string, string>, job: CronJob) => Promise<boolean>;
 
@@ -75,6 +78,9 @@ export class CronService {
       clearTimeout(this.timer);
       this.timer = null;
     }
+    // Clear any pending retry timers to prevent fire-after-stop
+    for (const t of this.retryTimers) clearTimeout(t);
+    this.retryTimers.clear();
     // Persist current state to disk so schedule advances aren't lost
     await this.persist();
   }
@@ -197,6 +203,12 @@ export class CronService {
       await this.ensureLoaded();
       const now = this.now();
 
+      // Periodic stale job cleanup (at most once per hour)
+      if (now - this.lastCleanupMs >= CLEANUP_INTERVAL_MS) {
+        this.cleanupStaleJobs();
+        this.lastCleanupMs = now;
+      }
+
       // Collect due jobs
       const dueJobs = this.jobs.filter(
         (j) => j.enabled && j.state.nextRunAtMs != null && j.state.nextRunAtMs <= now,
@@ -269,8 +281,13 @@ export class CronService {
       if (retryCount < MAX_RETRIES) {
         job.state.retryCount = retryCount + 1;
         this.log.warn(`Job "${job.name}" failed (retry ${retryCount + 1}/${MAX_RETRIES} in ${RETRY_DELAY_MS / 1000}s): ${msg}`);
-        // Schedule a retry by temporarily re-enabling with a short delay
-        setTimeout(() => void this.retryJob(job), RETRY_DELAY_MS);
+        // Schedule a retry — tracked so stop() can cancel it
+        const retryTimer = setTimeout(() => {
+          this.retryTimers.delete(retryTimer);
+          void this.retryJob(job);
+        }, RETRY_DELAY_MS);
+        if (retryTimer.unref) retryTimer.unref();
+        this.retryTimers.add(retryTimer);
       } else {
         this.log.error(`Job "${job.name}" failed (no more retries): ${msg}`);
       }

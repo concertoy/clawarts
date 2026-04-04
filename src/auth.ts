@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import type { Provider } from "./types.js";
 import { errMsg, isFileNotFound } from "./utils/errors.js";
+import { createLogger } from "./utils/logger.js";
 
 // --- OpenAI Codex OAuth constants (from pi-ai/oauth/openai-codex.js) ---
 const OPENAI_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
@@ -31,12 +32,15 @@ interface StoredAuth {
  * PKCE OAuth token provider for OpenAI Codex (ChatGPT subscription).
  */
 export class TokenProvider {
+  private readonly log;
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
   private expiresAt: number = 0;
   private accountId: string | null = null;
 
-  constructor(private readonly provider: Provider) {}
+  constructor(private readonly provider: Provider) {
+    this.log = createLogger(`auth:${provider}`);
+  }
 
   private get authFile(): string {
     return path.join(AUTH_DIR, `${this.provider}.json`);
@@ -50,11 +54,11 @@ export class TokenProvider {
       this.refreshToken = stored.refresh_token;
       this.expiresAt = stored.expires_at;
       this.accountId = stored.account_id;
-      console.log(`[auth:${this.provider}] Loaded stored token, expires ${new Date(this.expiresAt).toISOString()}`);
+      this.log.info(`Loaded stored token, expires ${new Date(this.expiresAt).toISOString()}`);
       return;
     }
 
-    console.log(`[auth:${this.provider}] No stored credentials found. Starting OAuth login...`);
+    this.log.info("No stored credentials found. Starting OAuth login...");
     await this.login();
   }
 
@@ -131,7 +135,7 @@ export class TokenProvider {
 
     const accountId = this.extractOpenAIAccountId(result.access_token) ?? "";
     this.saveTokens(result.access_token, result.refresh_token, result.expires_in, accountId);
-    console.log("[auth:openai-codex] OAuth login successful");
+    this.log.info("OAuth login successful");
   }
 
   // ─── Callback server ─────────────────────────────────────────────────
@@ -171,7 +175,7 @@ export class TokenProvider {
       });
 
       server.listen(opts.port, "127.0.0.1", async () => {
-        console.log(`[auth] Open this URL in your browser to log in:\n\n  ${opts.authorizeUrl}\n`);
+        this.log.info(`Open this URL in your browser to log in:\n\n  ${opts.authorizeUrl}\n`);
         try {
           const { execFile } = await import("node:child_process");
           const cmd = process.platform === "darwin" ? "open" : "xdg-open";
@@ -182,7 +186,7 @@ export class TokenProvider {
       });
 
       server.on("error", () => {
-        console.error(`[auth] Failed to bind port ${opts.port}. Please complete login manually.`);
+        this.log.error(`Failed to bind port ${opts.port}. Please complete login manually.`);
         finish(null);
       });
 
@@ -194,7 +198,7 @@ export class TokenProvider {
   // ─── Refresh ──────────────────────────────────────────────────────────
 
   private async refresh(): Promise<void> {
-    console.log("[auth] Refreshing OAuth token...");
+    this.log.info("Refreshing OAuth token...");
     const resp = await fetch(OPENAI_TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -218,7 +222,7 @@ export class TokenProvider {
 
     const accountId = this.extractOpenAIAccountId(result.access_token) ?? "";
     this.saveTokens(result.access_token, result.refresh_token, result.expires_in, accountId);
-    console.log(`[auth] Token refreshed, expires ${new Date(this.expiresAt).toISOString()}`);
+    this.log.info(`Token refreshed, expires ${new Date(this.expiresAt).toISOString()}`);
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────
@@ -253,7 +257,7 @@ export class TokenProvider {
     } catch (err) {
       // ENOENT is expected on first run — only warn on real errors (corrupted file, permission denied)
       if (isFileNotFound(err)) return null;
-      console.warn(`[auth] Corrupted auth file ${this.authFile}, will re-login:`, errMsg(err));
+      this.log.warn(`Corrupted auth file ${this.authFile}, will re-login:`, errMsg(err));
       return null;
     }
   }
@@ -267,7 +271,7 @@ export class TokenProvider {
       fs.renameSync(tmp, this.authFile);
     } catch (err) {
       try { fs.unlinkSync(tmp); } catch { /* already gone */ }
-      console.warn("[auth] Failed to write auth file:", errMsg(err));
+      this.log.warn("Failed to write auth file:", errMsg(err));
     }
   }
 }

@@ -4,7 +4,7 @@ import type { CheckinStore } from "../store/checkin-store.js";
 import type { CheckinStatus } from "../store/types.js";
 import type { CronService } from "../cron/service.js";
 import { getStudentsForTutor } from "../relay.js";
-import { notifyStudentsOfScores, autoEvaluatePassphrase } from "./checkin-notify.js";
+import { notifyStudentsOfScores, autoEvaluatePassphrase, computeAbsentUsers, computeAverageScore } from "./checkin-notify.js";
 
 /**
  * Check-in management tool for tutor agents.
@@ -277,9 +277,7 @@ export function createCheckinTool(
             const evals = autoEvaluatePassphrase(responses, targetWindow.passphrase);
             const updated = await checkinStore.bulkEvaluate(evals);
 
-            // Mark absent students
-            const respondedUserIds = new Set(responses.map((r) => r.userId));
-            const absentCount = allUserIds.filter((u) => !respondedUserIds.has(u)).length;
+            const absentCount = computeAbsentUsers(allUserIds, responses).length;
 
             // Auto-notify if requested
             const notify = input.notifyStudents as boolean;
@@ -308,8 +306,7 @@ export function createCheckinTool(
             ].filter(Boolean).join("\n");
           });
 
-          const respondedUserIds = new Set(responses.map((r) => r.userId));
-          const absent = allUserIds.filter((u) => !respondedUserIds.has(u));
+          const absent = computeAbsentUsers(allUserIds, responses);
 
           return [
             `Window: ${targetWindow.id} (${targetWindow.mode})`,
@@ -383,12 +380,8 @@ export function createCheckinTool(
           if (!targetWindow) return "No check-in windows found.";
 
           const responses = await checkinStore.getResponsesByWindow(targetWindow.id);
-          const respondedUserIds = new Set(responses.map((r) => r.userId));
-          const absent = allUserIds.filter((u) => !respondedUserIds.has(u));
-          const evaluated = responses.filter((r) => r.score != null);
-          const avgScore = evaluated.length > 0
-            ? Math.round(evaluated.reduce((sum, r) => sum + (r.score ?? 0), 0) / evaluated.length)
-            : "N/A";
+          const absent = computeAbsentUsers(allUserIds, responses);
+          const avgScore = computeAverageScore(responses) ?? "N/A";
 
           const statusCounts = {
             checked_in: responses.filter((r) => r.status === "checked_in").length,
