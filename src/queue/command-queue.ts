@@ -56,7 +56,8 @@ function drainLane(lane: string): void {
   void (async () => {
     try {
       while (state.queue.length > 0 && state.activeCount < state.maxConcurrent) {
-        const entry = state.queue.shift()!;
+        const entry = state.queue.shift();
+        if (!entry) break;
         // Evict stale tasks — prevents pileup when the bot is slow
         if (Date.now() - entry.enqueuedAt > STALE_TASK_MS) {
           console.warn(`[command-queue] Evicting stale task in lane "${lane}" (queued ${Math.round((Date.now() - entry.enqueuedAt) / 1000)}s ago)`);

@@ -29,9 +29,9 @@ export class Agent {
   private readonly activeRequests = new Map<string, AbortController>();
 
   constructor(
-    private config: AgentConfig,
-    private provider: ModelProvider,
-    private sessions: SessionStore,
+    private readonly config: AgentConfig,
+    private readonly provider: ModelProvider,
+    private readonly sessions: SessionStore,
     skills: Skill[],
     tools: ToolDefinition[],
     workspaceFiles: WorkspaceFile[],

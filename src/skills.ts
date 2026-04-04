@@ -5,6 +5,11 @@ import matter from "gray-matter";
 import type { Skill, SkillSources } from "./types.js";
 import { errMsg, isFileNotFound } from "./utils/errors.js";
 
+/** Expand ~/... to the user's home directory. */
+function expandTilde(p: string): string {
+  return p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p;
+}
+
 // ─── Options ─────────────────────────────────────────────────────────
 
 export interface SkillLoadOptions extends SkillSources {
@@ -35,7 +40,7 @@ function scanSkillsRecursive(
   rootDir: string,
   source: Skill["source"],
 ): Skill[] {
-  const expanded = rootDir.startsWith("~/") ? path.join(os.homedir(), rootDir.slice(2)) : rootDir;
+  const expanded = expandTilde(rootDir);
   const resolved = path.resolve(expanded);
   const skills: Skill[] = [];
 
@@ -119,8 +124,7 @@ export function loadSkills(options: SkillLoadOptions): Skill[] {
 
   function addSource(dir: string | undefined, source: Skill["source"]) {
     if (!dir) return;
-    const expanded = dir.startsWith("~/") ? path.join(os.homedir(), dir.slice(2)) : dir;
-    const resolved = path.resolve(expanded);
+    const resolved = path.resolve(expandTilde(dir));
 
     let real: string;
     try { real = fs.realpathSync(resolved); } catch { return; }
@@ -141,8 +145,7 @@ export function loadSkills(options: SkillLoadOptions): Skill[] {
   // Legacy fallback: flat dirs from skillsDirs config
   if (options.legacyDirs) {
     for (const dir of options.legacyDirs) {
-      const expanded = dir.startsWith("~/") ? path.join(os.homedir(), dir.slice(2)) : dir;
-      const resolved = path.resolve(expanded);
+      const resolved = path.resolve(expandTilde(dir));
 
       let real: string;
       try { real = fs.realpathSync(resolved); } catch { continue; }
