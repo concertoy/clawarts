@@ -121,6 +121,11 @@ export class CheckinStore {
     return response;
   }
 
+  async getResponse(id: string): Promise<CheckinResponse | undefined> {
+    const store = await loadStore<CheckinResponse>(this.responsesPath);
+    return store.items.find((r) => r.id === id);
+  }
+
   async getResponsesByWindow(windowId: string): Promise<CheckinResponse[]> {
     const store = await loadStore<CheckinResponse>(this.responsesPath);
     return store.items.filter((r) => r.windowId === windowId);

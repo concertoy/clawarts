@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import type { CheckinStore } from "../store/checkin-store.js";
 import type { CronService } from "../cron/service.js";
@@ -438,17 +439,10 @@ async function notifyStudentsOfScores(
     for (const uid of s.allowedUsers) userToAgent.set(uid, s.id);
   }
 
-  // Build a responseId → userId map by scanning all windows once
-  const responseUserMap = new Map<string, string>();
-  const allWindows = await checkinStore.listWindows();
-  for (const w of allWindows) {
-    const responses = await checkinStore.getResponsesByWindow(w.id);
-    for (const r of responses) responseUserMap.set(r.id, r.userId);
-  }
-
   let notified = 0;
   const tasks = evaluations.map(async (ev) => {
-    const userId = responseUserMap.get(ev.responseId);
+    const response = await checkinStore.getResponse(ev.responseId);
+    const userId = response?.userId;
     if (!userId) return;
     const studentAgentId = userToAgent.get(userId);
     if (!studentAgentId) return;

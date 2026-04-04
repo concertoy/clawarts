@@ -16,6 +16,7 @@ export class SessionStore {
     this.cleanupTimer = setInterval(() => {
       try { this.evictStale(); } catch (err) { console.error("[session] Cleanup error:", err); }
     }, 5 * 60 * 1000);
+    if (this.cleanupTimer.unref) this.cleanupTimer.unref();
   }
 
   /** Enable disk persistence for sessions. */
@@ -140,7 +141,6 @@ export class SessionStore {
     const filePath = this.sessionFilePath(key);
     if (!filePath) return null;
     try {
-      if (!fs.existsSync(filePath)) return null;
       const raw = fs.readFileSync(filePath, "utf-8");
       const data = JSON.parse(raw) as ConversationSession;
       if (data.key === key && Array.isArray(data.messages)) {
@@ -151,8 +151,11 @@ export class SessionStore {
         console.log(`[session] Restored ${data.messages.length} messages from disk for ${key}`);
         return data;
       }
-    } catch {
-      // Corrupted file — ignore
+    } catch (err) {
+      // ENOENT = no persisted session (normal); anything else = corrupted file
+      if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code !== "ENOENT") {
+        console.warn(`[session] Corrupted session file for ${key}:`, err instanceof Error ? err.message : err);
+      }
     }
     return null;
   }

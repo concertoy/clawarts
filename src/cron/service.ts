@@ -147,6 +147,7 @@ export class CronService {
     const delay = Math.max(MIN_REFIRE_GAP_MS, nextWake - now);
 
     this.timer = setTimeout(() => void this.onTimer(), delay);
+    if (this.timer.unref) this.timer.unref();
   }
 
   private async onTimer(): Promise<void> {
