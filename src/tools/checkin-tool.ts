@@ -468,8 +468,8 @@ async function notifyStudentsOfScores(
 
       await agent.slackClient.chat.postMessage({ channel: channelId, text: markdownToSlack(msg) });
       notified++;
-    } catch {
-      // Best-effort
+    } catch (err) {
+      console.warn(`[checkin] Failed to notify student:`, err instanceof Error ? err.message : err);
     }
   });
 

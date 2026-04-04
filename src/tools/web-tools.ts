@@ -231,6 +231,12 @@ const webFetchTool: ToolDefinition = {
         return `Fetch error (${resp.status}): ${resp.statusText}`;
       }
 
+      // Reject obviously huge responses before reading body into memory
+      const contentLength = parseInt(resp.headers.get("content-length") ?? "", 10);
+      if (contentLength > WEB_FETCH_MAX_RESPONSE_BYTES) {
+        return `Error: response too large (${Math.round(contentLength / 1024)}KB, limit ${Math.round(WEB_FETCH_MAX_RESPONSE_BYTES / 1024)}KB)`;
+      }
+
       const contentType = resp.headers.get("content-type") ?? "";
       const rawBody = await resp.text();
       const body = rawBody.length > WEB_FETCH_MAX_RESPONSE_BYTES

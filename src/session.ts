@@ -119,6 +119,7 @@ export class SessionStore {
   private persistToDisk(session: ConversationSession): void {
     const filePath = this.sessionFilePath(session.key);
     if (!filePath) return;
+    const tmp = filePath + `.tmp.${process.pid}`;
     try {
       const toSave = {
         key: session.key,
@@ -126,11 +127,11 @@ export class SessionStore {
         createdAt: session.createdAt,
         updatedAt: session.updatedAt,
       };
-      const tmp = filePath + `.tmp.${process.pid}`;
       fs.writeFileSync(tmp, JSON.stringify(toSave), "utf-8");
       fs.renameSync(tmp, filePath);
     } catch (err) {
-      // Best-effort — log to help diagnose disk issues (e.g., full disk, permissions)
+      // Clean up orphan temp file on failure
+      try { fs.unlinkSync(tmp); } catch { /* already gone */ }
       console.warn(`[session] Failed to persist ${session.key}:`, err instanceof Error ? err.message : err);
     }
   }
