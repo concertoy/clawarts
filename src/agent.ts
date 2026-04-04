@@ -269,6 +269,10 @@ export class Agent {
       if (m.role === "assistant" && m.toolCalls) {
         size += m.toolCalls.reduce((s, tc) => s + tc.arguments.length, 0);
       }
+      // Account for base64 image data (each image ~1.33x original bytes in base64)
+      if (m.role === "user" && m.images) {
+        size += m.images.reduce((s, img) => s + img.base64.length, 0);
+      }
       return sum + size;
     }, 0);
 

@@ -451,13 +451,13 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
       }
     };
 
-    // Download image attachments if present (ported from claude-code attachment handling)
+    // Download image and file attachments in parallel (ported from claude-code attachment handling)
     // Slack file objects match the SlackFile interface but come as Record<string, unknown> from event typing
     const slackFiles = params.files as any;
-    const { images, skipped: skippedImages } = await downloadSlackImages(slackFiles, botToken);
-
-    // Download non-image file attachments and prepend text content to message
-    const fileAttachments = await downloadSlackFiles(slackFiles, botToken);
+    const [{ images, skipped: skippedImages }, fileAttachments] = await Promise.all([
+      downloadSlackImages(slackFiles, botToken),
+      downloadSlackFiles(slackFiles, botToken),
+    ]);
     const filePrefix = formatFileAttachments(fileAttachments);
     // Notify user about skipped images so they know why their attachment wasn't processed
     const skippedNotice = skippedImages.length > 0
