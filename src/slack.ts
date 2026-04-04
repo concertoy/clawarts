@@ -13,7 +13,8 @@ import { enqueueFollowup, type FollowupItem } from "./queue/followup-queue.js";
 
 const SLACK_TEXT_LIMIT = 4000;
 const HISTORY_LIMIT = 20;
-const STREAM_UPDATE_INTERVAL_MS = 1500; // Throttle Slack message edits to avoid rate limits
+const STREAM_UPDATE_INTERVAL_MS = 1500;
+const SOCKET_PING_TIMEOUT_MS = 30_000;
 
 export function createSlackApp(config: AgentConfig, agent: Agent, sessions: SessionStore): App {
   const app = new App({
@@ -27,7 +28,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   try {
     const receiver = (app as any).receiver;
     if (receiver?.client) {
-      receiver.client.clientPingTimeoutMS = 30_000;
+      receiver.client.clientPingTimeoutMS = SOCKET_PING_TIMEOUT_MS;
     }
   } catch {
     // Bolt internals may change — non-fatal
@@ -50,14 +51,16 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   const processedMessages = new Map<string, number>();
   const DEDUP_TTL_MS = 60_000; // Keep dedup entries for 1 minute
   const DEDUP_MAX_SIZE = 1000; // Safety valve — prevent unbounded growth
+  const DEDUP_SWEEP_INTERVAL_MS = 30_000;
+  const DEDUP_EVICTION_RATIO = 0.25;
 
-  // Periodic sweep every 30s — cheaper than N individual timers
+  // Periodic sweep — cheaper than N individual timers
   const dedupSweepTimer = setInterval(() => {
     const cutoff = Date.now() - DEDUP_TTL_MS;
     for (const [k, t] of processedMessages) {
       if (t < cutoff) processedMessages.delete(k);
     }
-  }, 30_000);
+  }, DEDUP_SWEEP_INTERVAL_MS);
   // Prevent timer from keeping the process alive during shutdown
   if (dedupSweepTimer.unref) dedupSweepTimer.unref();
 
@@ -66,7 +69,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     if (processedMessages.has(key)) return true;
     // Safety valve: if map is too large, evict oldest entries (FIFO)
     if (processedMessages.size >= DEDUP_MAX_SIZE) {
-      const toEvict = Math.floor(DEDUP_MAX_SIZE * 0.25);
+      const toEvict = Math.floor(DEDUP_MAX_SIZE * DEDUP_EVICTION_RATIO);
       const iter = processedMessages.keys();
       for (let i = 0; i < toEvict; i++) {
         const k = iter.next().value;

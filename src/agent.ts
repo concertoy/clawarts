@@ -17,8 +17,8 @@ const COMPACTION_CHAR_THRESHOLD = 80_000;
 // ─── Agent ──────────────────────────────────────────────────────────────
 
 export class Agent {
-  private systemPrompt: string;
-  private toolDefs: ToolDefinition[];
+  private readonly systemPrompt: string;
+  private readonly toolDefs: ToolDefinition[];
 
   /**
    * Track in-flight AbortControllers per session.
@@ -26,7 +26,7 @@ export class Agent {
    * the old request is canceled to prevent stale responses.
    * Ported from claude-code's abortController pattern.
    */
-  private activeRequests = new Map<string, AbortController>();
+  private readonly activeRequests = new Map<string, AbortController>();
 
   constructor(
     private config: AgentConfig,

@@ -17,6 +17,7 @@ const OPENAI_JWT_CLAIM_PATH = "https://api.openai.com/auth";
 
 const AUTH_DIR = path.join(os.homedir(), ".clawarts", "auth");
 const EXPIRY_BUFFER_MS = 5 * 60 * 1000;
+const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 
 interface StoredAuth {
   provider: Provider;
@@ -35,7 +36,7 @@ export class TokenProvider {
   private expiresAt: number = 0;
   private accountId: string | null = null;
 
-  constructor(private provider: Provider) {}
+  constructor(private readonly provider: Provider) {}
 
   private get authFile(): string {
     return path.join(AUTH_DIR, `${this.provider}.json`);
@@ -185,7 +186,7 @@ export class TokenProvider {
         finish(null);
       });
 
-      const timer = setTimeout(() => finish(null), 5 * 60 * 1000);
+      const timer = setTimeout(() => finish(null), LOGIN_TIMEOUT_MS);
     });
   }
 

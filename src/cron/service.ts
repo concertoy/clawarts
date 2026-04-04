@@ -22,7 +22,7 @@ export class CronService {
   private systemHandler?: (tag: string, params: Record<string, string>, job: CronJob) => Promise<boolean>;
 
   constructor(
-    private opts: {
+    private readonly opts: {
       agentId: string;
       storePath: string;
       slackClient: WebClient;

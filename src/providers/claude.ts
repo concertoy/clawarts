@@ -33,7 +33,7 @@ interface AnthropicResponse {
 export class ClaudeProvider implements ModelProvider {
   readonly name = "anthropic-claude";
 
-  constructor(private apiKey: string) {}
+  constructor(private readonly apiKey: string) {}
 
   formatTools(tools: ToolDefinition[]): unknown {
     // Mark the last tool with cache_control so the entire tools array is cached.

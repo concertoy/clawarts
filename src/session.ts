@@ -5,18 +5,19 @@ import type { ConversationSession } from "./types.js";
 import { errMsg, isFileNotFound } from "./utils/errors.js";
 
 const MAX_MESSAGES_PER_SESSION = 100;
-const PERSIST_MESSAGES = 30; // Persist last N messages to disk
-const MAX_SESSIONS = 500; // LRU eviction threshold — prevents OOM under heavy load
+const PERSIST_MESSAGES = 30;
+const MAX_SESSIONS = 500;
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 
 export class SessionStore {
-  private sessions = new Map<string, ConversationSession>();
+  private readonly sessions = new Map<string, ConversationSession>();
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private persistDir: string | null = null;
 
   constructor(private ttlMs: number) {
     this.cleanupTimer = setInterval(() => {
       try { this.evictStale(); } catch (err) { console.error("[session] Cleanup error:", errMsg(err)); }
-    }, 5 * 60 * 1000);
+    }, CLEANUP_INTERVAL_MS);
     if (this.cleanupTimer.unref) this.cleanupTimer.unref();
   }
 

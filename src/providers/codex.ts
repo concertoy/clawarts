@@ -30,7 +30,7 @@ interface CodexResponse {
 export class CodexProvider implements ModelProvider {
   readonly name = "openai-codex";
 
-  constructor(private tokenProvider: TokenProvider) {}
+  constructor(private readonly tokenProvider: TokenProvider) {}
 
   formatTools(tools: ToolDefinition[]): unknown {
     return tools.map((t) => ({
