@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { ConversationSession } from "./types.js";
@@ -104,8 +105,12 @@ export class SessionStore {
 
   private sessionFilePath(key: string): string | null {
     if (!this.persistDir) return null;
-    // Sanitize key for filesystem: replace colons and slashes
-    const safe = key.replace(/[/:]/g, "_");
+    // Sanitize key for filesystem: replace colons and slashes.
+    // Hash long keys to avoid exceeding filesystem path limits.
+    let safe = key.replace(/[/:]/g, "_");
+    if (safe.length > 100) {
+      safe = createHash("sha256").update(key).digest("hex").slice(0, 32);
+    }
     return path.join(this.persistDir, `${safe}.json`);
   }
 

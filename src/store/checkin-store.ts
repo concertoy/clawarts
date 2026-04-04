@@ -42,6 +42,8 @@ export class CheckinStore {
   }
 
   async getActiveWindow(): Promise<CheckinWindow | undefined> {
+    // Auto-close any expired windows first (in case cron job was late)
+    await this.closeExpiredWindows();
     const store = await loadStore<CheckinWindow>(this.windowsPath);
     const now = Date.now();
     return store.items.find((w) => w.status === "open" && w.closesAt > now);
