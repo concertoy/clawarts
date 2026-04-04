@@ -3,6 +3,7 @@ import type { AssignmentStore } from "../store/assignment-store.js";
 import type { SubmissionStore } from "../store/submission-store.js";
 import { getRegisteredAgent } from "../relay.js";
 import { errMsg } from "../utils/errors.js";
+import { openDmChannel } from "../utils/slack-dm.js";
 
 /**
  * Submission tool for student agents.
@@ -139,9 +140,7 @@ async function notifyTutorOfSubmission(
   const tutorUserId = tutor.allowedUsers?.[0];
   if (!tutorUserId) return;
 
-  const dm = await tutor.slackClient.conversations.open({ users: tutorUserId });
-  const channelId = dm.channel?.id;
-  if (!channelId) return;
+  const channelId = await openDmChannel(tutor.slackClient, tutorUserId);
 
   const lateTag = isLate ? " _(late)_" : "";
   await tutor.slackClient.chat.postMessage({

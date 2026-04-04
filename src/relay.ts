@@ -11,6 +11,7 @@ import type { SessionStore } from "./session.js";
 import type { ToolDefinition, ToolUseContext } from "./types.js";
 import { BoundedMap } from "./utils/bounded-map.js";
 import { errMsg } from "./utils/errors.js";
+import { openDmChannel } from "./utils/slack-dm.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
 
 // ─── Agent Registry ─────────────────────────────────────────────────
@@ -94,14 +95,7 @@ async function relayToStudent(
     throw new Error(`Agent "${targetId}" not found.`);
   }
 
-  const dmResp = await target.slackClient.conversations.open({ users: userId });
-  if (!dmResp.ok) {
-    throw new Error(`Slack API error opening DM with ${userId}: ${dmResp.error ?? "unknown"}`);
-  }
-  const channelId = dmResp.channel?.id;
-  if (!channelId) {
-    throw new Error(`Could not open DM channel with user ${userId} via ${targetId}'s bot.`);
-  }
+  const channelId = await openDmChannel(target.slackClient, userId);
 
   const sessionKey = `relay:${sourceAgent}:${targetId}:${userId}`;
   const reply = await target.agent.getReply(

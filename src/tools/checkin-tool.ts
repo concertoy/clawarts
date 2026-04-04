@@ -5,6 +5,7 @@ import type { CheckinStatus } from "../store/types.js";
 import type { CronService } from "../cron/service.js";
 import { getStudentsForTutor, getRegisteredAgent } from "../relay.js";
 import { errMsg } from "../utils/errors.js";
+import { openDmChannel } from "../utils/slack-dm.js";
 import { markdownToSlack } from "../utils/slack-markdown.js";
 
 /**
@@ -452,9 +453,7 @@ async function notifyStudentsOfScores(
     if (!agent) return;
 
     try {
-      const dm = await agent.slackClient.conversations.open({ users: userId });
-      const channelId = dm.channel?.id;
-      if (!channelId) return;
+      const channelId = await openDmChannel(agent.slackClient, userId);
 
       const scoreEmoji = ev.score >= 80 ? "\u2705" : ev.score >= 50 ? "\u26a0\ufe0f" : "\u274c";
       const msg = [

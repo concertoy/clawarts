@@ -181,7 +181,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       userId: event.user ?? "unknown",
       sessionKey,
       botToken: config.slackBotToken,
-      files: (event as unknown as { files?: Array<Record<string, unknown>> }).files,
+      files: (event as unknown as { files?: SlackFile[] }).files,
     };
 
     // If THIS session is already processing, route to followup queue.
@@ -202,8 +202,8 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       channel: string;
       ts: string;
       thread_ts?: string;
-      files?: Array<Record<string, unknown>>;
-      message?: { text?: string; user?: string; files?: Array<Record<string, unknown>> };
+      files?: SlackFile[];
+      message?: { text?: string; user?: string; files?: SlackFile[] };
     };
 
     // Skip non-standard messages (edits, deletes, bot messages, etc.)
@@ -287,6 +287,27 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
 
 // ─── History hydration from Slack API ───────────────────────────────────
 
+type SlackMessage = { text?: string; user?: string; ts?: string };
+
+/** Convert raw Slack messages to session messages and append to session. */
+function ingestMessages(
+  sessions: SessionStore,
+  sessionKey: string,
+  messages: SlackMessage[],
+  botUserId: string,
+): number {
+  const session = sessions.get(sessionKey);
+  let count = 0;
+  for (const msg of messages) {
+    if (!msg.text || !msg.user) continue;
+    const role = msg.user === botUserId ? "assistant" : "user";
+    const content = role === "user" ? `[From: <@${msg.user}>]\n${msg.text}` : msg.text;
+    session.messages.push({ role, content });
+    count++;
+  }
+  return count;
+}
+
 /**
  * Fetch recent DM history via conversations.history().
  * Called on cold session so the bot has context even after restart.
@@ -304,22 +325,13 @@ async function hydrateFromDM(
       limit: HISTORY_LIMIT,
     });
 
-    const messages = response?.messages as Array<{ text?: string; user?: string; ts?: string }> | undefined;
+    const messages = response?.messages as SlackMessage[] | undefined;
     if (!messages || messages.length === 0) return;
 
-    const session = sessions.get(sessionKey);
-
     // conversations.history returns newest-first, reverse for chronological order
-    const sorted = [...messages].reverse();
-    for (const msg of sorted) {
-      if (!msg.text || !msg.user) continue;
-      const role = msg.user === botUserId ? "assistant" : "user";
-      const content = role === "user" ? `[From: <@${msg.user}>]\n${msg.text}` : msg.text;
-      session.messages.push({ role, content });
-    }
-
-    if (session.messages.length > 0) {
-      console.log(`[slack] Hydrated ${session.messages.length} messages from DM history (${sessionKey})`);
+    const count = ingestMessages(sessions, sessionKey, [...messages].reverse(), botUserId);
+    if (count > 0) {
+      console.log(`[slack] Hydrated ${count} messages from DM history (${sessionKey})`);
     }
   } catch (err) {
     console.warn(`[slack] Failed to fetch DM history (${sessionKey}):`, errMsg(err));
@@ -346,20 +358,12 @@ async function hydrateFromThread(
       inclusive: true,
     });
 
-    const messages = response?.messages as Array<{ text?: string; user?: string; ts?: string }> | undefined;
+    const messages = response?.messages as SlackMessage[] | undefined;
     if (!messages || messages.length === 0) return;
 
-    const session = sessions.get(sessionKey);
-
-    for (const msg of messages) {
-      if (!msg.text || !msg.user) continue;
-      const role = msg.user === botUserId ? "assistant" : "user";
-      const content = role === "user" ? `[From: <@${msg.user}>]\n${msg.text}` : msg.text;
-      session.messages.push({ role, content });
-    }
-
-    if (session.messages.length > 0) {
-      console.log(`[slack] Hydrated ${session.messages.length} messages from thread history (${sessionKey})`);
+    const count = ingestMessages(sessions, sessionKey, messages, botUserId);
+    if (count > 0) {
+      console.log(`[slack] Hydrated ${count} messages from thread history (${sessionKey})`);
     }
   } catch (err) {
     console.warn(`[slack] Failed to fetch thread history (${sessionKey}):`, errMsg(err));
@@ -378,7 +382,7 @@ interface HandleMessageParams {
   userId: string;
   sessionKey: string;
   botToken: string;
-  files?: Array<Record<string, unknown>>;
+  files?: SlackFile[];
 }
 
 async function handleMessage(params: HandleMessageParams): Promise<void> {
@@ -451,11 +455,9 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
     };
 
     // Download image and file attachments in parallel (ported from claude-code attachment handling)
-    // Slack file objects match the SlackFile interface but come as Record<string, unknown> from event typing
-    const slackFiles = params.files as SlackFile[] | undefined;
     const [{ images, skipped: skippedImages }, fileAttachments] = await Promise.all([
-      downloadSlackImages(slackFiles, botToken),
-      downloadSlackFiles(slackFiles, botToken),
+      downloadSlackImages(params.files, botToken),
+      downloadSlackFiles(params.files, botToken),
     ]);
     const filePrefix = formatFileAttachments(fileAttachments);
     // Notify user about skipped images so they know why their attachment wasn't processed
