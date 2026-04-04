@@ -58,17 +58,14 @@ export function createSlackUploadTool(slackClient: WebClient): ToolDefinition {
       }
 
       try {
-        const uploadArgs: Record<string, unknown> = {
+        await slackClient.files.uploadV2({
           channel_id: context.channelId,
           filename,
           content,
           title: title ?? filename,
-        };
-        if (context.threadTs) uploadArgs.thread_ts = context.threadTs;
-        if (comment) uploadArgs.initial_comment = comment;
-
-        // uploadV2 expects FilesUploadV2Arguments but accepts these fields — cast needed
-        await slackClient.files.uploadV2(uploadArgs as any);
+          ...(context.threadTs ? { thread_ts: context.threadTs } : {}),
+          ...(comment ? { initial_comment: comment } : {}),
+        } as Parameters<typeof slackClient.files.uploadV2>[0]);
 
         return `File "${filename}" uploaded successfully to the conversation.`;
       } catch (err) {

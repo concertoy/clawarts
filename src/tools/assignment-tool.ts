@@ -1,6 +1,7 @@
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import type { AssignmentStore } from "../store/assignment-store.js";
 import type { SubmissionStore } from "../store/submission-store.js";
+import type { Assignment } from "../store/types.js";
 import type { CronService } from "../cron/service.js";
 import { getStudentsForTutor } from "../relay.js";
 
@@ -111,7 +112,7 @@ export function createAssignmentTool(
         }
 
         case "list": {
-          const statusFilter = input.status as string | undefined;
+          const statusFilter = input.status as Assignment["status"] | undefined;
           const assignments = await assignmentStore.list(statusFilter ? { status: statusFilter } : undefined);
           if (assignments.length === 0) return "No assignments found.";
 

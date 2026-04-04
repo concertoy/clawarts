@@ -22,6 +22,8 @@ export interface Submission {
 
 // ─── Check-in ────────────────────────────────────────────────────────
 
+export type CheckinMode = "passphrase" | "quiz" | "pulse" | "reflect";
+
 export interface PerStudentChallenge {
   userId: string;
   question: string;
@@ -30,7 +32,7 @@ export interface PerStudentChallenge {
 export interface CheckinWindow {
   id: string;
   tutorId: string;
-  mode: "passphrase" | "quiz" | "pulse" | "reflect";
+  mode: CheckinMode;
   topic?: string; // quiz, reflect, pulse
   passphrase?: string; // passphrase mode only
   challenges?: PerStudentChallenge[]; // quiz mode: unique per student

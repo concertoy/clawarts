@@ -25,7 +25,7 @@ export class AssignmentStore {
     return assignment;
   }
 
-  async list(filter?: { status?: string }): Promise<Assignment[]> {
+  async list(filter?: { status?: Assignment["status"] }): Promise<Assignment[]> {
     const store = await this.load();
     if (filter?.status) {
       return store.items.filter((a) => a.status === filter.status);
