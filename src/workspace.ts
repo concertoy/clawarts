@@ -46,7 +46,6 @@ export function loadWorkspaceFiles(workspaceDir: string): WorkspaceFile[] {
   for (const name of BOOTSTRAP_FILES) {
     const filePath = path.join(workspaceDir, name);
     try {
-      if (!fs.existsSync(filePath)) continue;
       const raw = fs.readFileSync(filePath, "utf-8").trim();
       if (!raw) continue;
 
@@ -65,6 +64,8 @@ export function loadWorkspaceFiles(workspaceDir: string): WorkspaceFile[] {
 
       files.push({ name, content });
     } catch (err) {
+      // ENOENT is expected for missing bootstrap files — only warn on real errors
+      if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") continue;
       console.warn(`[workspace] Failed to read ${name}:`, err instanceof Error ? err.message : err);
     }
   }

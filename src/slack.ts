@@ -509,11 +509,11 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
     }
 
     console.error("[slack] Error handling message:", err);
-    const errMsg = err instanceof Error ? err.message : String(err);
     try {
+      // Don't expose raw error details (API keys, paths) to Slack users
       await client.chat.postMessage({
         channel,
-        text: `\`\`\`\n${errMsg}\n\`\`\``,
+        text: "Sorry, something went wrong processing your message. Please try again.",
         ...(replyThreadTs ? { thread_ts: replyThreadTs } : {}),
       });
     } catch {
@@ -534,8 +534,15 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
   }
 }
 
+const mentionRegexCache = new Map<string, RegExp>();
 function stripMention(text: string, botUserId: string): string {
-  return text.replace(new RegExp(`<@${botUserId}>`, "g"), "").trim();
+  let re = mentionRegexCache.get(botUserId);
+  if (!re) {
+    re = new RegExp(`<@${botUserId}>`, "g");
+    mentionRegexCache.set(botUserId, re);
+  }
+  re.lastIndex = 0; // reset stateful global regex
+  return text.replace(re, "").trim();
 }
 
 function chunkText(text: string, limit: number): string[] {
