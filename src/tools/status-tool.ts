@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import { getStudentsForTutor, getAgentLastActive, getAgentLastError, getRegisteredAgent, getAgentStartedAt } from "../relay.js";
-import { getLaneDepth } from "../queue/command-queue.js";
+import { getLaneDepth, getQueueStats } from "../queue/command-queue.js";
 import { CommandLane } from "../queue/lanes.js";
 import type { CronService } from "../cron/service.js";
 import { getTokenUsage, estimateCost, formatLatencyStats, getToolUsage } from "../utils/token-tracker.js";
@@ -65,8 +65,10 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
       // Queue health
       const mainDepth = getLaneDepth(CommandLane.Main);
       const cronDepth = getLaneDepth(CommandLane.Cron);
-      if (mainDepth > 0 || cronDepth > 0) {
-        lines.push(`\nQueues: main=${mainDepth}, cron=${cronDepth}`);
+      const queueStats = getQueueStats();
+      if (mainDepth > 0 || cronDepth > 0 || queueStats.evictions > 0) {
+        const evictNote = queueStats.evictions > 0 ? `, ${queueStats.evictions} evictions` : "";
+        lines.push(`\nQueues: main=${mainDepth}, cron=${cronDepth}${evictNote}`);
       }
 
       // Cron service health
