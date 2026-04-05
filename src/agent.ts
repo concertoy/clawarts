@@ -427,7 +427,7 @@ export class Agent {
  * tool_result messages count as "user" role (they're sent as user messages).
  * Ported from claude-code's ensureAlternatingRoles() / message validation.
  */
-function ensureAlternatingRoles(messages: ProviderMessage[]): void {
+export function ensureAlternatingRoles(messages: ProviderMessage[]): void {
   // Merge consecutive same-role messages
   let i = 0;
   while (i < messages.length - 1) {
