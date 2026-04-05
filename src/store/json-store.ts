@@ -8,6 +8,8 @@ const log = createLogger("store");
 // Node is single-threaded but async operations can interleave.
 const locks = new Map<string, Promise<void>>();
 
+const LOCK_WARN_MS = 5_000; // Warn if waiting for lock longer than 5s
+
 /** Acquire a per-file lock, execute fn, then release. */
 export async function withStoreLock<T>(storePath: string, fn: () => Promise<T>): Promise<T> {
   const prev = locks.get(storePath) ?? Promise.resolve();
@@ -15,7 +17,12 @@ export async function withStoreLock<T>(storePath: string, fn: () => Promise<T>):
   const next = new Promise<void>((r) => { release = r; });
   locks.set(storePath, next);
   try {
+    const waitStart = Date.now();
     await prev;
+    const waitMs = Date.now() - waitStart;
+    if (waitMs > LOCK_WARN_MS) {
+      log.warn(`Store lock for ${storePath} waited ${(waitMs / 1000).toFixed(1)}s — possible contention`);
+    }
     return await fn();
   } finally {
     release();
