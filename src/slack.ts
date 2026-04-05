@@ -23,6 +23,9 @@ const SLACK_TEXT_LIMIT = 4000;
 const STREAM_UPDATE_INTERVAL_MS = 1500;
 const SOCKET_PING_TIMEOUT_MS = 30_000;
 
+/** Slack DM channels start with "D". */
+const isDirectMessage = (channel: string): boolean => channel.startsWith("D");
+
 export function createSlackApp(config: AgentConfig, agent: Agent, sessions: SessionStore): App {
   const alog = createLogger(`slack:${config.id}`);
 
@@ -171,7 +174,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   }): Promise<void> {
     const { client, channel, ts, threadTs, text, userId, files, myId } = opts;
     const sessionKey = SessionStore.deriveKey(channel, ts, threadTs);
-    const isDM = channel.startsWith("D");
+    const isDM = isDirectMessage(channel);
 
     // Hydrate from Slack API if session is cold (new or after restart).
     let isNewSession = false;
@@ -263,7 +266,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     const myId = await resolveBotId(client);
     if (user_raw === myId) return;
 
-    const isDM = channel.startsWith("D");
+    const isDM = isDirectMessage(channel);
     const isThreadReply = !!threadTs;
 
     if (isDM && !(await isBotDM(client, channel, myId))) return;
@@ -325,7 +328,7 @@ interface HandleMessageParams {
 
 async function handleMessage(params: HandleMessageParams): Promise<void> {
   const { agent, client, channel, ts, text, userId, sessionKey, botToken } = params;
-  const isDM = channel.startsWith("D");
+  const isDM = isDirectMessage(channel);
 
   // Route reply to where the message came from:
   // - DM thread reply → reply in that thread

@@ -21,6 +21,8 @@ const BOOTSTRAP_FILES = [
 ] as const;
 
 const MAX_CHARS_PER_FILE = 20_000;
+/** When truncating, keep 75% from head, 25% from tail. */
+const TRUNCATE_HEAD_RATIO = 0.75;
 
 const cache = new Map<string, { files: WorkspaceFile[]; mtimeMs: number; fileCount: number }>();
 
@@ -63,8 +65,8 @@ export function loadWorkspaceFiles(workspaceDir: string): WorkspaceFile[] {
 
       // Trim to budget
       if (content.length > MAX_CHARS_PER_FILE) {
-        const headLen = Math.floor(MAX_CHARS_PER_FILE * 0.75);
-        const tailLen = Math.floor(MAX_CHARS_PER_FILE * 0.25);
+        const headLen = Math.floor(MAX_CHARS_PER_FILE * TRUNCATE_HEAD_RATIO);
+        const tailLen = Math.floor(MAX_CHARS_PER_FILE * (1 - TRUNCATE_HEAD_RATIO));
         content =
           content.slice(0, headLen) +
           `\n\n[...truncated, read ${name} for full content...]\n\n` +

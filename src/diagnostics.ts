@@ -8,6 +8,9 @@ import { createLogger } from "./utils/logger.js";
 const log = createLogger("clawarts");
 const healthLog = createLogger("health");
 
+/** Cheap model used for API health checks — just needs a 1-token response. */
+const HEALTH_CHECK_MODEL = "claude-haiku-4-5-20251001";
+
 /**
  * Startup diagnostics. Runs after config is loaded but before agents connect.
  * Warns about misconfigurations that would cause silent runtime failures.
@@ -139,7 +142,7 @@ export async function checkProviderHealth(configs: AgentConfig[]): Promise<void>
               "anthropic-version": "2023-06-01",
               "content-type": "application/json",
             },
-            body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1, messages: [{ role: "user", content: "hi" }] }),
+            body: JSON.stringify({ model: HEALTH_CHECK_MODEL, max_tokens: 1, messages: [{ role: "user", content: "hi" }] }),
             signal: AbortSignal.timeout(10_000),
           });
           if (resp.ok) {

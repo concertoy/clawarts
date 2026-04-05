@@ -3,6 +3,8 @@ import type { CronService } from "./service.js";
 import type { CronJobPatch, CronSchedule } from "./types.js";
 import { formatDuration } from "../utils/format.js";
 
+const ERROR_PREVIEW_LIMIT = 60;
+
 /**
  * Create a cron/reminder tool for the agent.
  * Ported from openclaw src/agents/tools/cron-tool.ts (simplified to 4 actions).
@@ -97,7 +99,7 @@ export function createCronTool(cronService: CronService, agentId: string): ToolD
             const status = j.enabled ? "active" : "disabled";
             const next = j.state.nextRunAtMs ? new Date(j.state.nextRunAtMs).toISOString() : "—";
             const lastRun = j.state.lastRunAtMs ? new Date(j.state.lastRunAtMs).toISOString() : "never";
-            const lastStatus = j.state.lastStatus ? ` (${j.state.lastStatus}${j.state.lastError ? `: ${j.state.lastError.slice(0, 60)}` : ""})` : "";
+            const lastStatus = j.state.lastStatus ? ` (${j.state.lastStatus}${j.state.lastError ? `: ${j.state.lastError.slice(0, ERROR_PREVIEW_LIMIT)}` : ""})` : "";
             return `- [${status}] "${j.name}" (${j.id})\n  Schedule: ${formatSchedule(j.schedule)}\n  Next: ${next} | Last: ${lastRun}${lastStatus}\n  Channel: ${j.channelId}`;
           });
           return `Scheduled reminders (${jobs.length}):\n\n${lines.join("\n\n")}`;
