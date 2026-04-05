@@ -31,7 +31,14 @@ export function createMyStatusTool(
           const sub = await submissionStore.getByAssignmentAndUser(a.id, userId);
           const deadline = new Date(a.deadline).toISOString();
           const overdue = Date.now() > a.deadline ? " (OVERDUE)" : "";
-          const status = sub ? `submitted (${sub.status})` : "not submitted";
+          let status: string;
+          if (!sub) {
+            status = "not submitted";
+          } else if (sub.score != null) {
+            status = `${sub.score}/100${sub.feedback ? ` — "${sub.feedback}"` : ""}`;
+          } else {
+            status = `submitted (${sub.status})`;
+          }
           lines.push(`  "${a.title}" — due ${deadline}${overdue} — ${status}`);
         }
       } else {
@@ -62,7 +69,8 @@ export function createMyStatusTool(
       const active = await checkinStore.getActiveWindow();
       if (active) {
         const remaining = Math.max(0, Math.round((active.closesAt - Date.now()) / 1000));
-        lines.push(`\nActive check-in: ${active.mode} (${Math.floor(remaining / 60)}m ${remaining % 60}s remaining)`);
+        const closesStr = new Date(active.closesAt).toISOString();
+        lines.push(`\nActive check-in: ${active.mode} — closes at ${closesStr} (${Math.floor(remaining / 60)}m ${remaining % 60}s remaining)`);
       }
 
       return lines.join("\n");
