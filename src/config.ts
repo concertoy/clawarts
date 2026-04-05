@@ -120,6 +120,15 @@ function validateAgentConfig(config: AgentConfig): void {
     }
   }
 
+  // Validate allowedUsers look like Slack user IDs
+  if (config.allowedUsers) {
+    for (const uid of config.allowedUsers) {
+      if (!/^U[A-Z0-9]{8,12}$/.test(uid)) {
+        log.warn(`${config.id}: allowedUsers entry "${uid}" doesn't look like a Slack user ID (expected U + 8-12 alphanumeric chars)`);
+      }
+    }
+  }
+
   if (config.welcomeMessage && config.welcomeMessage.length > 2000) {
     errors.push(`welcomeMessage is too long (${config.welcomeMessage.length} chars, max 2000)`);
   }

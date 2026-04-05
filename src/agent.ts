@@ -38,6 +38,11 @@ export class Agent {
     return this.lastWorkspaceFiles;
   }
 
+  /** Expose tool names for status reporting. */
+  get toolNames(): string[] {
+    return this.toolDefs.map((t) => t.name);
+  }
+
   /**
    * Track in-flight AbortControllers per session.
    * When a new message arrives for a session that already has an active request,

@@ -48,11 +48,12 @@ export function createCheckinRespondTool(
           const content = input.content as string;
           if (!content) return "Error: content is required.";
 
-          const active = await checkinStore.getActiveWindow();
-          if (!active) return "No active check-in window. There may not be a check-in happening right now.";
+          const window = await checkinStore.getRespondableWindow();
+          if (!window) return "No active check-in window. There may not be a check-in happening right now.";
 
+          const isLate = Date.now() > window.closesAt;
           const result = await checkinStore.addResponse({
-            windowId: active.id,
+            windowId: window.id,
             userId,
             agentId,
             content,
@@ -60,7 +61,8 @@ export function createCheckinRespondTool(
 
           if ("error" in result) return `Error: ${result.error}`;
 
-          return `Check-in response submitted! (${formatTimeRemaining(active.closesAt)} remaining in window)`;
+          const lateNote = isLate ? " (late — window has closed)" : ` (${formatTimeRemaining(window.closesAt)} remaining)`;
+          return `Check-in response submitted!${lateNote}`;
         }
 
         case "view": {
