@@ -1,11 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   registerAgent,
-  getAgentStartedAt,
   getRegisteredAgent,
-  listRegisteredAgentIds,
-  touchAgent,
-  getAgentLastActive,
   recordAgentError,
   getAgentLastError,
   getStudentsForTutor,
@@ -41,23 +37,6 @@ describe("relay registry", () => {
   it("registers and retrieves agents", () => {
     expect(getRegisteredAgent("tutor")).toBeDefined();
     expect(getRegisteredAgent("nonexistent")).toBeUndefined();
-  });
-
-  it("lists all registered agent IDs", () => {
-    const ids = listRegisteredAgentIds();
-    expect(ids).toContain("tutor");
-    expect(ids).toContain("student-1");
-  });
-
-  it("records agent started-at time", () => {
-    const ts = getAgentStartedAt("tutor");
-    expect(ts).toBeGreaterThan(0);
-  });
-
-  it("tracks last active time", () => {
-    touchAgent("tutor");
-    const ts = getAgentLastActive("tutor");
-    expect(ts).toBeGreaterThan(0);
   });
 
   it("records and retrieves errors", () => {

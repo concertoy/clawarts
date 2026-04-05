@@ -75,6 +75,10 @@ export function parseCourseSchedule(markdown: string): CourseSchedule {
       }
 
       if (!currentWeekDate) warnings.push(`Homework "${hwTitle}" has no week context (add a ## Week heading above it)`);
+      // Validate date format strictly (YYYY-MM-DD) before parsing
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline)) {
+        warnings.push(`Homework "${hwTitle}" has malformed deadline "${deadline}" (expected YYYY-MM-DD)`);
+      }
       const deadlineMs = new Date(deadline + "T23:59:00Z").getTime();
       if (!Number.isFinite(deadlineMs)) warnings.push(`Homework "${hwTitle}" has invalid deadline: ${deadline}`);
 

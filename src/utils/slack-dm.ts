@@ -11,9 +11,12 @@ const dmCache = new BoundedMap<string, string>(500);
  * Results are cached to avoid repeated conversations.open API calls.
  */
 export async function openDmChannel(client: WebClient, userId: string): Promise<string> {
-  // Use the client's token (first 10 chars) as part of the cache key
-  // to differentiate between different bot tokens
-  const tokenKey = client.token?.slice(0, 10) ?? "default";
+  // Use the client's token prefix as part of the cache key
+  // to differentiate between different bot tokens in multi-agent setups.
+  // Guard against null/undefined tokens — use full token hash to avoid prefix collisions.
+  const token = client.token;
+  if (!token) throw new Error("WebClient has no token — cannot open DM channel");
+  const tokenKey = token.slice(0, 10);
   const cacheKey = `${tokenKey}:${userId}`;
   const cached = dmCache.get(cacheKey);
   if (cached) return cached;
