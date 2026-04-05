@@ -29,7 +29,7 @@ export function formatDuration(ms: number): string {
 
 /** Format a relative time for display: timestamp → "5m ago" or "never". */
 export function formatTimeAgo(epochMs: number | undefined): string {
-  if (!epochMs) return "never";
+  if (!epochMs || !Number.isFinite(epochMs)) return "never";
   const diffMs = Date.now() - epochMs;
   if (diffMs < 0) return "just now"; // future timestamps treated as "just now"
   const mins = Math.round(diffMs / 60_000);

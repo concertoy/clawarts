@@ -47,7 +47,11 @@ export async function loadStore<T>(storePath: string): Promise<StoreFile<T>> {
       return parsed;
     }
     // File exists but has unexpected shape — warn and start fresh
-    if (parsed) log.warn(`Unexpected store format in ${storePath}, starting fresh`);
+    if (parsed && typeof parsed.version === "number" && parsed.version > 1) {
+      log.warn(`Store ${storePath} has version ${parsed.version} (this build supports v1) — starting fresh to avoid data loss`);
+    } else if (parsed) {
+      log.warn(`Unexpected store format in ${storePath}, starting fresh`);
+    }
     return EMPTY_STORE<T>();
   } catch (err) {
     // ENOENT is expected on first run — only warn on real errors (corruption, permission)

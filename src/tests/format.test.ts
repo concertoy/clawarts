@@ -72,6 +72,10 @@ describe("formatTimeAgo", () => {
   it("handles future timestamps gracefully", () => {
     expect(formatTimeAgo(Date.now() + 60_000)).toBe("just now");
   });
+  it("handles NaN and Infinity", () => {
+    expect(formatTimeAgo(NaN)).toBe("never");
+    expect(formatTimeAgo(Infinity)).toBe("never");
+  });
 });
 
 describe("formatTokenCount edge cases", () => {
