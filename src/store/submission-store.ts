@@ -63,6 +63,20 @@ export class SubmissionStore {
     return store.items;
   }
 
+  /** Grade a submission (score + feedback). */
+  async grade(submissionId: string, score: number, feedback?: string): Promise<Submission | undefined> {
+    return withStoreLock(this.storePath, async () => {
+      const store = await this.load();
+      const sub = store.items.find((s) => s.id === submissionId);
+      if (!sub) return undefined;
+      sub.score = score;
+      sub.feedback = feedback;
+      sub.gradedAt = Date.now();
+      await this.save(store.items);
+      return sub;
+    });
+  }
+
   /** Count submissions per assignment (avoids loading full content for reporting). */
   async countByAssignment(assignmentId: string): Promise<{ total: number; late: number }> {
     const store = await this.load();
