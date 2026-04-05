@@ -82,4 +82,12 @@ describe("isDangerousCommand", () => {
   it("detects backslash-escaped bypass attempts", () => {
     expect(isDangerousCommand("rm\\ -rf\\ /")).not.toBeNull();
   });
+
+  it("blocks git push -f (short flag)", () => {
+    expect(isDangerousCommand("git push origin main -f")).not.toBeNull();
+  });
+
+  it("allows git diff -f flag (not push)", () => {
+    expect(isDangerousCommand("git diff -f")).toBeNull();
+  });
 });

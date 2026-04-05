@@ -28,7 +28,7 @@ const DANGEROUS_PATTERNS: RegExp[] = [
   /\biptables\s+(-F|--flush)\b/,                    // flush firewall
   /\bcurl\b.*\|\s*(sudo\s+)?(\/\w+\/)*(ba)?sh/,     // curl | sh (including /bin/sh)
   /\bwget\b.*\|\s*(sudo\s+)?(\/\w+\/)*(ba)?sh/,    // wget | sh
-  /\bgit\s+push\s+.*--force\b/,                     // git push --force
+  /\bgit\s+push\s+.*(-f\b|--force\b)/,               // git push --force / -f
   /\bpkill\s+-9\b/,                                 // pkill -9
   /\bkillall\b/,                                    // killall
   /\bxargs\s+.*\brm\b/,                             // xargs rm
