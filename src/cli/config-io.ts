@@ -1,8 +1,8 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import type { AgentEntry, RootConfig } from "../types.js";
 import { errMsg, isFileNotFound } from "../utils/errors.js";
+import { expandTilde, clawHome } from "../utils/paths.js";
 
 /**
  * Config path resolution order:
@@ -17,7 +17,7 @@ function resolveConfigPath(): string {
     fs.accessSync(cwdPath, fs.constants.R_OK);
     return cwdPath;
   } catch {
-    return path.join(os.homedir(), ".clawarts", "config.json");
+    return clawHome("config.json");
   }
 }
 
@@ -103,9 +103,7 @@ export function agentIdToEnvPrefix(id: string): string {
 export function resolveWorkspaceDir(entry: AgentEntry, config?: RootConfig): string {
   // Explicit workspaceDir always wins
   if (entry.workspaceDir) {
-    return entry.workspaceDir.startsWith("~/")
-      ? path.join(os.homedir(), entry.workspaceDir.slice(2))
-      : path.resolve(entry.workspaceDir);
+    return expandTilde(entry.workspaceDir);
   }
 
   // Student linked to a tutor → nested under tutor's workspace
@@ -117,7 +115,7 @@ export function resolveWorkspaceDir(entry: AgentEntry, config?: RootConfig): str
     }
   }
 
-  return path.join(os.homedir(), ".clawarts", "agents", entry.id, "workspace");
+  return clawHome("agents", entry.id, "workspace");
 }
 
 /**

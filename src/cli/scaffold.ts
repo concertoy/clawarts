@@ -1,9 +1,9 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AgentType } from "./templates.js";
 import { errMsg, isFileNotFound } from "../utils/errors.js";
+import { clawHome } from "../utils/paths.js";
 
 // ─── Example template resolution ────────────────────────────────────
 
@@ -58,7 +58,7 @@ export function scaffoldWorkspace(
   fs.mkdirSync(path.join(workspaceDir, "skills"), { recursive: true });
 
   // Create agent-level skills directory (~/.clawarts/agents/<id>/skills)
-  const agentSkillsDir = path.join(os.homedir(), ".clawarts", "agents", agentId, "skills");
+  const agentSkillsDir = clawHome("agents", agentId, "skills");
   fs.mkdirSync(agentSkillsDir, { recursive: true });
 
   const templateDir = resolveTemplateDir(agentType);
@@ -105,9 +105,13 @@ function copyDirRecursive(src: string, dest: string, agentId: string, created: s
         skipped.push(label);
         continue;
       }
-      const content = fs.readFileSync(srcPath, "utf-8").replace(/\{\{AGENT_ID\}\}/g, agentId);
-      fs.writeFileSync(destPath, content, "utf-8");
-      created.push(label);
+      try {
+        const content = fs.readFileSync(srcPath, "utf-8").replace(/\{\{AGENT_ID\}\}/g, agentId);
+        fs.writeFileSync(destPath, content, "utf-8");
+        created.push(label);
+      } catch (err) {
+        console.warn(`[scaffold] Failed to copy ${entry.name}: ${errMsg(err)}`);
+      }
     }
   }
 }
