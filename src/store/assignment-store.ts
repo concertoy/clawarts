@@ -41,13 +41,15 @@ export class AssignmentStore {
   }
 
   async update(id: string, patch: Partial<Assignment>): Promise<Assignment | undefined> {
-    const store = await this.load();
-    const idx = store.items.findIndex((a) => a.id === id);
-    if (idx === -1) return undefined;
-    const updated = { ...store.items[idx], ...patch };
-    store.items[idx] = updated;
-    await this.save(store.items);
-    return updated;
+    return withStoreLock(this.storePath, async () => {
+      const store = await this.load();
+      const idx = store.items.findIndex((a) => a.id === id);
+      if (idx === -1) return undefined;
+      const updated = { ...store.items[idx], ...patch };
+      store.items[idx] = updated;
+      await this.save(store.items);
+      return updated;
+    });
   }
 
   async close(id: string): Promise<Assignment | undefined> {
