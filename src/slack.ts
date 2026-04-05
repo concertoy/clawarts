@@ -343,8 +343,8 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
   // Add thinking indicator
   try {
     await client.reactions.add({ channel, timestamp: ts, name: "eyes" });
-  } catch {
-    // Reaction may fail if already added or permissions missing
+  } catch (err) {
+    log.debug(`Reaction add failed (eyes): ${errMsg(err)}`);
   }
 
   // Streaming state — hoisted so finally block can clean up the timer
@@ -483,13 +483,13 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
     // Swap thinking indicator for completion indicator
     try {
       await client.reactions.remove({ channel, timestamp: ts, name: "eyes" });
-    } catch {
-      // May fail if reaction was already removed
+    } catch (err) {
+      log.debug(`Reaction remove failed (eyes): ${errMsg(err)}`);
     }
     try {
       await client.reactions.add({ channel, timestamp: ts, name: "white_check_mark" });
-    } catch {
-      // Non-fatal — reaction may already exist or lack permissions
+    } catch (err) {
+      log.debug(`Reaction add failed (white_check_mark): ${errMsg(err)}`);
     }
   }
 }
