@@ -66,7 +66,7 @@ export function createAssignmentTool(
           }
 
           const deadline = new Date(deadlineStr).getTime();
-          if (!deadline || isNaN(deadline)) return "Error: invalid deadline format. Use ISO 8601 (e.g. '2026-04-10T23:59:00Z').";
+          if (!Number.isFinite(deadline)) return "Error: invalid deadline format. Use ISO 8601 (e.g. '2026-04-10T23:59:00Z').";
           if (deadline <= Date.now()) return "Error: deadline must be in the future.";
 
           const assignment = await assignmentStore.create({
@@ -225,7 +225,7 @@ export function createAssignmentTool(
           if (!id || !newDeadlineStr) return "Error: assignmentId and newDeadline are required.";
 
           const newDeadline = new Date(newDeadlineStr).getTime();
-          if (!newDeadline || isNaN(newDeadline)) return "Error: invalid newDeadline format.";
+          if (!Number.isFinite(newDeadline)) return "Error: invalid newDeadline format.";
           if (newDeadline <= Date.now()) return "Error: new deadline must be in the future.";
 
           const existing = await assignmentStore.get(id);

@@ -4,6 +4,8 @@ import type { SubmissionStore } from "../store/submission-store.js";
 import type { CheckinStore } from "../store/checkin-store.js";
 import { getStudentsForTutor } from "../relay.js";
 
+const TITLE_TRUNCATE = 20;
+
 /**
  * Grades export tool for tutors — aggregates assignment and check-in scores
  * into a plain-text table. Copy-paste into a spreadsheet.
@@ -46,7 +48,7 @@ export function createGradesTool(
       const closedWindows = allWindows.filter((w) => w.status === "closed" && !w.pulseGroupId);
 
       // Build header
-      const assignmentHeaders = assignments.map((a) => a.title.slice(0, 20));
+      const assignmentHeaders = assignments.map((a) => a.title.slice(0, TITLE_TRUNCATE));
       const checkinHeaders = closedWindows.map((w, i) => `CI-${i + 1}`);
       const headers = ["Student", ...assignmentHeaders, ...checkinHeaders];
 

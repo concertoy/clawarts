@@ -8,6 +8,8 @@ import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("submit");
 
+const MAX_SUBMISSION_CHARS = 50_000;
+
 /**
  * Submission tool for student agents.
  * Actions: submit, list, view.
@@ -46,7 +48,7 @@ export function createSubmitTool(
           const assignmentId = input.assignmentId as string;
           const content = input.content as string;
           if (!assignmentId || !content) return "Error: assignmentId and content are required.";
-          if (content.length > 50_000) return `Error: submission content too long (${Math.round(content.length / 1000)}K chars, max 50K).`;
+          if (content.length > MAX_SUBMISSION_CHARS) return `Error: submission content too long (${Math.round(content.length / 1000)}K chars, max ${MAX_SUBMISSION_CHARS / 1000}K).`;
 
           const assignment = await assignmentStore.get(assignmentId);
           if (!assignment) return `Error: assignment ${assignmentId} not found.`;
