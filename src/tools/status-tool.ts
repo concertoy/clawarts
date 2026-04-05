@@ -3,7 +3,7 @@ import { getStudentsForTutor, getAgentLastActive, getAgentLastError, getRegister
 import { getLaneDepth, getQueueStats } from "../queue/command-queue.js";
 import { CommandLane } from "../queue/lanes.js";
 import type { CronService } from "../cron/service.js";
-import { getTokenUsage, estimateCost, formatLatencyStats, getToolUsage } from "../utils/token-tracker.js";
+import { getTokenUsage, estimateCost, formatLatencyStats, getToolUsage, getCompactionStats } from "../utils/token-tracker.js";
 import { formatTokenCount, formatUsd, formatTimeAgo, formatDuration } from "../utils/format.js";
 import { getVersion } from "../utils/version.js";
 
@@ -114,6 +114,19 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
       }
       if (totalCost > 0) {
         lines.push(`\nEstimated total cost (this session): ~${formatUsd(totalCost)}`);
+      }
+
+      // Compaction health
+      const allCompaction = [tutorId, ...students.map((s) => s.id)]
+        .map((id) => ({ id, stats: getCompactionStats(id) }))
+        .filter((c) => c.stats);
+      const totalFailures = allCompaction.reduce((n, c) => n + (c.stats?.failures ?? 0), 0);
+      if (totalFailures > 0) {
+        const details = allCompaction
+          .filter((c) => c.stats && c.stats.failures > 0)
+          .map((c) => `${c.id}: ${c.stats!.failures} failed`)
+          .join(", ");
+        lines.push(`\n⚠️ Compaction failures: ${details}`);
       }
 
       return lines.join("\n");

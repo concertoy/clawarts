@@ -6,6 +6,8 @@ import {
   getTokenUsage,
   recordToolUsage,
   getToolUsage,
+  recordCompaction,
+  getCompactionStats,
   type AgentTokenUsage,
 } from "../utils/token-tracker.js";
 
@@ -91,5 +93,23 @@ describe("recordToolUsage + getToolUsage", () => {
 
   it("returns empty for unknown agent", () => {
     expect(getToolUsage("nonexistent")).toEqual([]);
+  });
+});
+
+describe("recordCompaction + getCompactionStats", () => {
+  const agentId = `compact-agent-${Date.now()}`;
+
+  it("tracks successes and failures", () => {
+    recordCompaction(agentId, true);
+    recordCompaction(agentId, true);
+    recordCompaction(agentId, false);
+    const stats = getCompactionStats(agentId);
+    expect(stats).toBeDefined();
+    expect(stats!.successes).toBe(2);
+    expect(stats!.failures).toBe(1);
+  });
+
+  it("returns undefined for unknown agent", () => {
+    expect(getCompactionStats("nonexistent")).toBeUndefined();
   });
 });

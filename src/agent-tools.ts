@@ -24,6 +24,8 @@ import { createHelpTool } from "./tools/help-tool.js";
 import { createGradesTool } from "./tools/grades-tool.js";
 import type { WebClient } from "@slack/web-api";
 import { clawHome } from "./utils/paths.js";
+import { errMsg } from "./utils/errors.js";
+import { createLogger } from "./utils/logger.js";
 
 export interface AgentToolsResult {
   tools: ToolDefinition[];
@@ -36,6 +38,7 @@ export function createAgentTools(
   cronService: CronService,
   slackClient: WebClient,
 ): AgentToolsResult {
+  const log = createLogger(`tools:${config.id}`);
   const allTools = createToolRegistry(config.workspaceDir, { cronService, agentId: config.id });
   const isTutor = !config.linkedTutor;
 
@@ -48,13 +51,13 @@ export function createAgentTools(
     const dataDir = clawHome("agents", config.id, "data");
     const assignmentStore = new AssignmentStore(path.join(dataDir, "assignments.json"));
     // Sweep overdue assignments on startup (may remain if process crashed before cron auto-close fired)
-    assignmentStore.closeExpired().catch(() => {});
+    assignmentStore.closeExpired().catch((err) => log.warn("Failed to auto-close expired assignments:", errMsg(err)));
     const submissionStore = new SubmissionStore(path.join(dataDir, "submissions.json"));
     allTools.push(createAssignmentTool(assignmentStore, submissionStore, cronService, config.id));
 
     const checkinStore = new CheckinStore(dataDir);
     // Sweep stale open windows on startup (may remain if process crashed before cron auto-close fired)
-    checkinStore.closeExpiredWindows().catch(() => {});
+    checkinStore.closeExpiredWindows().catch((err) => log.warn("Failed to close expired check-in windows:", errMsg(err)));
     allTools.push(createCheckinTool(checkinStore, cronService, config.id));
     allTools.push(createStatusTool(cronService));
     allTools.push(createExportTool());

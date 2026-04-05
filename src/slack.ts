@@ -77,7 +77,10 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
 
   function isDuplicate(channel: string, ts: string): boolean {
     const key = `${channel}:${ts}`;
-    if (processedMessages.has(key)) return true;
+    if (processedMessages.has(key)) {
+      alog.debug(`Dedup: ignoring duplicate message ${channel}:${ts}`);
+      return true;
+    }
     processedMessages.set(key, true);
     return false;
   }
@@ -465,7 +468,7 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
       // Don't expose raw error details (API keys, paths) to Slack users
       await client.chat.postMessage({
         channel,
-        text: "Sorry, something went wrong processing your message. Please try again.",
+        text: "Sorry, something went wrong processing your message. Please try again, or ask your instructor for help.",
         ...(replyThreadTs ? { thread_ts: replyThreadTs } : {}),
       });
     } catch {
