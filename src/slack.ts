@@ -386,8 +386,8 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
         : slackText + " :writing_hand:";
       try {
         await client.chat.update({ channel, ts: placeholderTs, text: displayText });
-      } catch {
-        // Edit may fail under rate limits — non-fatal
+      } catch (err) {
+        log.debug(`Stream edit failed (rate limit?): ${errMsg(err)}`);
       }
     };
 
