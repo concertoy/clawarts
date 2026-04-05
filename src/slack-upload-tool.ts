@@ -49,6 +49,12 @@ export function createSlackUploadTool(slackClient: WebClient): ToolDefinition {
         return "Error: filename and content are required";
       }
 
+      // Sanitize filename: strip path separators to prevent traversal
+      const safeName = filename.replace(/[/\\]/g, "_").replace(/\.\./g, "_");
+      if (safeName !== filename) {
+        return `Error: filename contains path separators. Use a simple name like "${safeName}".`;
+      }
+
       if (Buffer.byteLength(content, "utf-8") > MAX_CONTENT_BYTES) {
         return `Error: content exceeds ${MAX_CONTENT_BYTES / 1024 / 1024}MB limit`;
       }

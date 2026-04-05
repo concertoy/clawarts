@@ -46,6 +46,7 @@ export function createSubmitTool(
           const assignmentId = input.assignmentId as string;
           const content = input.content as string;
           if (!assignmentId || !content) return "Error: assignmentId and content are required.";
+          if (content.length > 50_000) return `Error: submission content too long (${Math.round(content.length / 1000)}K chars, max 50K).`;
 
           const assignment = await assignmentStore.get(assignmentId);
           if (!assignment) return `Error: assignment ${assignmentId} not found.`;
@@ -85,7 +86,9 @@ export function createSubmitTool(
             submissions.map(async (s) => {
               const assignment = await assignmentStore.get(s.assignmentId);
               const title = assignment?.title ?? s.assignmentId;
-              return `- "${title}" [${s.status}] — submitted ${new Date(s.submittedAt).toISOString()}`;
+              const grade = s.score != null ? ` — score: ${s.score}/100` : "";
+              const fb = s.feedback ? ` ("${s.feedback}")` : "";
+              return `- "${title}" [${s.status}]${grade}${fb} — submitted ${new Date(s.submittedAt).toISOString()}`;
             }),
           );
           return `Your submissions (${submissions.length}):\n${lines.join("\n")}`;
@@ -122,7 +125,7 @@ export function createSubmitTool(
             assignment.attachments.length > 0 ? `Attachments: ${assignment.attachments.join(", ")}` : "",
             ``,
             sub
-              ? `Your submission: [${sub.status}] at ${new Date(sub.submittedAt).toISOString()}`
+              ? `Your submission: [${sub.status}] at ${new Date(sub.submittedAt).toISOString()}${sub.score != null ? `\nGrade: ${sub.score}/100${sub.feedback ? ` — "${sub.feedback}"` : ""}` : ""}`
               : "You have not submitted yet.",
           ]
             .filter(Boolean)

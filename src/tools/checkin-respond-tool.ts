@@ -47,6 +47,7 @@ export function createCheckinRespondTool(
         case "respond": {
           const content = input.content as string;
           if (!content) return "Error: content is required.";
+          if (content.length > 10_000) return "Error: response too long (max 10,000 characters).";
 
           const window = await checkinStore.getRespondableWindow();
           if (!window) return "No active check-in window. There may not be a check-in happening right now.";

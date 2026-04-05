@@ -48,7 +48,11 @@ function matchesToolFilter(tool: ToolDefinition, filterSet: Set<string>): boolea
 
   // Match by wildcard pattern (e.g. "web_*" matches "web_search", "web_fetch")
   for (const pattern of filterSet) {
-    if (pattern.endsWith("*") && tool.name.startsWith(pattern.slice(0, -1))) return true;
+    if (pattern.endsWith("*")) {
+      const prefix = pattern.slice(0, -1);
+      // "*" alone matches everything; "web_*" matches tools starting with "web_"
+      if (prefix === "" || tool.name.startsWith(prefix)) return true;
+    }
   }
 
   return false;
