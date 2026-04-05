@@ -48,6 +48,11 @@ export class Agent {
     return this.toolDefs.map((t) => t.name);
   }
 
+  /** Expose rate limiter stats for status reporting. */
+  get rateLimitStats() {
+    return this.rateLimiter.stats();
+  }
+
   /**
    * Track in-flight AbortControllers per session.
    * When a new message arrives for a session that already has an active request,
@@ -126,7 +131,8 @@ export class Agent {
     const limit = this.rateLimiter.consume();
     if (!limit.allowed) {
       const waitSec = Math.ceil(limit.retryAfterMs / 1000);
-      this.log.warn(`Rate limited: retry in ${waitSec}s`);
+      const stats = this.rateLimiter.stats();
+      this.log.warn(`Rate limited (${stats.rejected} rejected total): retry in ${waitSec}s`);
       touchAgent(this.config.id);
       return `I'm receiving too many messages right now. Please wait ${waitSec} seconds and try again.`;
     }
@@ -466,7 +472,8 @@ export class Agent {
       messages.push(...toKeep.slice(startIdx));
 
       recordCompaction(this.config.id, true);
-      this.log.info(`Compacted ${sessionKey ?? "?"}: ${toSummarize.length + toKeep.length} → ${messages.length} messages (${totalChars} → ~${summary.length} chars)`);
+      const savedPct = totalChars > 0 ? Math.round((1 - summary.length / totalChars) * 100) : 0;
+      this.log.info(`Compacted ${sessionKey ?? "?"}: ${toSummarize.length + toKeep.length} → ${messages.length} messages (${totalChars} → ~${summary.length} chars, ${savedPct}% saved)`);
     } catch (err) {
       recordCompaction(this.config.id, false);
       // Non-fatal — if compaction fails, just continue with full history

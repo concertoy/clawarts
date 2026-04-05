@@ -140,6 +140,10 @@ async function executeOne(toolMap: Map<string, ToolDefinition>, tc: ToolCall, co
     // Include truncated args summary for debugging (e.g. which file, which command)
     const argsSummary = tc.arguments.length > 120 ? tc.arguments.slice(0, 120) + "..." : tc.arguments;
     log.error(`${tc.name} failed after ${(elapsed / 1000).toFixed(1)}s: ${msg.slice(0, 200)} | args: ${argsSummary}`);
+    // Friendly timeout message (ported from claude-code's FallbackToolUseErrorMessage pattern)
+    if (msg.includes("timed out") || msg.includes("TIMEOUT")) {
+      return { callId: tc.id, name: tc.name, output: `The ${tc.name} tool timed out after ${Math.round(elapsed / 1000)}s. Try a simpler command or break it into smaller steps.`, isError: true };
+    }
     return { callId: tc.id, name: tc.name, output: `Tool execution error: ${sanitizeForUser(msg)}`, isError: true };
   }
 }
