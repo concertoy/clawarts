@@ -154,7 +154,14 @@ function decodeDdgUrl(raw: string): string {
   try {
     const parsed = new URL(raw, "https://duckduckgo.com");
     const uddg = parsed.searchParams.get("uddg");
-    if (uddg) return decodeURIComponent(uddg);
+    if (uddg) {
+      const decoded = decodeURIComponent(uddg);
+      // Validate the decoded URL — reject javascript: and data: schemes
+      try {
+        const url = new URL(decoded);
+        if (url.protocol === "http:" || url.protocol === "https:") return decoded;
+      } catch { /* malformed — fall through */ }
+    }
   } catch {
     // not a redirect URL
   }
@@ -174,8 +181,8 @@ function decodeHtmlEntities(text: string): string {
     .replace(/&ndash;/g, "-")
     .replace(/&mdash;/g, "--")
     .replace(/&hellip;/g, "...")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+    .replace(/&#(\d+);/g, (_, n) => { const cp = Number(n); return cp > 0 && cp <= 0x10FFFF ? String.fromCodePoint(cp) : ""; })
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => { const cp = parseInt(h, 16); return cp > 0 && cp <= 0x10FFFF ? String.fromCodePoint(cp) : ""; });
 }
 
 function stripHtml(text: string): string {
@@ -335,11 +342,14 @@ function sanitizeHtml(html: string): string {
     .replace(/<canvas[\s\S]*?<\/canvas>/gi, "")
     .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
     .replace(/<template[\s\S]*?<\/template>/gi, "")
+    .replace(/<form[\s\S]*?<\/form>/gi, "")
     .replace(/<input[^>]*type=["']hidden["'][^>]*>/gi, "")
     .replace(/<[^>]+aria-hidden=["']true["'][^>]*>[\s\S]*?<\/[^>]+>/gi, "")
     .replace(/<[^>]+style="[^"]*display\s*:\s*none[^"]*"[^>]*>[\s\S]*?<\/[^>]+>/gi, "")
     .replace(/<[^>]+style="[^"]*visibility\s*:\s*hidden[^"]*"[^>]*>[\s\S]*?<\/[^>]+>/gi, "")
-    .replace(/<meta[^>]*>/gi, "");
+    .replace(/<meta[^>]*>/gi, "")
+    .replace(/\s+on\w+="[^"]*"/gi, "")   // strip inline event handlers (onclick, onerror, etc.)
+    .replace(/\s+on\w+='[^']*'/gi, "");
 }
 
 function htmlToMarkdown(html: string): string {
@@ -368,8 +378,8 @@ function htmlToMarkdown(html: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&nbsp;/g, " ")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+    .replace(/&#(\d+);/g, (_, n) => { const cp = Number(n); return cp > 0 && cp <= 0x10FFFF ? String.fromCodePoint(cp) : ""; })
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => { const cp = parseInt(h, 16); return cp > 0 && cp <= 0x10FFFF ? String.fromCodePoint(cp) : ""; });
 
   if (title) md = `# ${title}\n\n${md}`;
   return md;

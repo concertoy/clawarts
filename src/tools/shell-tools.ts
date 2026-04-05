@@ -26,8 +26,12 @@ const DANGEROUS_PATTERNS: RegExp[] = [
   /\bchown\s+(-R\s+)?.*\s+\//,                     // chown -R on /
   /:\(\)\s*\{\s*:\|:\s*&\s*\}\s*;?\s*:/,            // fork bomb
   /\biptables\s+(-F|--flush)\b/,                    // flush firewall
-  /\bcurl\b.*\|\s*(sudo\s+)?(ba)?sh/,              // curl | sh
-  /\bwget\b.*\|\s*(sudo\s+)?(ba)?sh/,              // wget | sh
+  /\bcurl\b.*\|\s*(sudo\s+)?(\/\w+\/)*(ba)?sh/,     // curl | sh (including /bin/sh)
+  /\bwget\b.*\|\s*(sudo\s+)?(\/\w+\/)*(ba)?sh/,    // wget | sh
+  /\bgit\s+push\s+.*--force\b/,                     // git push --force
+  /\bpkill\s+-9\b/,                                 // pkill -9
+  /\bkillall\b/,                                    // killall
+  /\bxargs\s+.*\brm\b/,                             // xargs rm
 ];
 
 function isDangerousCommand(command: string): string | null {
