@@ -37,6 +37,7 @@ export function createAssignmentTool(
           items: { type: "string" },
           description: "URLs or file paths for reference materials.",
         },
+        status: { type: "string", enum: ["open", "closed"], description: "Filter by status (for list action)." },
         // get/close/extend fields
         assignmentId: { type: "string", description: "Assignment ID (for get, close, extend, grade)." },
         // extend fields
@@ -45,6 +46,7 @@ export function createAssignmentTool(
         submissionId: { type: "string", description: "Submission ID to grade." },
         score: { type: "number", description: "Score 0-100 (for grade action)." },
         feedback: { type: "string", description: "Feedback comment (for grade action)." },
+        outputFormat: { type: "string", enum: ["text", "csv"], description: "Output format for list/get. 'csv' for spreadsheet export. Default: text." },
       },
       required: ["action"],
     },
@@ -120,14 +122,31 @@ export function createAssignmentTool(
           const assignments = await assignmentStore.list(statusFilter ? { status: statusFilter } : undefined);
           if (assignments.length === 0) return "No assignments found.";
 
-          const lines = await Promise.all(
+          const csvOut = (input.outputFormat as string) === "csv";
+
+          const rows = await Promise.all(
             assignments.map(async (a) => {
               const subs = await submissionStore.listByAssignment(a.id);
-              const deadlineStr = new Date(a.deadline).toISOString();
-              const overdue = a.status === "open" && Date.now() > a.deadline ? " (OVERDUE)" : "";
-              return `- [${a.status}] "${a.title}" (${a.id})\n  Deadline: ${deadlineStr}${overdue}\n  Submissions: ${subs.length}`;
+              const graded = subs.filter((s) => s.score != null).length;
+              return { assignment: a, subCount: subs.length, graded };
             }),
           );
+
+          if (csvOut) {
+            const csvLines = ["id,title,status,deadline,submissions,graded"];
+            for (const { assignment: a, subCount, graded } of rows) {
+              const title = a.title.replace(/"/g, '""');
+              csvLines.push(`${a.id},"${title}",${a.status},${new Date(a.deadline).toISOString()},${subCount},${graded}`);
+            }
+            return csvLines.join("\n");
+          }
+
+          const lines = rows.map(({ assignment: a, subCount, graded }) => {
+            const deadlineStr = new Date(a.deadline).toISOString();
+            const overdue = a.status === "open" && Date.now() > a.deadline ? " (OVERDUE)" : "";
+            const gradeInfo = graded > 0 ? ` (${graded} graded)` : "";
+            return `- [${a.status}] "${a.title}" (${a.id})\n  Deadline: ${deadlineStr}${overdue}\n  Submissions: ${subCount}${gradeInfo}`;
+          });
           return `Assignments (${assignments.length}):\n\n${lines.join("\n\n")}`;
         }
 
@@ -144,9 +163,11 @@ export function createAssignmentTool(
           const submittedUserIds = new Set(submissions.map((s) => s.userId));
           const missing = allUserIds.filter((u) => !submittedUserIds.has(u));
 
-          const subLines = submissions.map(
-            (s) => `  - <@${s.userId}> [${s.status}] at ${new Date(s.submittedAt).toISOString()}: ${s.content.slice(0, 200)}`,
-          );
+          const subLines = submissions.map((s) => {
+            const grade = s.score != null ? ` | score: ${s.score}/100` : "";
+            const fb = s.feedback ? ` | "${s.feedback}"` : "";
+            return `  - <@${s.userId}> [${s.status}]${grade}${fb} at ${new Date(s.submittedAt).toISOString()}: ${s.content.slice(0, 200)}`;
+          });
 
           return [
             `Assignment: "${assignment.title}"`,
@@ -216,7 +237,6 @@ export function createAssignmentTool(
           return `Deadline extended to ${new Date(newDeadline).toISOString()} for "${assignment.title}".`;
         }
 
-        default:
         case "grade": {
           const submissionId = input.submissionId as string;
           const score = input.score as number;
@@ -231,6 +251,7 @@ export function createAssignmentTool(
           return `Graded <@${graded.userId}>: ${score}/100${feedback ? ` — "${feedback}"` : ""}`;
         }
 
+        default:
           return `Unknown action: ${action}. Use create, list, get, close, reopen, extend, or grade.`;
       }
     },
