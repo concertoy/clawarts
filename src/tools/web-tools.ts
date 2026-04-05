@@ -2,9 +2,10 @@ import { createHash } from "node:crypto";
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import type { ToolDefinition } from "../types.js";
-import { BoundedMap } from "../utils/bounded-map.js";
 import { errMsg } from "../utils/errors.js";
+import { fetchWithTimeout } from "../utils/fetch-timeout.js";
 import { createLogger } from "../utils/logger.js";
+import { TTLMap } from "../utils/ttl-map.js";
 
 const log = createLogger("web-tools");
 
@@ -15,20 +16,7 @@ const DDG_USER_AGENT =
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 const DDG_TIMEOUT = 20_000;
 
-const ddgCache = new BoundedMap<string, { results: string; expiresAt: number }>(100);
-const DDG_CACHE_TTL = 60 * 60 * 1000;
-
-/** Sweep expired entries from a TTL cache. Runs at most every 60s per cache. */
-const lastSweep = new WeakMap<BoundedMap<string, { expiresAt: number }>, number>();
-function sweepExpired<V extends { expiresAt: number }>(cache: BoundedMap<string, V>): void {
-  const now = Date.now();
-  const last = lastSweep.get(cache as BoundedMap<string, { expiresAt: number }>) ?? 0;
-  if (now - last < 60_000) return;
-  lastSweep.set(cache as BoundedMap<string, { expiresAt: number }>, now);
-  for (const [key, val] of cache) {
-    if (val.expiresAt <= now) cache.delete(key);
-  }
-}
+const ddgCache = new TTLMap<string, string>({ maxSize: 100, ttlMs: 60 * 60 * 1000 });
 
 const webSearchTool: ToolDefinition = {
   name: "web_search",
@@ -50,18 +38,15 @@ const webSearchTool: ToolDefinition = {
 
     const cacheKey = `${query.trim().toLowerCase()}:${count}`;
     const cached = ddgCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) return cached.results;
+    if (cached) return cached;
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), DDG_TIMEOUT);
-    if (timer.unref) timer.unref();
     try {
       const params = new URLSearchParams({ q: query, kp: "-1" });
       const url = `${DDG_URL}?${params}`;
 
-      const resp = await fetch(url, {
+      const resp = await fetchWithTimeout(url, {
         headers: { "User-Agent": DDG_USER_AGENT },
-        signal: controller.signal,
+        timeoutMs: DDG_TIMEOUT,
       });
 
       if (!resp.ok) {
@@ -87,13 +72,10 @@ const webSearchTool: ToolDefinition = {
 
       const output = `Search results for: ${query}\n\n${formatted}`;
 
-      sweepExpired(ddgCache);
-      ddgCache.set(cacheKey, { results: output, expiresAt: Date.now() + DDG_CACHE_TTL });
+      ddgCache.set(cacheKey, output);
       return output;
     } catch (err) {
       return `DuckDuckGo search failed: ${errMsg(err)}`;
-    } finally {
-      clearTimeout(timer);
     }
   },
 };
@@ -196,8 +178,7 @@ const WEB_FETCH_MAX_CHARS = 50_000;
 const WEB_FETCH_MAX_HTML = 1_000_000;
 const WEB_FETCH_MAX_RESPONSE_BYTES = 2_000_000;
 
-const fetchCache = new BoundedMap<string, { result: string; expiresAt: number }>(100);
-const FETCH_CACHE_TTL = 15 * 60 * 1000;
+const fetchCache = new TTLMap<string, string>({ maxSize: 100, ttlMs: 15 * 60 * 1000 });
 
 const webFetchTool: ToolDefinition = {
   name: "web_fetch",
@@ -235,18 +216,15 @@ const webFetchTool: ToolDefinition = {
     const rawKey = `${url}:${extractMode}:${maxChars}`.toLowerCase();
     const cacheKey = rawKey.length > 200 ? createHash("sha256").update(rawKey).digest("hex") : rawKey;
     const cached = fetchCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) return cached.result;
+    if (cached) return cached;
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), WEB_FETCH_TIMEOUT);
-    if (timer.unref) timer.unref();
     try {
-      const resp = await fetch(url, {
+      const resp = await fetchWithTimeout(url, {
         headers: {
           "User-Agent": DDG_USER_AGENT,
           "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8",
         },
-        signal: controller.signal,
+        timeoutMs: WEB_FETCH_TIMEOUT,
         redirect: "follow",
       });
 
@@ -286,13 +264,10 @@ const webFetchTool: ToolDefinition = {
 
       if (!result.trim()) result = "(empty page — this site likely renders content via JavaScript.)";
 
-      sweepExpired(fetchCache);
-      fetchCache.set(cacheKey, { result, expiresAt: Date.now() + FETCH_CACHE_TTL });
+      fetchCache.set(cacheKey, result);
       return result;
     } catch (err) {
       return `Fetch failed: ${errMsg(err)}`;
-    } finally {
-      clearTimeout(timer);
     }
   },
 };

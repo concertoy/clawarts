@@ -5,7 +5,8 @@
 
 import type { ImageContent } from "../provider.js";
 import { errMsg } from "./errors.js";
-import { IMAGE_EXTENSIONS, type SlackFile } from "./slack-types.js";
+import { fetchWithTimeout } from "./fetch-timeout.js";
+import { fileExtension, IMAGE_EXTENSIONS, type SlackFile } from "./slack-types.js";
 import { createLogger } from "./logger.js";
 
 const log = createLogger("slack-images");
@@ -32,7 +33,7 @@ export async function downloadSlackImages(
   const skipped: string[] = [];
 
   for (const file of files) {
-    const ext = (file.filetype ?? file.name?.split(".").pop() ?? "").toLowerCase();
+    const ext = fileExtension(file);
     if (!IMAGE_EXTENSIONS.has(ext)) continue;
     if (file.size && file.size > MAX_IMAGE_SIZE) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
@@ -44,13 +45,10 @@ export async function downloadSlackImages(
     const url = file.url_private_download ?? file.url_private;
     if (!url) continue;
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
-    if (timer.unref) timer.unref();
     try {
-      const resp = await fetch(url, {
+      const resp = await fetchWithTimeout(url, {
         headers: { Authorization: `Bearer ${botToken}` },
-        signal: controller.signal,
+        timeoutMs: DOWNLOAD_TIMEOUT_MS,
       });
 
       if (!resp.ok) {
@@ -68,8 +66,6 @@ export async function downloadSlackImages(
       log.debug(`Downloaded ${file.name} (${Math.round(buffer.byteLength / 1024)}KB)`);
     } catch (err) {
       log.warn(`Error downloading ${file.name}:`, errMsg(err));
-    } finally {
-      clearTimeout(timer);
     }
   }
 
