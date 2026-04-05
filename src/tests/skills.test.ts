@@ -83,6 +83,23 @@ describe("loadSkills", () => {
     expect(skills[0].source).toBe("workspace");
   });
 
+  it("sanitizes skill names with special characters", () => {
+    const skillDir = path.join(tmpDir, "bad-name");
+    fs.mkdirSync(skillDir);
+    fs.writeFileSync(path.join(skillDir, "SKILL.md"), [
+      "---",
+      'name: "<script>alert</script>"',
+      "description: test",
+      "---",
+      "Body.",
+    ].join("\n"));
+
+    const skills = loadSkills({ bundledDir: tmpDir });
+    expect(skills).toHaveLength(1);
+    expect(skills[0].name).not.toContain("<");
+    expect(skills[0].name).not.toContain(">");
+  });
+
   it("skips directories without SKILL.md and recurses", () => {
     // Create: tmpDir/parent/child/SKILL.md
     const nested = path.join(tmpDir, "parent", "child");
@@ -109,6 +126,15 @@ describe("formatSkillsForPrompt", () => {
     expect(output).toContain("<description>Say hello</description>");
     expect(output).toContain("<location>/path/SKILL.md</location>");
     expect(output).toContain("</available_skills>");
+  });
+
+  it("escapes XML special characters in skill metadata", () => {
+    const output = formatSkillsForPrompt([
+      { name: "test", description: 'Contains <html> & "quotes"', filePath: "/path/SKILL.md" },
+    ]);
+    expect(output).toContain("&lt;html&gt;");
+    expect(output).toContain("&amp;");
+    expect(output).not.toContain("<html>");
   });
 
   it("includes optional fields when present", () => {
