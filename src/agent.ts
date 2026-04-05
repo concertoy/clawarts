@@ -12,6 +12,11 @@ import { createLogger } from "./utils/logger.js";
 
 const DEFAULT_MAX_TOOL_ITERATIONS = 10;
 const AGENT_LOOP_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes max for entire agent loop
+const MAX_TOKEN_RECOVERIES = 2;
+
+/** Truncation limits for compaction message summaries. */
+const SUMMARY_TOOL_OUTPUT_LIMIT = 500;
+const SUMMARY_CONTENT_LIMIT = 1000;
 
 /** Default: 30 requests per 60 seconds per agent. */
 const DEFAULT_RATE_LIMIT_REQUESTS = 30;
@@ -174,7 +179,6 @@ export class Agent {
     let lastText = "";
     let turnCount = 0;
     let maxTokensRecoveryCount = 0;
-    const MAX_TOKEN_RECOVERIES = 2;
 
     const agentStartMs = Date.now();
 
@@ -314,7 +318,7 @@ export class Agent {
       this.log.error(`Error in agent loop (turn ${turnCount}):`, err);
       recordAgentError(this.config.id, errMsg(err));
       if (!lastText) {
-        lastText = "[An error occurred while processing your request. Please try again.]";
+        lastText = "[Something went wrong processing your request. Try a simpler message, or ask again in a moment.]";
       }
     } finally {
       clearTimeout(loopTimeout);
@@ -373,9 +377,9 @@ export class Agent {
     // Build a summary request
     const summaryContent = toSummarize
       .map((m) => {
-        if (m.role === "tool_result") return `[tool_result ${m.name}]: ${m.output.slice(0, 500)}`;
+        if (m.role === "tool_result") return `[tool_result ${m.name}]: ${m.output.slice(0, SUMMARY_TOOL_OUTPUT_LIMIT)}`;
         const prefix = m.role === "assistant" ? "Assistant" : "User";
-        return `${prefix}: ${m.content.slice(0, 1000)}`;
+        return `${prefix}: ${m.content.slice(0, SUMMARY_CONTENT_LIMIT)}`;
       })
       .join("\n");
 
@@ -434,7 +438,7 @@ function ensureAlternatingRoles(messages: ProviderMessage[]): void {
     const currRole = curr.role === "tool_result" ? "user" : curr.role;
     const nextRole = next.role === "tool_result" ? "user" : next.role;
 
-    if (currRole === nextRole && currRole === "user" && curr.role === "user" && next.role === "user") {
+    if (curr.role === "user" && next.role === "user") {
       // Merge consecutive user messages
       curr.content = curr.content + "\n\n" + next.content;
       messages.splice(i + 1, 1);

@@ -11,6 +11,7 @@ const RETRY_DELAY_MS = 10_000; // Retry failed deliveries after 10s
 const MAX_RETRIES = 1; // Single retry — don't spam on persistent failures
 const STALE_JOB_AGE_MS = 24 * 60 * 60 * 1000; // Remove executed one-shot jobs after 24h
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // Run stale cleanup at most once per hour
+const PERSIST_TIMEOUT_MS = 5_000; // Max time for a persist() call before giving up
 
 /**
  * Simplified cron scheduler service.
@@ -289,7 +290,7 @@ export class CronService {
         if (retryTimer.unref) retryTimer.unref();
         this.retryTimers.add(retryTimer);
       } else {
-        this.log.error(`Job "${job.name}" failed (no more retries): ${msg}`);
+        this.log.error(`Job "${job.name}" failed (no more retries): ${msg}; will retry at next scheduled run`);
       }
     }
   }
@@ -343,6 +344,13 @@ export class CronService {
 
   private async persist(): Promise<void> {
     if (!this.store) return;
-    await saveCronStore(this.opts.storePath, this.store);
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("persist() timed out")), PERSIST_TIMEOUT_MS),
+    );
+    try {
+      await Promise.race([saveCronStore(this.opts.storePath, this.store), timeout]);
+    } catch (err) {
+      this.log.error(`Failed to persist cron store: ${errMsg(err)}`);
+    }
   }
 }

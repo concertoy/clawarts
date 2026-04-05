@@ -42,6 +42,10 @@ async function createProvider(config: AgentConfig): Promise<ModelProvider> {
       }
       return new CodexProvider(sharedTokenProvider);
     }
+    default: {
+      const _exhaustive: never = config.provider;
+      throw new Error(`Unknown provider: ${_exhaustive}`);
+    }
   }
 }
 
