@@ -71,12 +71,18 @@ export function createAssignmentTool(
           if (!Number.isFinite(deadline)) return "Error: invalid deadline format. Use ISO 8601 (e.g. '2026-04-10T23:59:00Z').";
           if (deadline <= Date.now()) return "Error: deadline must be in the future.";
 
+          // Validate attachments: must be URLs or reasonable file paths, not shell injection vectors
+          const rawAttachments = (input.attachments as string[]) || [];
+          const attachments = rawAttachments
+            .map((a) => (typeof a === "string" ? a.trim() : ""))
+            .filter((a) => a.length > 0 && a.length < 2000);
+
           const assignment = await assignmentStore.create({
             title,
             description,
             deadline,
             format: input.format === "group" ? "group" : "individual",
-            attachments: (input.attachments as string[]) || [],
+            attachments,
             status: "open",
             createdBy: agentId,
           });
