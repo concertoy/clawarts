@@ -61,6 +61,20 @@ export class CheckinStore {
     return store.items.find((w) => isWindowActive(w, now));
   }
 
+  /** Get the most recent window that's still within the grace period (active or just expired). */
+  async getRespondableWindow(): Promise<CheckinWindow | undefined> {
+    const GRACE_PERIOD_MS = 60_000;
+    const store = await loadStore<CheckinWindow>(this.windowsPath);
+    const now = Date.now();
+    // First try active windows
+    const active = store.items.find((w) => isWindowActive(w, now));
+    if (active) return active;
+    // Then try recently-expired windows still within grace period
+    return store.items
+      .filter((w) => w.status === "open" && w.closesAt < now && now - w.closesAt < GRACE_PERIOD_MS)
+      .sort((a, b) => b.closesAt - a.closesAt)[0];
+  }
+
   async closeWindow(id: string): Promise<CheckinWindow | undefined> {
     const store = await loadStore<CheckinWindow>(this.windowsPath);
     const idx = store.items.findIndex((w) => w.id === id);
@@ -109,10 +123,14 @@ export class CheckinStore {
     content: string;
   }): Promise<CheckinResponse | { error: string }> {
     // Validate window before acquiring lock (read-only check)
+    const GRACE_PERIOD_MS = 60_000; // 60s grace period — responses accepted but marked late
     const window = await this.getWindow(data.windowId);
     if (!window) return { error: "Check-in window not found." };
-    if (window.status !== "open") return { error: "Check-in window is closed." };
-    if (Date.now() > window.closesAt) return { error: "Check-in window has expired." };
+    const now = Date.now();
+    const isLate = now > window.closesAt;
+    const pastGrace = now > window.closesAt + GRACE_PERIOD_MS;
+    if (window.status !== "open" && !isLate) return { error: "Check-in window is closed." };
+    if (pastGrace) return { error: "Check-in window has expired (grace period ended)." };
 
     // Lock the responses file to prevent concurrent read-modify-write races
     // (multiple students may submit simultaneously during a check-in window)
@@ -131,6 +149,7 @@ export class CheckinStore {
         agentId: data.agentId,
         content: data.content,
         submittedAt: Date.now(), // server-set timestamp
+        ...(isLate ? { status: "late" as CheckinStatus } : {}),
       };
 
       if (existingIdx !== -1) {

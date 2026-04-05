@@ -39,7 +39,8 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
       const tokenInfo = tutorTokens
         ? `, ${formatTokenCount(tutorTokens.inputTokens)}in/${formatTokenCount(tutorTokens.outputTokens)}out (${tutorTokens.requestCount} req, ~${formatUsd(estimateCost(tutorTokens))}${latencyInfo ? `, ${latencyInfo}` : ""})`
         : "";
-      const lines: string[] = [`Status for ${tutorId} v${version} (uptime: ${uptimeStr}, ${memMB}MB, ${tutorSessions} session(s)${tokenInfo}):`];
+      const tutorToolCount = tutorReg?.agent.toolNames.length ?? 0;
+      const lines: string[] = [`Status for ${tutorId} v${version} (uptime: ${uptimeStr}, ${memMB}MB, ${tutorSessions} session(s), ${tutorToolCount} tools${tokenInfo}):`];
 
       // Student agents
       const students = getStudentsForTutor(tutorId);
