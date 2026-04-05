@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "check": "tsx src/cli/index.ts check",
     "test": "vitest run",
+    "test:watch": "vitest",
     "prepack": "npm run build"
   },
   "dependencies": {
