@@ -9,7 +9,9 @@ type Level = keyof typeof LEVELS;
 
 const globalLevel: Level = (() => {
   const env = (process.env.LOG_LEVEL ?? "info").toLowerCase();
-  return env in LEVELS ? (env as Level) : "info";
+  if (env in LEVELS) return env as Level;
+  console.warn(`[logger] Unknown LOG_LEVEL="${process.env.LOG_LEVEL}" — using "info". Valid: ${Object.keys(LEVELS).join(", ")}`);
+  return "info";
 })();
 
 export class Logger {

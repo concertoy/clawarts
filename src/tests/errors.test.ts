@@ -33,10 +33,18 @@ describe("isAbortError", () => {
     err.name = "AbortError";
     expect(isAbortError(err)).toBe(true);
   });
-  it("detects abort by message", () => {
-    expect(isAbortError(new Error("signal was abort"))).toBe(true);
+  it("detects Node.js abort message", () => {
+    expect(isAbortError(new Error("This operation was aborted"))).toBe(true);
+    expect(isAbortError(new Error("The operation was aborted"))).toBe(true);
+  });
+  it("detects DOMException abort code", () => {
+    const err = Object.assign(new Error("aborted"), { code: 20 });
+    expect(isAbortError(err)).toBe(true);
   });
   it("returns false for normal errors", () => {
     expect(isAbortError(new Error("timeout"))).toBe(false);
+  });
+  it("does not false-positive on messages containing abort", () => {
+    expect(isAbortError(new Error("transaction aborted by user"))).toBe(false);
   });
 });

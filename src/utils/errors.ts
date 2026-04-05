@@ -13,7 +13,13 @@ export function isFileNotFound(err: unknown): boolean {
   return err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT";
 }
 
-/** Check if an error is an abort/cancellation error. */
+/** Check if an error is an abort/cancellation error (from AbortController). */
 export function isAbortError(err: unknown): boolean {
-  return err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"));
+  if (!(err instanceof Error)) return false;
+  if (err.name === "AbortError") return true;
+  // DOMException with ABORT_ERR code (used by fetch)
+  if ("code" in err && (err as { code: number }).code === 20) return true;
+  // Fallback: Node.js abort reason strings
+  if (err.message === "This operation was aborted" || err.message === "The operation was aborted") return true;
+  return false;
 }
