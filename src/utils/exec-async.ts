@@ -48,25 +48,24 @@ export function execAsync(
     let stdoutTruncated = false;
     let stderrTruncated = false;
 
-    child.stdout?.on("data", (chunk: Buffer) => {
-      if (!stdoutTruncated) {
-        stdout += chunk.toString();
-        if (stdout.length > MAX_BUFFER) {
-          stdout = stdout.slice(0, MAX_BUFFER);
-          stdoutTruncated = true;
-        }
+    const stdoutHandler = (chunk: Buffer) => {
+      stdout += chunk.toString();
+      if (stdout.length > MAX_BUFFER) {
+        stdout = stdout.slice(0, MAX_BUFFER);
+        stdoutTruncated = true;
+        child.stdout?.removeListener("data", stdoutHandler); // stop accumulating
       }
-    });
-
-    child.stderr?.on("data", (chunk: Buffer) => {
-      if (!stderrTruncated) {
-        stderr += chunk.toString();
-        if (stderr.length > MAX_BUFFER) {
-          stderr = stderr.slice(0, MAX_BUFFER);
-          stderrTruncated = true;
-        }
+    };
+    const stderrHandler = (chunk: Buffer) => {
+      stderr += chunk.toString();
+      if (stderr.length > MAX_BUFFER) {
+        stderr = stderr.slice(0, MAX_BUFFER);
+        stderrTruncated = true;
+        child.stderr?.removeListener("data", stderrHandler); // stop accumulating
       }
-    });
+    };
+    child.stdout?.on("data", stdoutHandler);
+    child.stderr?.on("data", stderrHandler);
 
     child.on("error", (err) => {
       clearTimeout(timer);

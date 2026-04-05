@@ -181,9 +181,11 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     const isDM = isDirectMessage(channel);
 
     // Hydrate from Slack API if session is cold (new or after restart).
+    // Use a single get() call to avoid TOCTOU race between has() and get().
+    const wasKnown = sessions.has(sessionKey);
     let isNewSession = false;
-    if (!sessions.has(sessionKey)) {
-      const restored = sessions.get(sessionKey);
+    if (!wasKnown) {
+      const restored = sessions.get(sessionKey); // auto-creates or restores from disk
       if (restored.messages.length === 0) {
         isNewSession = true;
         try {
@@ -298,10 +300,22 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     });
   });
 
-  // Log Socket Mode connection lifecycle for debugging WiFi/network issues
+  // Log Socket Mode connection lifecycle for debugging WiFi/network issues.
+  // Suppress repeated reconnecting logs to avoid flooding on flaky networks.
   if (socketClient?.on) {
-    socketClient.on("connected", () => log.info("Socket Mode connected"));
-    socketClient.on("reconnecting", () => log.warn("Socket Mode reconnecting..."));
+    let reconnectCount = 0;
+    socketClient.on("connected", () => {
+      if (reconnectCount > 0) log.info(`Socket Mode reconnected (after ${reconnectCount} attempt(s))`);
+      else log.info("Socket Mode connected");
+      reconnectCount = 0;
+    });
+    socketClient.on("reconnecting", () => {
+      reconnectCount++;
+      // Log first attempt, then only on powers of 2 (1, 2, 4, 8, 16...)
+      if (reconnectCount === 1 || (reconnectCount & (reconnectCount - 1)) === 0) {
+        log.warn(`Socket Mode reconnecting (attempt ${reconnectCount})...`);
+      }
+    });
     socketClient.on("disconnected", () => log.warn("Socket Mode disconnected"));
   }
 
