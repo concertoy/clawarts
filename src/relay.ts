@@ -9,12 +9,12 @@ import type { WebClient } from "@slack/web-api";
 import type { Agent } from "./agent.js";
 import type { SessionStore } from "./session.js";
 import type { ToolDefinition, ToolUseContext } from "./types.js";
-import { BoundedMap } from "./utils/bounded-map.js";
 import { runWithConcurrency } from "./utils/concurrency.js";
 import { errMsg } from "./utils/errors.js";
 import { openDmChannel } from "./utils/slack-dm.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
 import { formatTimeAgo } from "./utils/format.js";
+import { TTLMap } from "./utils/ttl-map.js";
 
 // ─── Agent Registry ─────────────────────────────────────────────────
 
@@ -35,16 +35,11 @@ const registry = new Map<string, RegisteredAgent>();
 const agentStartedAt = new Map<string, number>(); // agent ID → epoch ms
 const lastActiveAt = new Map<string, number>(); // agent ID → epoch ms
 const lastErrors = new Map<string, string>(); // agent ID → last error message
-const recentBroadcasts = new BoundedMap<string, number>(100); // hash → timestamp
-
-// Periodic sweep to expire stale broadcast dedup entries (runs even when no broadcasts happen)
-const broadcastSweepTimer = setInterval(() => {
-  const cutoff = Date.now() - BROADCAST_DEDUP_MS * 2;
-  for (const [k, t] of recentBroadcasts) {
-    if (t < cutoff) recentBroadcasts.delete(k);
-  }
-}, BROADCAST_DEDUP_MS * 2);
-if (broadcastSweepTimer.unref) broadcastSweepTimer.unref();
+const recentBroadcasts = new TTLMap<string, true>({
+  maxSize: 100,
+  ttlMs: BROADCAST_DEDUP_MS * 2,
+  sweepIntervalMs: BROADCAST_DEDUP_MS * 2,
+});
 
 export function registerAgent(entry: RegisteredAgent): void {
   registry.set(entry.id, entry);
@@ -207,11 +202,10 @@ export function createRelayTool(): ToolDefinition {
 
         // Dedup: prevent accidental double-broadcast of the same message
         const dedupKey = `${sourceAgent}:${message.slice(0, 100)}`;
-        const lastSent = recentBroadcasts.get(dedupKey);
-        if (lastSent && Date.now() - lastSent < BROADCAST_DEDUP_MS) {
-          return `Broadcast skipped — same message was sent ${Math.round((Date.now() - lastSent) / 1000)}s ago. Wait ${Math.ceil(BROADCAST_DEDUP_MS / 1000)}s to re-send.`;
+        if (recentBroadcasts.has(dedupKey)) {
+          return `Broadcast skipped — same message was sent recently. Wait ${Math.ceil(BROADCAST_DEDUP_MS / 1000)}s to re-send.`;
         }
-        recentBroadcasts.set(dedupKey, Date.now());
+        recentBroadcasts.set(dedupKey, true);
 
         // Fan out with bounded concurrency (5 at a time) to prevent resource spikes
         const pairs = students.flatMap((s) =>
