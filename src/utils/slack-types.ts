@@ -12,3 +12,8 @@ export interface SlackFile {
 }
 
 export const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp"]);
+
+/** Extract the lowercase file extension from a Slack file object. */
+export function fileExtension(file: SlackFile): string {
+  return (file.filetype ?? file.name?.split(".").pop() ?? "").toLowerCase();
+}

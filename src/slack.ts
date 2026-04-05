@@ -5,6 +5,7 @@ import type { Agent } from "./agent.js";
 import { SessionStore } from "./session.js";
 import { BoundedMap } from "./utils/bounded-map.js";
 import { errMsg, isAbortError } from "./utils/errors.js";
+import { TTLMap } from "./utils/ttl-map.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
 import { downloadSlackImages } from "./utils/slack-images.js";
 import { downloadSlackFiles, formatFileAttachments } from "./utils/slack-files.js";
@@ -57,27 +58,17 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   const botDmChannels = new BoundedMap<string, boolean>(500); // true = confirmed bot DM, false = confirmed NOT bot DM
 
   // Message deduplication: Slack can deliver duplicate events.
-  // Track recently processed message timestamps to avoid double-processing.
-  // Uses a Map<key, timestamp> with periodic sweep instead of per-message timers
-  // to avoid orphaned setTimeout handles when the safety valve clears entries.
-  const DEDUP_TTL_MS = 60_000;
-  const DEDUP_MAX_SIZE = 1000;
-  const DEDUP_SWEEP_INTERVAL_MS = 30_000;
-  const processedMessages = new BoundedMap<string, number>(DEDUP_MAX_SIZE);
-
-  // Periodic sweep to expire old entries — cheaper than per-message timers
-  const dedupSweepTimer = setInterval(() => {
-    const cutoff = Date.now() - DEDUP_TTL_MS;
-    for (const [k, t] of processedMessages) {
-      if (t < cutoff) processedMessages.delete(k);
-    }
-  }, DEDUP_SWEEP_INTERVAL_MS);
-  if (dedupSweepTimer.unref) dedupSweepTimer.unref();
+  // TTLMap handles both size bounds and automatic expiration.
+  const processedMessages = new TTLMap<string, true>({
+    maxSize: 1000,
+    ttlMs: 60_000,
+    sweepIntervalMs: 30_000,
+  });
 
   function isDuplicate(channel: string, ts: string): boolean {
     const key = `${channel}:${ts}`;
     if (processedMessages.has(key)) return true;
-    processedMessages.set(key, Date.now()); // BoundedMap handles eviction
+    processedMessages.set(key, true);
     return false;
   }
 
