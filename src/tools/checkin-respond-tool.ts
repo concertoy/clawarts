@@ -1,6 +1,9 @@
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import type { CheckinStore } from "../store/checkin-store.js";
 
+const MAX_RESPONSE_CHARS = 10_000;
+const PREVIEW_LIMIT = 100;
+
 function formatTimeRemaining(closesAt: number): string {
   const remaining = Math.max(0, Math.round((closesAt - Date.now()) / 1000));
   return `${Math.floor(remaining / 60)}m ${remaining % 60}s`;
@@ -47,7 +50,7 @@ export function createCheckinRespondTool(
         case "respond": {
           const content = input.content as string;
           if (!content) return "Error: content is required.";
-          if (content.length > 10_000) return "Error: response too long (max 10,000 characters).";
+          if (content.length > MAX_RESPONSE_CHARS) return `Error: response too long (max ${MAX_RESPONSE_CHARS.toLocaleString()} characters).`;
 
           const window = await checkinStore.getRespondableWindow();
           if (!window) return "No active check-in window. There may not be a check-in happening right now.";
@@ -106,7 +109,7 @@ export function createCheckinRespondTool(
           // Check if student already responded
           const existing = await checkinStore.getResponseByWindowAndUser(active.id, userId);
           if (existing) {
-            lines.push(`\nYou already responded: "${existing.content.slice(0, 100)}${existing.content.length > 100 ? "..." : ""}"`);
+            lines.push(`\nYou already responded: "${existing.content.slice(0, PREVIEW_LIMIT)}${existing.content.length > PREVIEW_LIMIT ? "..." : ""}"`);
           }
 
           return lines.join("\n");
