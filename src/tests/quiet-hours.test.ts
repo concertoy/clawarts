@@ -51,4 +51,13 @@ describe("isQuietHours", () => {
     vi.setSystemTime(new Date("2026-04-05T17:00:00"));
     expect(isQuietHours("09:00-17:00")).toBe(false);
   });
+
+  it("respects timezone parameter", () => {
+    // 2026-04-05T06:00:00Z = 14:00 in Asia/Hong_Kong (UTC+8), 23:00 in America/Los_Angeles (UTC-7)
+    vi.setSystemTime(new Date("2026-04-05T06:00:00Z"));
+    // 14:00 HKT — inside 13:00-15:00
+    expect(isQuietHours("13:00-15:00", "Asia/Hong_Kong")).toBe(true);
+    // 23:00 LA — outside 13:00-15:00
+    expect(isQuietHours("13:00-15:00", "America/Los_Angeles")).toBe(false);
+  });
 });
