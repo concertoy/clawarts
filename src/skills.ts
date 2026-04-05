@@ -132,7 +132,10 @@ export function loadSkills(options: SkillLoadOptions): Skill[] {
     const resolved = path.resolve(expandTilde(dir));
 
     let real: string;
-    try { real = fs.realpathSync(resolved); } catch { return; }
+    try { real = fs.realpathSync(resolved); } catch {
+      if (source !== "bundled") log.warn(`Skills directory not found: ${resolved} (source: ${source})`);
+      return;
+    }
     if (seen.has(real)) return;
     seen.add(real);
 
