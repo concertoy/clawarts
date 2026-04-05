@@ -92,7 +92,10 @@ function parseSkillFile(
     if (!data || typeof data !== "object") return null;
 
     const namespace = buildNamespace(skillDir, rootDir);
-    const name = (data.name as string) ?? namespace;
+    const rawName = (data.name as string) ?? namespace;
+    // Sanitize skill name: strip characters that could break XML prompt formatting
+    const name = rawName.replace(/[<>&"']/g, "").trim();
+    if (!name) return null;
     const description = (data.description as string) ?? "";
 
     const skill: Skill = { name, description, filePath: skillPath, source };
