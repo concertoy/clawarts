@@ -18,6 +18,10 @@ export interface Submission {
   content: string; // text submission or file reference
   submittedAt: number;
   status: "submitted" | "late";
+  // Tutor-set fields (via grade action)
+  score?: number; // 0-100
+  feedback?: string;
+  gradedAt?: number;
 }
 
 // ─── Check-in ────────────────────────────────────────────────────────

@@ -55,10 +55,16 @@ export function createGradesTool(
       for (const uid of allUserIds) {
         const row: string[] = [`<@${uid}>`];
 
-        // Assignment submissions
+        // Assignment submissions (show score if graded, otherwise status)
         for (const a of assignments) {
           const sub = await submissionStore.getByAssignmentAndUser(a.id, uid);
-          row.push(sub ? sub.status : "missing");
+          if (!sub) {
+            row.push("missing");
+          } else if (sub.score != null) {
+            row.push(String(sub.score));
+          } else {
+            row.push(sub.status);
+          }
         }
 
         // Check-in scores

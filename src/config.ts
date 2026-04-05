@@ -127,6 +127,14 @@ function validateAgentConfig(config: AgentConfig): void {
     errors.push(`compactionThreshold (${config.compactionThreshold}) is too low — minimum 10000`);
   }
 
+  // Warn on suspicious model names (not an error — custom models exist)
+  if (config.provider === "anthropic-claude" && !config.model.startsWith("claude-")) {
+    log.warn(`${config.id}: model "${config.model}" doesn't look like a Claude model (expected "claude-*")`);
+  }
+  if (config.provider === "openai-codex" && !config.model.startsWith("codex-") && !config.model.startsWith("o") && !config.model.startsWith("gpt-")) {
+    log.warn(`${config.id}: model "${config.model}" doesn't look like an OpenAI model`);
+  }
+
   if (config.provider === "anthropic-claude" && !process.env.ANTHROPIC_API_KEY) {
     errors.push("ANTHROPIC_API_KEY environment variable is required for anthropic-claude provider");
   }

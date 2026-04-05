@@ -18,13 +18,13 @@ export function createAssignmentTool(
   return {
     name: "assignment",
     description:
-      "Manage homework assignments. Actions: create (new assignment), list (show all), get (details + submissions), close (stop accepting), extend (change deadline).",
+      "Manage homework assignments. Actions: create, list, get, close, reopen, extend, grade (score a submission 0-100 with feedback).",
     parameters: {
       type: "object",
       properties: {
         action: {
           type: "string",
-          enum: ["create", "list", "get", "close", "extend"],
+          enum: ["create", "list", "get", "close", "reopen", "extend", "grade"],
           description: "The action to perform.",
         },
         // create fields
@@ -38,9 +38,13 @@ export function createAssignmentTool(
           description: "URLs or file paths for reference materials.",
         },
         // get/close/extend fields
-        assignmentId: { type: "string", description: "Assignment ID (for get, close, extend)." },
+        assignmentId: { type: "string", description: "Assignment ID (for get, close, extend, grade)." },
         // extend fields
-        newDeadline: { type: "string", description: "New deadline as ISO 8601 string (for extend action)." },
+        newDeadline: { type: "string", description: "New deadline as ISO 8601 string (for extend/reopen action)." },
+        // grade fields
+        submissionId: { type: "string", description: "Submission ID to grade." },
+        score: { type: "number", description: "Score 0-100 (for grade action)." },
+        feedback: { type: "string", description: "Feedback comment (for grade action)." },
       },
       required: ["action"],
     },
@@ -174,6 +178,23 @@ export function createAssignmentTool(
           return `Assignment "${assignment.title}" closed. No more submissions accepted.`;
         }
 
+        case "reopen": {
+          const id = input.assignmentId as string;
+          if (!id) return "Error: assignmentId is required.";
+
+          const existing = await assignmentStore.get(id);
+          if (!existing) return `No assignment found with ID ${id}.`;
+          if (existing.status === "open") return `Assignment "${existing.title}" is already open.`;
+
+          const newDeadlineStr = input.newDeadline as string;
+          const newDeadline = newDeadlineStr ? new Date(newDeadlineStr).getTime() : existing.deadline;
+          if (newDeadline <= Date.now()) return "Error: deadline has passed. Provide a new future deadline via newDeadline.";
+
+          const assignment = await assignmentStore.update(id, { status: "open", deadline: newDeadline });
+          if (!assignment) return `Failed to reopen assignment.`;
+          return `Assignment "${assignment.title}" reopened. Deadline: ${new Date(newDeadline).toISOString()}.`;
+        }
+
         case "extend": {
           const id = input.assignmentId as string;
           const newDeadlineStr = input.newDeadline as string;
@@ -196,7 +217,21 @@ export function createAssignmentTool(
         }
 
         default:
-          return `Unknown action: ${action}. Use create, list, get, close, or extend.`;
+        case "grade": {
+          const submissionId = input.submissionId as string;
+          const score = input.score as number;
+          if (!submissionId) return "Error: submissionId is required.";
+          if (score == null || !Number.isFinite(score) || score < 0 || score > 100) {
+            return "Error: score must be a number between 0 and 100.";
+          }
+          const feedback = (input.feedback as string) || undefined;
+
+          const graded = await submissionStore.grade(submissionId, score, feedback);
+          if (!graded) return `No submission found with ID ${submissionId}.`;
+          return `Graded <@${graded.userId}>: ${score}/100${feedback ? ` — "${feedback}"` : ""}`;
+        }
+
+          return `Unknown action: ${action}. Use create, list, get, close, reopen, extend, or grade.`;
       }
     },
   };
