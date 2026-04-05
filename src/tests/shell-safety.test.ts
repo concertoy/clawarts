@@ -102,4 +102,13 @@ describe("isDangerousCommand", () => {
   it("allows git reset (without --hard)", () => {
     expect(isDangerousCommand("git reset HEAD file.txt")).toBeNull();
   });
+
+  it("blocks sudo", () => {
+    expect(isDangerousCommand("sudo rm /etc/passwd")).not.toBeNull();
+  });
+
+  it("allows commands containing 'sudo' as substring", () => {
+    // e.g., "pseudocode" or a variable named "sudo_path"
+    expect(isDangerousCommand("echo pseudocode")).toBeNull();
+  });
 });

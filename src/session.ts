@@ -182,8 +182,9 @@ export class SessionStore {
       const data = JSON.parse(raw) as ConversationSession;
       if (data.key === key && Array.isArray(data.messages)) {
         // Validate message structure — filter out corrupted entries
+        const validRoles = new Set(["user", "assistant"]);
         data.messages = data.messages.filter(
-          (m) => m && typeof m.role === "string" && typeof m.content === "string",
+          (m) => m && validRoles.has(m.role) && typeof m.content === "string",
         );
         log.debug(`Restored ${data.messages.length} messages from disk for ${key}`);
         return data;
