@@ -34,11 +34,12 @@ export function markdownToSlack(md: string): string {
   // Links: [text](url) → <url|text>
   result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<$2|$1>");
 
-  // Headers: # Header → *Header* (bold in Slack, with newline for spacing)
-  result = result.replace(/^#{1,6}\s+(.+)$/gm, "*$1*");
+  // Headers: # Header → *Header* (bold in Slack)
+  // Use bold placeholder to prevent italic regex from clobbering it.
+  result = result.replace(/^#{1,6}\s+(.+)$/gm, "\x01$1\x02");
 
-  // Bold+italic: ***text*** → *_text_* (must run before bold/italic)
-  result = result.replace(/\*\*\*(.+?)\*\*\*/g, "*_$1_*");
+  // Bold+italic: ***text*** → *_text_* (use placeholder for the bold part)
+  result = result.replace(/\*\*\*(.+?)\*\*\*/g, "\x01_$1_\x02");
 
   // Bold → placeholder first to prevent italic regex from clobbering it.
   // **text** or __text__ → \x01text\x02

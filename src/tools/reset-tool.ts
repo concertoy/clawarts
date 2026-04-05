@@ -54,20 +54,9 @@ export function createResetTool(): ToolDefinition {
         return `Cleared session "${sessionKey}" for ${studentId} (${msgCount} messages removed).`;
       }
 
-      // Clear all sessions — destroy and recreate the store would be complex,
-      // so just clear each session's messages
-      const list = reg.sessions.listSessions();
-      if (list.length === 0) return `No active sessions for ${studentId}.`;
-
-      let totalMsgs = 0;
-      for (const s of list) {
-        const session = reg.sessions.get(s.key);
-        totalMsgs += session.messages.length;
-        session.messages.length = 0;
-        reg.sessions.persistSession(s.key);
-      }
-
-      return `Cleared ${list.length} session(s) for ${studentId} (${totalMsgs} messages removed).`;
+      if (reg.sessions.size === 0) return `No active sessions for ${studentId}.`;
+      const { sessions: count, messages: totalMsgs } = reg.sessions.clearAll();
+      return `Cleared ${count} session(s) for ${studentId} (${totalMsgs} messages removed).`;
     },
   };
 }

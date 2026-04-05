@@ -197,7 +197,8 @@ async function main() {
     for (const r of cronResults) {
       if (r.status === "rejected") log.warn("Cron stop error:", errMsg(r.reason));
     }
-    log.info("Persisting sessions...");
+    const totalSessions = allSessions.reduce((n, s) => n + s.size, 0);
+    log.info(`Persisting ${totalSessions} session(s)...`);
     for (const s of allSessions) s.destroy();
     const appResults = await Promise.allSettled(apps.map((a) => a.stop()));
     for (const r of appResults) {

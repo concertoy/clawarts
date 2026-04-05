@@ -240,4 +240,15 @@ export class SessionStore {
     if (!session) return [];
     return session.messages.map((m) => ({ role: m.role, content: m.content }));
   }
+
+  /** Clear all messages from all sessions and persist. Returns total messages cleared. */
+  clearAll(): { sessions: number; messages: number } {
+    let totalMessages = 0;
+    for (const session of this.sessions.values()) {
+      totalMessages += session.messages.length;
+      session.messages.length = 0;
+      this.persistToDisk(session);
+    }
+    return { sessions: this.sessions.size, messages: totalMessages };
+  }
 }
