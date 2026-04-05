@@ -11,6 +11,8 @@ export function safeJsonStringify(value: unknown): string | null {
       if (typeof val === "function") return "[Function]";
       if (val instanceof Error) return { name: val.name, message: val.message };
       if (val instanceof Uint8Array) return `[Uint8Array ${val.length} bytes]`;
+      if (val instanceof Map) return Object.fromEntries(val);
+      if (val instanceof Set) return [...val];
       // Circular reference detection
       if (val !== null && typeof val === "object") {
         if (seen.has(val)) return "[Circular]";
