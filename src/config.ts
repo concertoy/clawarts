@@ -70,7 +70,7 @@ export const DEFAULT_MODELS: Record<Provider, string> = {
 };
 
 /** Resolve a value that may be a $ENV_VAR or ${ENV_VAR} reference. */
-function resolveEnvRef(value: string): string {
+export function resolveEnvRef(value: string): string {
   let envName: string | undefined;
   if (value.startsWith("${") && value.endsWith("}")) {
     envName = value.slice(2, -1);
