@@ -121,7 +121,8 @@ async function executeOne(toolMap: Map<string, ToolDefinition>, tc: ToolCall, co
       return { callId: tc.id, name: tc.name, output: `Error: Invalid JSON in tool arguments for ${tc.name}`, isError: true };
     }
     // Execute with a timeout to prevent runaway tools from blocking the agent loop
-    let output = await withTimeout(tool.execute(args, context), TOOL_EXECUTION_TIMEOUT_MS, tc.name);
+    const timeout = tool.timeoutMs ?? TOOL_EXECUTION_TIMEOUT_MS;
+    let output = await withTimeout(tool.execute(args, context), timeout, tc.name);
     const elapsed = Date.now() - startMs;
     if (elapsed > SLOW_TOOL_LOG_THRESHOLD_MS) log.debug(`${tc.name} took ${(elapsed / 1000).toFixed(1)}s`);
     // Detect tool-level errors (tools return error strings rather than throwing).

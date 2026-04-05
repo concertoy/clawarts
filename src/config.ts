@@ -165,6 +165,22 @@ function validateCrossReferences(configs: AgentConfig[]): void {
       errors.push(`Agent "${c.id}" references linkedTutor "${c.linkedTutor}" which does not exist`);
     }
   }
+  // Warn on overlapping allowedUsers across agents (same user assigned to multiple agents)
+  const userToAgents = new Map<string, string[]>();
+  for (const c of configs) {
+    if (!c.allowedUsers) continue;
+    for (const uid of c.allowedUsers) {
+      const agents = userToAgents.get(uid) ?? [];
+      agents.push(c.id);
+      userToAgents.set(uid, agents);
+    }
+  }
+  for (const [uid, agents] of userToAgents) {
+    if (agents.length > 1) {
+      log.warn(`User ${uid} is assigned to multiple agents: ${agents.join(", ")} — messages may route unpredictably`);
+    }
+  }
+
   if (errors.length > 0) {
     throw new Error(`Config validation errors:\n  - ${errors.join("\n  - ")}`);
   }

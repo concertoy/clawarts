@@ -131,4 +131,6 @@ export interface ToolDefinition {
   category?: ToolCategory;
   /** Runtime gate — if returns false, tool is excluded. Ported from claude-code Tool.isEnabled(). */
   isEnabled?: () => boolean;
+  /** Per-tool execution timeout in ms. Overrides the default TOOL_EXECUTION_TIMEOUT_MS. */
+  timeoutMs?: number;
 }
