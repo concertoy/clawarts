@@ -62,6 +62,10 @@ export class CronService {
   // ─── Lifecycle ────────────────────────────────────────────────────────
 
   async start(): Promise<void> {
+    if (this.store) {
+      this.log.warn("start() called but already running — ignoring");
+      return;
+    }
     this.store = await loadCronStore(this.opts.storePath);
     this.cleanupStaleJobs();
     this.recomputeNextRuns();

@@ -40,9 +40,10 @@ export function chunkText(text: string, limit: number): string[] {
  * - Zero-width spaces (U+200B), joiners (U+200C/D), no-break hints
  * - Byte-order marks (U+FEFF)
  * - Various Unicode format/control characters
+ * - Bidi directional isolates (U+2066-U+2069) — prevent RTLO/Trojan Source attacks
  */
 export function sanitizeInput(text: string): string {
-  return text.replace(/[\u200B-\u200F\u2028-\u202F\uFEFF\u00AD]/g, "");
+  return text.replace(/[\u200B-\u200F\u2028-\u202F\u2066-\u2069\uFEFF\u00AD]/g, "");
 }
 
 const mentionRegexCache = new Map<string, RegExp>();

@@ -34,6 +34,12 @@ describe("sanitizeInput", () => {
   it("preserves normal whitespace", () => {
     expect(sanitizeInput("hello world\n")).toBe("hello world\n");
   });
+  it("strips bidi directional isolates (Trojan Source)", () => {
+    expect(sanitizeInput("hello\u2066\u2069world")).toBe("helloworld");
+  });
+  it("strips RTLO override character", () => {
+    expect(sanitizeInput("file\u202Efdp.exe")).toBe("filefdp.exe");
+  });
 });
 
 describe("stripMention", () => {
