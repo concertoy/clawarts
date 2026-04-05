@@ -3,6 +3,8 @@ import { getStudentsForTutor, getRegisteredAgent } from "../relay.js";
 import { getTokenUsage } from "../utils/token-tracker.js";
 import { formatTokenCount, formatTimeAgo } from "../utils/format.js";
 
+const MAX_MESSAGE_PREVIEW_CHARS = 2000;
+
 /**
  * Session export tool for tutors — view a student's recent conversation history.
  * Useful for academic integrity review or debugging student issues.
@@ -75,7 +77,7 @@ export function createExportTool(): ToolDefinition {
       const recent = messages.slice(-maxMessages);
       const lines = recent.map((m) => {
         const label = m.role === "user" ? "Student" : "Agent";
-        const content = m.content.length > 2000 ? m.content.slice(0, 2000) + "..." : m.content;
+        const content = m.content.length > MAX_MESSAGE_PREVIEW_CHARS ? m.content.slice(0, MAX_MESSAGE_PREVIEW_CHARS) + "..." : m.content;
         return `[${label}]\n${content}`;
       });
 

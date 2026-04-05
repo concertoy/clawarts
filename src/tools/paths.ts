@@ -1,6 +1,6 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { expandTilde } from "../utils/paths.js";
 
 /**
  * Create path resolution helpers scoped to a specific workspace directory.
@@ -19,9 +19,7 @@ export function createPathResolver(workspaceDir: string): PathResolver {
   const resolvedWorkspace = path.resolve(workspaceRoot);
 
   function resolveFilePath(filePath: string): string {
-    if (filePath.startsWith("~/")) {
-      return path.resolve(path.join(os.homedir(), filePath.slice(2)));
-    }
+    if (filePath.startsWith("~/")) return path.resolve(expandTilde(filePath));
     if (path.isAbsolute(filePath)) return path.resolve(filePath);
     return path.resolve(workspaceRoot, filePath);
   }

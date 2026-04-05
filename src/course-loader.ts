@@ -75,8 +75,8 @@ export function parseCourseSchedule(markdown: string): CourseSchedule {
       }
 
       if (!currentWeekDate) warnings.push(`Homework "${hwTitle}" has no week context (add a ## Week heading above it)`);
-      const deadlineDate = new Date(deadline + "T23:59:00Z");
-      if (isNaN(deadlineDate.getTime())) warnings.push(`Homework "${hwTitle}" has invalid deadline: ${deadline}`);
+      const deadlineMs = new Date(deadline + "T23:59:00Z").getTime();
+      if (!Number.isFinite(deadlineMs)) warnings.push(`Homework "${hwTitle}" has invalid deadline: ${deadline}`);
 
       homeworks.push({
         title: hwTitle,
