@@ -63,7 +63,10 @@ async function main() {
   };
 
   const agentConfigs = loadAllAgentConfigs();
-  log.info(`${agentConfigs.length} agent(s): ${agentConfigs.map((a) => a.id).join(", ")}`);
+  const providerCounts = new Map<string, number>();
+  for (const c of agentConfigs) providerCounts.set(c.provider, (providerCounts.get(c.provider) ?? 0) + 1);
+  const providerInfo = [...providerCounts.entries()].map(([p, n]) => `${p}×${n}`).join(", ");
+  log.info(`${agentConfigs.length} agent(s): ${agentConfigs.map((a) => a.id).join(", ")} (${providerInfo})`);
   runDiagnostics(agentConfigs);
   phase("config loaded");
   await Promise.allSettled([checkProviderHealth(agentConfigs), checkSlackTokens(agentConfigs)]);
@@ -211,7 +214,9 @@ async function main() {
       if (r.status === "rejected") log.warn("Slack app stop error:", errMsg(r.reason));
     }
     clearTimeout(forceTimer);
-    log.info("Goodbye.");
+    const uptimeSec = Math.round(process.uptime());
+    const uptimeStr = uptimeSec >= 3600 ? `${(uptimeSec / 3600).toFixed(1)}h` : `${(uptimeSec / 60).toFixed(1)}m`;
+    log.info(`Goodbye. Uptime: ${uptimeStr}`);
     process.exit(0);
   };
 
