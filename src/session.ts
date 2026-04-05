@@ -48,7 +48,7 @@ export class SessionStore {
             fs.unlinkSync(filePath);
             removed++;
           }
-        } catch { /* skip individual file errors */ }
+        } catch (err) { log.debug(`Skipping stale file ${file}: ${errMsg(err)}`); }
       }
       if (removed > 0) log.info(`Cleaned up ${removed} stale session file(s)`);
     } catch (err) {

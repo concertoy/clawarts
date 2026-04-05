@@ -6,7 +6,10 @@ import { createLogger } from "../utils/logger.js";
 const log = createLogger("claude");
 
 function safeParse(json: string): unknown {
-  try { return JSON.parse(json); } catch { return {}; }
+  try { return JSON.parse(json); } catch (err) {
+    log.debug(`JSON parse failed (${json.length} chars): ${String(err)}`);
+    return {};
+  }
 }
 
 // ─── Anthropic API types ──────────────────────────────────────────────
@@ -274,8 +277,8 @@ export class ClaudeProvider implements ModelProvider {
               break;
             }
           }
-        } catch {
-          // Skip malformed SSE data
+        } catch (err) {
+          log.debug(`Skipping malformed SSE frame: ${String(err)}`);
         }
       }
     }

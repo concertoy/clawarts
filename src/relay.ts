@@ -30,6 +30,7 @@ export interface RegisteredAgent {
 const BROADCAST_CONCURRENCY = 5;
 const BROADCAST_DEDUP_MS = 10_000; // 10s window to prevent accidental double-broadcast
 const MAX_BROADCAST_TARGETS = 100; // safety limit to prevent runaway broadcasts
+const MAX_RELAY_MESSAGE_LENGTH = 10_000; // prevent runaway agents from relaying huge messages
 
 const registry = new Map<string, RegisteredAgent>();
 const agentStartedAt = new Map<string, number>(); // agent ID → epoch ms
@@ -193,6 +194,9 @@ export function createRelayTool(): ToolDefinition {
       const action = (input.action as string) || "send";
       const message = (input.message as string)?.trim();
       if (!message) return "Error: message is required.";
+      if (message.length > MAX_RELAY_MESSAGE_LENGTH) {
+        return `Error: message too long (${message.length} chars, max ${MAX_RELAY_MESSAGE_LENGTH}). Summarize before relaying.`;
+      }
 
       const sourceAgent = context?.agentId ?? "unknown";
 

@@ -285,7 +285,7 @@ function extractHtmlContent(html: string, url: string, mode: string): string {
         base.setAttribute("href", url);
         const head = document.querySelector("head");
         if (head) head.insertBefore(base, head.firstChild);
-      } catch { /* best-effort */ }
+      } catch (err) { log.debug(`Failed to set base URL for ${url}: ${errMsg(err)}`); }
 
       const reader = new Readability(document as any, { charThreshold: 0 });
       const parsed = reader.parse();
