@@ -22,6 +22,14 @@ describe("chunkText", () => {
     expect(chunks[0]).toBe("abcde");
     expect(chunks[1]).toBe("fghij");
   });
+
+  it("returns empty string in single chunk", () => {
+    expect(chunkText("", 100)).toEqual([""]);
+  });
+
+  it("handles text exactly at limit", () => {
+    expect(chunkText("12345", 5)).toEqual(["12345"]);
+  });
 });
 
 describe("sanitizeInput", () => {
