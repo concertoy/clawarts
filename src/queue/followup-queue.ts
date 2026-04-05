@@ -111,11 +111,9 @@ function scheduleDrain(sessionKey: string): void {
 
         // Evict stale items before batching
         const now = Date.now();
-        const stale = q.items.filter((i) => now - i.enqueuedAt > MAX_ITEM_AGE_MS);
-        if (stale.length > 0) {
-          q.items = q.items.filter((i) => now - i.enqueuedAt <= MAX_ITEM_AGE_MS);
-          q.droppedCount += stale.length;
-        }
+        const prevLen = q.items.length;
+        q.items = q.items.filter((i) => now - i.enqueuedAt <= MAX_ITEM_AGE_MS);
+        q.droppedCount += prevLen - q.items.length;
 
         // Collect all current items into a batch
         const batch = q.items.splice(0);

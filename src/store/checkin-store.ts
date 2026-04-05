@@ -3,6 +3,9 @@ import path from "node:path";
 import { loadStore, saveStore, withStoreLock } from "./json-store.js";
 import type { CheckinWindow, CheckinResponse, CheckinStatus } from "./types.js";
 
+/** Grace period after window closes — responses accepted but marked late. */
+const GRACE_PERIOD_MS = 60_000;
+
 /** Check if a window is currently active (open and not expired). */
 function isWindowActive(w: CheckinWindow, now: number): boolean {
   return w.status === "open" && w.closesAt != null && w.closesAt > now;
@@ -29,16 +32,18 @@ export class CheckinStore {
   // ─── Window management (tutor only) ──────────────────────────────
 
   async createWindow(data: Omit<CheckinWindow, "id" | "openedAt" | "status">): Promise<CheckinWindow> {
-    const store = await loadStore<CheckinWindow>(this.windowsPath);
-    const window: CheckinWindow = {
-      ...data,
-      id: crypto.randomUUID(),
-      openedAt: Date.now(),
-      status: "open",
-    };
-    store.items.push(window);
-    await saveStore(this.windowsPath, store);
-    return window;
+    return withStoreLock(this.windowsPath, async () => {
+      const store = await loadStore<CheckinWindow>(this.windowsPath);
+      const window: CheckinWindow = {
+        ...data,
+        id: crypto.randomUUID(),
+        openedAt: Date.now(),
+        status: "open",
+      };
+      store.items.push(window);
+      await saveStore(this.windowsPath, store);
+      return window;
+    });
   }
 
   async getWindow(id: string): Promise<CheckinWindow | undefined> {
@@ -47,23 +52,24 @@ export class CheckinStore {
   }
 
   async getActiveWindow(): Promise<CheckinWindow | undefined> {
-    // Auto-close expired then find active — single load
-    const store = await loadStore<CheckinWindow>(this.windowsPath);
-    const now = Date.now();
-    let dirty = false;
-    for (const w of store.items) {
-      if (w.status === "open" && !isWindowActive(w, now)) {
-        w.status = "closed";
-        dirty = true;
+    // Auto-close expired then find active — needs lock since it may write
+    return withStoreLock(this.windowsPath, async () => {
+      const store = await loadStore<CheckinWindow>(this.windowsPath);
+      const now = Date.now();
+      let dirty = false;
+      for (const w of store.items) {
+        if (w.status === "open" && !isWindowActive(w, now)) {
+          w.status = "closed";
+          dirty = true;
+        }
       }
-    }
-    if (dirty) await saveStore(this.windowsPath, store);
-    return store.items.find((w) => isWindowActive(w, now));
+      if (dirty) await saveStore(this.windowsPath, store);
+      return store.items.find((w) => isWindowActive(w, now));
+    });
   }
 
   /** Get the most recent window that's still within the grace period (active or just expired). */
   async getRespondableWindow(): Promise<CheckinWindow | undefined> {
-    const GRACE_PERIOD_MS = 60_000;
     const store = await loadStore<CheckinWindow>(this.windowsPath);
     const now = Date.now();
     // First try active windows
@@ -76,12 +82,14 @@ export class CheckinStore {
   }
 
   async closeWindow(id: string): Promise<CheckinWindow | undefined> {
-    const store = await loadStore<CheckinWindow>(this.windowsPath);
-    const idx = store.items.findIndex((w) => w.id === id);
-    if (idx === -1) return undefined;
-    store.items[idx].status = "closed";
-    await saveStore(this.windowsPath, store);
-    return store.items[idx];
+    return withStoreLock(this.windowsPath, async () => {
+      const store = await loadStore<CheckinWindow>(this.windowsPath);
+      const idx = store.items.findIndex((w) => w.id === id);
+      if (idx === -1) return undefined;
+      store.items[idx].status = "closed";
+      await saveStore(this.windowsPath, store);
+      return store.items[idx];
+    });
   }
 
   async listWindows(filter?: { pulseGroupId?: string }): Promise<CheckinWindow[]> {
@@ -101,17 +109,19 @@ export class CheckinStore {
 
   /** Close any open windows whose closesAt has passed. */
   async closeExpiredWindows(): Promise<number> {
-    const store = await loadStore<CheckinWindow>(this.windowsPath);
-    const now = Date.now();
-    let closed = 0;
-    for (const w of store.items) {
-      if (w.status === "open" && !isWindowActive(w, now)) {
-        w.status = "closed";
-        closed++;
+    return withStoreLock(this.windowsPath, async () => {
+      const store = await loadStore<CheckinWindow>(this.windowsPath);
+      const now = Date.now();
+      let closed = 0;
+      for (const w of store.items) {
+        if (w.status === "open" && !isWindowActive(w, now)) {
+          w.status = "closed";
+          closed++;
+        }
       }
-    }
-    if (closed > 0) await saveStore(this.windowsPath, store);
-    return closed;
+      if (closed > 0) await saveStore(this.windowsPath, store);
+      return closed;
+    });
   }
 
   // ─── Response management ─────────────────────────────────────────
@@ -122,8 +132,6 @@ export class CheckinStore {
     agentId: string;
     content: string;
   }): Promise<CheckinResponse | { error: string }> {
-    const GRACE_PERIOD_MS = 60_000; // 60s grace period — responses accepted but marked late
-
     // Lock the responses file to prevent concurrent read-modify-write races
     // (multiple students may submit simultaneously during a check-in window).
     // Window validation is inside the lock to prevent TOCTOU: window could close
@@ -213,16 +221,18 @@ export class CheckinStore {
     responseId: string,
     patch: { score: number; status: CheckinStatus; feedback?: string },
   ): Promise<CheckinResponse | undefined> {
-    const store = await loadStore<CheckinResponse>(this.responsesPath);
-    const idx = store.items.findIndex((r) => r.id === responseId);
-    if (idx === -1) return undefined;
-    store.items[idx] = {
-      ...store.items[idx],
-      ...patch,
-      evaluatedAt: Date.now(),
-    };
-    await saveStore(this.responsesPath, store);
-    return store.items[idx];
+    return withStoreLock(this.responsesPath, async () => {
+      const store = await loadStore<CheckinResponse>(this.responsesPath);
+      const idx = store.items.findIndex((r) => r.id === responseId);
+      if (idx === -1) return undefined;
+      store.items[idx] = {
+        ...store.items[idx],
+        ...patch,
+        evaluatedAt: Date.now(),
+      };
+      await saveStore(this.responsesPath, store);
+      return store.items[idx];
+    });
   }
 
   async bulkEvaluate(
