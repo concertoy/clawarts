@@ -78,7 +78,8 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
           const next = j.state.nextRunAtMs
             ? new Date(j.state.nextRunAtMs).toISOString()
             : "not scheduled";
-          lines.push(`  ${j.name || j.id}: next ${next}`);
+          const status = j.state.lastStatus === "error" ? ` ⚠️ ${j.state.lastError?.slice(0, 60) ?? "error"}` : "";
+          lines.push(`  ${j.name || j.id}: next ${next}${status}`);
         }
         if (enabled.length > 10) lines.push(`  ... and ${enabled.length - 10} more`);
       } else {

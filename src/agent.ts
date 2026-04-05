@@ -345,6 +345,27 @@ export class Agent {
   }
 
   /**
+   * Microcompaction: strip verbose tool results from older turns.
+   * Ported from claude-code's microCompact.ts — runs before full compaction
+   * to reduce context cheaply (no API call needed).
+   */
+  private microCompact(messages: ProviderMessage[]): number {
+    if (messages.length < 10) return 0;
+    // Only strip tool results in the first half of the conversation
+    const cutoff = Math.floor(messages.length / 2);
+    let stripped = 0;
+    for (let i = 0; i < cutoff; i++) {
+      const m = messages[i];
+      if (m.role === "tool_result" && m.output.length > 200) {
+        const preview = m.output.slice(0, 100).replace(/\n/g, " ");
+        m.output = `[Tool result truncated: ${preview}...]`;
+        stripped++;
+      }
+    }
+    return stripped;
+  }
+
+  /**
    * Lightweight conversation compaction.
    * When total message characters exceed the threshold, ask the model to summarize
    * older messages and replace them with a compact summary.
@@ -354,6 +375,13 @@ export class Agent {
     messages: ProviderMessage[],
     sessionKey?: string,
   ): Promise<void> {
+    // Phase 1: Microcompaction — strip old tool results (free, no API call)
+    const microStripped = this.microCompact(messages);
+    if (microStripped > 0) {
+      this.log.debug(`Microcompacted ${microStripped} old tool result(s) in ${sessionKey ?? "?"}`);
+    }
+
+    // Phase 2: Full compaction if still over threshold
     const totalChars = messages.reduce((sum, m) => {
       let size = m.role === "tool_result" ? m.output.length : m.content.length;
       if (m.role === "assistant" && m.toolCalls) {
@@ -438,6 +466,10 @@ export function ensureAlternatingRoles(messages: ProviderMessage[]): void {
 
     if (curr.role === "user" && next.role === "user") {
       // Merge consecutive user messages (tool_result has different shape, skip)
+      curr.content = curr.content + "\n\n" + next.content;
+      messages.splice(i + 1, 1);
+    } else if (curr.role === "assistant" && next.role === "assistant") {
+      // Merge consecutive assistant messages (can happen from corrupted session restore)
       curr.content = curr.content + "\n\n" + next.content;
       messages.splice(i + 1, 1);
     } else {
