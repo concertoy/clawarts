@@ -54,10 +54,31 @@ describe("formatTimeAgo", () => {
   it("handles undefined", () => {
     expect(formatTimeAgo(undefined)).toBe("never");
   });
+  it("handles zero", () => {
+    expect(formatTimeAgo(0)).toBe("never");
+  });
   it("handles recent", () => {
     expect(formatTimeAgo(Date.now())).toBe("just now");
   });
   it("handles minutes ago", () => {
     expect(formatTimeAgo(Date.now() - 5 * 60_000)).toBe("5m ago");
+  });
+  it("handles hours ago", () => {
+    expect(formatTimeAgo(Date.now() - 3 * 3_600_000)).toBe("3.0h ago");
+  });
+  it("handles days ago", () => {
+    expect(formatTimeAgo(Date.now() - 2 * 86_400_000)).toBe("2.0d ago");
+  });
+});
+
+describe("formatTokenCount edge cases", () => {
+  it("handles negative values", () => {
+    expect(formatTokenCount(-100)).toBe("0");
+  });
+  it("formats exactly 1000", () => {
+    expect(formatTokenCount(1000)).toBe("1.0k");
+  });
+  it("formats exactly 1M", () => {
+    expect(formatTokenCount(1_000_000)).toBe("1.0m");
   });
 });
