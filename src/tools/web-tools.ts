@@ -230,7 +230,7 @@ const webFetchTool: ToolDefinition = {
   async execute(input) {
     const url = input.url as string;
     const extractMode = (input.extractMode as string) ?? "markdown";
-    const maxChars = Math.max((input.maxChars as number) ?? WEB_FETCH_MAX_CHARS, 100);
+    const maxChars = Math.min(Math.max((input.maxChars as number) ?? WEB_FETCH_MAX_CHARS, 100), WEB_FETCH_MAX_CHARS);
 
     let parsed: URL;
     try {
