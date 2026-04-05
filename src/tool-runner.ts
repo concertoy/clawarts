@@ -128,7 +128,7 @@ async function executeOne(toolMap: Map<string, ToolDefinition>, tc: ToolCall, co
     // Ported from claude-code's tool error detection pattern.
     const isError = /^(error\s*:|error\s|blocked:|\[error\])/i.test(output);
     output = truncateToolOutput(output, tc.name);
-    return { callId: tc.id, name: tc.name, output, isError: isError || undefined };
+    return { callId: tc.id, name: tc.name, output, ...(isError ? { isError } : {}) };
   } catch (err) {
     const elapsed = Date.now() - startMs;
     const msg = errMsg(err);
