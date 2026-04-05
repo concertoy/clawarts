@@ -34,7 +34,8 @@ const DANGEROUS_PATTERNS: RegExp[] = [
   /\bxargs\s+.*\brm\b/,                             // xargs rm
 ];
 
-function isDangerousCommand(command: string): string | null {
+/** Exported for testing. Returns a block reason or null if safe. */
+export function isDangerousCommand(command: string): string | null {
   // Normalize: collapse backslash-escaped spaces and remove backslash line continuations
   // to prevent trivial bypass of pattern matching (e.g. "rm\ -rf\ /")
   const normalized = command.trim().replace(/\\\n/g, " ").replace(/\\( )/g, "$1");
