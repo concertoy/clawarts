@@ -203,7 +203,8 @@ export class ClaudeProvider implements ModelProvider {
 
           switch (eventType) {
             case "content_block_start": {
-              const idx = parsed.index as number;
+              const idx = typeof parsed.index === "number" ? parsed.index : -1;
+              if (idx < 0) break; // skip malformed block
               const block = parsed.content_block as AnthropicContentBlock;
               if (block.type === "tool_use") {
                 activeBlocks.set(idx, { type: "tool_use", id: block.id, name: block.name, inputJson: "" });
@@ -222,7 +223,7 @@ export class ClaudeProvider implements ModelProvider {
             }
 
             case "content_block_delta": {
-              const idx = parsed.index as number;
+              const idx = typeof parsed.index === "number" ? parsed.index : -1;
               const delta = parsed.delta;
               const active = activeBlocks.get(idx);
 
