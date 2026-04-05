@@ -33,4 +33,29 @@ describe("BoundedMap", () => {
     expect(map.has("a")).toBe(false);
     expect(map.get("b")).toBe(2);
   });
+
+  it("delete removes an entry", () => {
+    const map = new BoundedMap<string, number>(3);
+    map.set("a", 1);
+    map.set("b", 2);
+    map.delete("a");
+    expect(map.has("a")).toBe(false);
+    expect(map.size).toBe(1);
+  });
+
+  it("clear empties the map", () => {
+    const map = new BoundedMap<string, number>(3);
+    map.set("a", 1);
+    map.set("b", 2);
+    map.clear();
+    expect(map.size).toBe(0);
+  });
+
+  it("iteration order matches insertion order", () => {
+    const map = new BoundedMap<string, number>(5);
+    map.set("c", 3);
+    map.set("a", 1);
+    map.set("b", 2);
+    expect([...map.keys()]).toEqual(["c", "a", "b"]);
+  });
 });

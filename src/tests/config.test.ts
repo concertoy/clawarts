@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { resolveEnvRef } from "../config.js";
+import { resolveEnvRef, AGENT_DEFAULTS, DEFAULT_MODELS } from "../config.js";
 
 describe("resolveEnvRef", () => {
   const ENV_KEY = "CLAWARTS_TEST_TOKEN_XYZ";
@@ -35,5 +35,30 @@ describe("resolveEnvRef", () => {
 
   it("does not resolve partial $ in middle of string", () => {
     expect(resolveEnvRef("hello$world")).toBe("hello$world");
+  });
+});
+
+describe("AGENT_DEFAULTS", () => {
+  it("has valid provider", () => {
+    expect(["openai-codex", "anthropic-claude"]).toContain(AGENT_DEFAULTS.provider);
+  });
+
+  it("has positive maxTokens", () => {
+    expect(AGENT_DEFAULTS.maxTokens).toBeGreaterThan(0);
+  });
+
+  it("has positive sessionTtlMinutes", () => {
+    expect(AGENT_DEFAULTS.sessionTtlMinutes).toBeGreaterThan(0);
+  });
+});
+
+describe("DEFAULT_MODELS", () => {
+  it("has a model for each provider", () => {
+    expect(DEFAULT_MODELS["openai-codex"]).toBeDefined();
+    expect(DEFAULT_MODELS["anthropic-claude"]).toBeDefined();
+  });
+
+  it("claude model starts with claude-", () => {
+    expect(DEFAULT_MODELS["anthropic-claude"]).toMatch(/^claude-/);
   });
 });
