@@ -17,6 +17,10 @@ export class SubmissionStore {
     data: Omit<Submission, "id" | "submittedAt" | "status">,
     deadline: number,
   ): Promise<Submission> {
+    // Sanity check: deadline should be a reasonable epoch-ms timestamp (year 2000–2100)
+    if (deadline < 946_684_800_000 || deadline > 4_102_444_800_000) {
+      throw new Error(`Invalid deadline timestamp: ${deadline} (expected epoch milliseconds between 2000-2100)`);
+    }
     return withStoreLock(this.storePath, async () => {
       const store = await this.load();
 
