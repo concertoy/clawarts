@@ -236,9 +236,14 @@ export function createCheckinTool(
         case "evaluate": {
           await checkinStore.closeExpiredWindows();
 
-          const evaluations = input.evaluations as { responseId: string; score: number; status: string; feedback?: string }[];
+          const evaluations = input.evaluations as { responseId: string; score: number; status: string; feedback?: string }[] | undefined;
 
           if (evaluations && evaluations.length > 0) {
+            // Validate evaluation entries
+            const invalid = evaluations.filter((e) => !e.responseId || typeof e.score !== "number" || !e.status);
+            if (invalid.length > 0) {
+              return `Error: ${invalid.length} evaluation(s) missing required fields (responseId, score, status).`;
+            }
             // Direct evaluation with provided scores
             const updated = await checkinStore.bulkEvaluate(
               evaluations.map((e) => ({

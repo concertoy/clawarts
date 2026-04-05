@@ -48,8 +48,8 @@ export function createCheckinRespondTool(
 
       switch (action) {
         case "respond": {
-          const content = input.content as string;
-          if (!content) return "Error: content is required.";
+          const content = (input.content as string)?.trim();
+          if (!content) return "Error: content is required (must not be empty or whitespace-only).";
           if (content.length > MAX_RESPONSE_CHARS) return `Error: response too long (max ${MAX_RESPONSE_CHARS.toLocaleString()} characters).`;
 
           const window = await checkinStore.getRespondableWindow();
