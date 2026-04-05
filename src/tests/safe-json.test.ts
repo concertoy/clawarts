@@ -36,6 +36,18 @@ describe("safeJsonStringify", () => {
     expect(result).toContain("[Circular]");
   });
 
+  it("handles Map objects", () => {
+    const result = safeJsonStringify({ m: new Map([["key", "val"]]) });
+    const parsed = JSON.parse(result!);
+    expect(parsed.m).toEqual({ key: "val" });
+  });
+
+  it("handles Set objects", () => {
+    const result = safeJsonStringify({ s: new Set([1, 2, 3]) });
+    const parsed = JSON.parse(result!);
+    expect(parsed.s).toEqual([1, 2, 3]);
+  });
+
   it("returns null on failure", () => {
     // This shouldn't actually fail since we handle everything, but test the contract
     expect(safeJsonStringify(undefined)).toBe(undefined); // JSON.stringify(undefined) returns undefined
