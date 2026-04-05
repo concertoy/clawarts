@@ -1,130 +1,172 @@
 # clawarts
 
-Multi-agent Slack bot for course management. Each agent runs its own AI loop and communicates via Slack Socket Mode.
+Multi-agent Slack bot for course management. Tutor and student agents run independent AI loops, communicate via relay, and connect to Slack through Socket Mode.
+
+## Quick start
+
+```bash
+npm install
+npm run cli setup     # interactive config wizard
+npm run dev           # start with auto-reload
+```
+
+Or configure manually: create `config.json` and a `.env` file (see [Config](#config) below), then `npm start`.
 
 ## Architecture
 
 ```
-Tutor Agent ──relay──> Student Agent(s)
-     │                      │
-     ├─ assignments         ├─ submissions
-     ├─ announcements       ├─ my_assignments
-     ├─ cron reminders      └─ guided learning
-     └─ full tool access        (read-only tools)
+Tutor Agent ──relay/broadcast──> Student Agent(s)
+     │                                │
+     ├─ assignments, check-ins        ├─ submissions, responses
+     ├─ announcements, grades         ├─ my_grades, my_assignments
+     ├─ cron scheduling               └─ guided learning (helpLevel)
+     └─ full tool access                  (restricted tools)
 ```
 
-- **Tutor agents** have full tool access, manage assignments, check-ins, and broadcast to students via relay
-- **Student agents** have restricted tools, submit work, respond to check-ins, and guide learners through problems
-- Academic integrity: configurable `helpLevel` (hints/guided/full) enforced at system prompt level
-- Agents share assignment data through a JSON file store — no database required
+- **Tutor agents** manage assignments, run check-ins, broadcast announcements, and have full tool access
+- **Student agents** submit work, respond to check-ins, and get AI tutoring with configurable guardrails
+- **Relay** enables cross-agent messaging; `broadcast` fans out to all students in parallel
+- **Cron** schedules recurring jobs (reminders, check-ins) with precise `setTimeout` targeting
+- All data stored as JSON files in `~/.clawarts/` -- no database required
 
-## Setup
+## Config
 
-```bash
-npm install
+`config.json` defines agents with shared defaults and per-agent overrides:
+
+```json
+{
+  "defaults": {
+    "provider": "anthropic-claude",
+    "model": "claude-sonnet-4-5-20250514"
+  },
+  "agents": [
+    {
+      "id": "tutor",
+      "slackBotToken": "$TUTOR_SLACK_BOT_TOKEN",
+      "slackAppToken": "$TUTOR_SLACK_APP_TOKEN",
+      "allowedUsers": ["U12345"]
+    },
+    {
+      "id": "student-1",
+      "linkedTutor": "tutor",
+      "slackBotToken": "$STUDENT_SLACK_BOT_TOKEN",
+      "slackAppToken": "$STUDENT_SLACK_APP_TOKEN",
+      "helpLevel": "guided",
+      "disallowedTools": ["bash", "write_file", "edit", "multi_edit"]
+    }
+  ]
+}
 ```
 
-Create a `.env` file:
+`.env`:
 
 ```
 TUTOR_SLACK_BOT_TOKEN=xoxb-...
 TUTOR_SLACK_APP_TOKEN=xapp-...
 STUDENT_SLACK_BOT_TOKEN=xoxb-...
 STUDENT_SLACK_APP_TOKEN=xapp-...
-ANTHROPIC_API_KEY=sk-ant-...   # if using anthropic-claude provider
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Run the interactive setup wizard or edit `config.json` directly:
+**Key agent options:**
 
-```bash
-npm run cli setup        # interactive wizard
-npm run cli agent add    # add a single agent
-npm run cli agent list   # list configured agents
-```
+| Option | Description | Default |
+|--------|-------------|---------|
+| `provider` | `anthropic-claude` or `openai-codex` | `anthropic-claude` |
+| `helpLevel` | `hints` / `guided` / `full` -- academic integrity guardrail | `guided` |
+| `maxToolIterations` | Max tool-use turns per request | 10 |
+| `disallowedTools` | Tools to block (e.g. `["bash", "write_file"]`) | `[]` |
+| `allowedUsers` | Slack user IDs permitted to interact | `[]` |
+| `rateLimitPerMinute` | Max requests per user per minute | 20 |
+| `quietHours` | Time range to suppress responses (e.g. `"23:00-07:00"`) | -- |
 
-## Run
-
-```bash
-npm run dev   # development (auto-reload)
-npm start     # production
-```
-
-## Config
-
-`config.json` defines agents with defaults and per-agent overrides:
-
-```json
-{
-  "defaults": { "provider": "openai-codex", "model": "gpt-5.4" },
-  "agents": [
-    { "id": "tutor", "slackBotToken": "$TUTOR_SLACK_BOT_TOKEN", "slackAppToken": "$TUTOR_SLACK_APP_TOKEN" },
-    { "id": "student-1", "linkedTutor": "tutor", "helpLevel": "guided", "disallowedTools": ["bash", "write_file", "edit", "multi_edit"] }
-  ]
-}
-```
-
-Key agent options:
-- `helpLevel`: `"hints"` | `"guided"` | `"full"` — academic integrity guardrail for student agents (default: `"guided"`)
-- `maxToolIterations`: max tool-use turns per request (default: 10, max recommended: 25)
-- `disallowedTools`: tools to block for this agent (e.g. `["bash", "write_file"]`)
-
-Providers: `anthropic-claude` (Claude), `openai-codex` (GPT).
+Config resolution: `CLAWARTS_CONFIG` env > `./config.json` > `~/.clawarts/config.json`.
 
 ## Tools
 
-| Tool | Category | Access |
-|------|----------|--------|
+| Tool | Category | Typical access |
+|------|----------|----------------|
 | `read_file`, `write_file`, `edit`, `multi_edit` | filesystem | tutor |
 | `bash` | shell | tutor |
-| `grep`, `glob`, `ls` | search | all |
 | `web_search`, `web_fetch` | web | all |
-| `cron` | scheduling | all |
 | `relay`, `list_students` | communication | tutor |
-| `assignment` | academic | tutor |
-| `submit` | academic | student |
+| `assignment`, `grades` | academic | tutor |
+| `submit`, `my_status` | academic | student |
 | `checkin` | academic | tutor |
 | `checkin_respond` | academic | student |
+| `cron` | scheduling | tutor |
+| `status` | utility | tutor |
+| `help` | utility | all |
+| `export_session`, `reset_session` | utility | all |
+
+Tool access is controlled per agent via `allowedTools` / `disallowedTools` in config. Supports exact names, `category:web` syntax, and `web_*` wildcards.
 
 ## Skills
 
-Skills are prompt-driven workflows defined in `SKILL.md` files.
+Skills are prompt-driven workflows defined in `SKILL.md` files. Invoked by name (e.g. "use the new_homework skill").
 
-**Tutor skills:**
-- `/new_homework` — create and announce assignments
-- `/launch_checkin` — start a check-in (passphrase, quiz, pulse, reflect)
-- `/check_submissions` — review submission status
-- `/setup_course` — auto-create assignments and check-ins from COURSE.md
-- `/announcement` — broadcast messages to all students
-- `/progress` — view student or class-wide progress report
-- `/roster` — student roster with status flags
-- `/export` — generate downloadable grade report
-- `/office_hours` — set and share availability
-- `/status` — quick system health check (assignments, students, cron jobs)
-- `/help` — show available commands
+**Tutor:** `/new_homework`, `/launch_checkin`, `/check_submissions`, `/setup_course`, `/announcement`, `/progress`, `/roster`, `/export`, `/office_hours`, `/status`, `/help`
 
-**Student skills:**
-- `/my_assignments` — view open assignments and submission status
-- `/checkin` — respond to class check-ins
-- `/my_grades` — view scores and attendance
-- `/remind` — set personal study reminders
-- `/office_hours` — check tutor availability
-- `/help` — show available commands
+**Student:** `/my_assignments`, `/checkin`, `/my_grades`, `/remind`, `/office_hours`, `/help`
 
-Skills live in `examples/default_tutor/skills/` and `examples/default_student/skills/`, and are copied to agent workspaces on first startup.
+Skills live in `examples/default_tutor/skills/` and `examples/default_student/skills/`, copied to agent workspaces on first startup. Workspace skills override bundled ones.
 
-## Data
+## Workspace files
 
-Agent state is stored in `~/.clawarts/agents/{id}/`:
+Each agent workspace can include these optional markdown files:
+
+| File | Purpose |
+|------|---------|
+| `SOUL.md` | Agent persona and behavior guidelines |
+| `IDENTITY.md` | Agent identity details |
+| `AGENTS.md` | Multi-agent context (who else exists) |
+| `TOOLS.md` | Tool usage guidance |
+| `USER.md` | User-facing information |
+| `COURSE.md` | Course schedule for `/setup_course` |
+
+## Check-in modes
+
+| Mode | How it works |
+|------|-------------|
+| `passphrase` | Students enter a secret phrase; auto-evaluated |
+| `quiz` | Per-student questions on a topic; AI-evaluated |
+| `pulse` | Repeated short check-ins at intervals |
+| `reflect` | Open-ended reflection prompts |
+
+## CLI
+
+```bash
+npm run cli setup          # full interactive setup
+npm run cli agent add      # add an agent
+npm run cli agent list     # list agents
+npm run cli agent remove   # remove an agent
+npm run cli skill add      # add a skill to an agent
+npm run cli skill list     # list agent skills
+npm run cli skill remove   # remove a skill
+npm run check              # run diagnostics
+```
+
+## Development
+
+```bash
+npm run dev           # start with auto-reload (tsx --watch)
+npm test              # run tests (vitest)
+npm run test:watch    # watch mode
+npm run typecheck     # tsc --noEmit
+npm run build         # compile to dist/
+```
+
+## Data layout
 
 ```
-~/.clawarts/agents/tutor/
-  workspace/          # SOUL.md, IDENTITY.md, skills/
-  data/               # assignments.json, submissions.json, checkin-*.json
-  cron/               # jobs.json
-  sessions/           # persisted conversation history
+~/.clawarts/
+  config.json
+  agents/{id}/
+    workspace/        # SOUL.md, TOOLS.md, skills/
+    data/             # assignments.json, submissions.json, checkins/
+    cron/             # jobs.json
+    sessions/         # persisted conversation history
 ```
-
-Config file resolution: `CLAWARTS_CONFIG` env > `./config.json` > `~/.clawarts/config.json`.
 
 ## License
 
