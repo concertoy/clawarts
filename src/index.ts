@@ -206,6 +206,9 @@ async function main() {
 
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+  process.on("SIGHUP", () => {
+    log.info("SIGHUP received — config reload not supported, please restart the process.");
+  });
 }
 
 // Global error handlers — prevent silent crashes.

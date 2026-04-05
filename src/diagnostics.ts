@@ -81,12 +81,21 @@ export function runDiagnostics(configs: AgentConfig[]): void {
       }
     }
 
-    // Duplicate Slack tokens (bot or app) — each agent should have its own
+    // Duplicate Slack tokens (bot or app) — each agent should have its own.
+    // Exception: tutor-student pairs sharing tokens is expected (same Slack app).
     for (const [tokenField, reason] of [
       ["slackBotToken", "each agent should have its own Slack app"] as const,
       ["slackAppToken", "Socket Mode requires unique app tokens per connection"] as const,
     ]) {
-      const same = configs.filter((c) => c.id !== config.id && c[tokenField] === config[tokenField]);
+      const same = configs.filter((c) => {
+        if (c.id === config.id) return false;
+        if (c[tokenField] !== config[tokenField]) return false;
+        // Tutor-student pairs sharing tokens is expected
+        if (c.linkedTutor === config.id || config.linkedTutor === c.id) return false;
+        // Siblings sharing the same tutor's tokens is also expected
+        if (c.linkedTutor && c.linkedTutor === config.linkedTutor) return false;
+        return true;
+      });
       if (same.length > 0) {
         warnings.push(`${label}: shares ${tokenField} with ${same.map((c) => c.id).join(", ")} — ${reason}`);
       }

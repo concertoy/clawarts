@@ -47,17 +47,19 @@ export async function runToolBatch(
   context?: ToolUseContext,
 ): Promise<ToolResult[]> {
   const results: ToolResult[] = [];
-  const batches = partitionToolCalls(tools, toolCalls);
+  // Build lookup map once instead of O(n) find per tool call
+  const toolMap = new Map(tools.map((t) => [t.name, t]));
+  const batches = partitionToolCalls(toolMap, toolCalls);
 
   for (const batch of batches) {
     if (batch.concurrent) {
       const batchResults = await Promise.all(
-        batch.calls.map((tc) => executeOne(tools, tc, context)),
+        batch.calls.map((tc) => executeOne(toolMap, tc, context)),
       );
       results.push(...batchResults);
     } else {
       for (const tc of batch.calls) {
-        results.push(await executeOne(tools, tc, context));
+        results.push(await executeOne(toolMap, tc, context));
       }
     }
   }
@@ -77,11 +79,11 @@ interface Batch {
  * - Consecutive read-only tools → one concurrent batch
  * - Each non-read-only tool → its own serial batch
  */
-function partitionToolCalls(tools: ToolDefinition[], toolCalls: ToolCall[]): Batch[] {
+function partitionToolCalls(toolMap: Map<string, ToolDefinition>, toolCalls: ToolCall[]): Batch[] {
   const batches: Batch[] = [];
 
   for (const tc of toolCalls) {
-    const tool = tools.find((t) => t.name === tc.name);
+    const tool = toolMap.get(tc.name);
     const isReadOnly = tool?.isReadOnly ?? false;
 
     if (isReadOnly) {
@@ -102,8 +104,8 @@ function partitionToolCalls(tools: ToolDefinition[], toolCalls: ToolCall[]): Bat
 
 // ─── Single tool execution ────────────────────────────────────────────
 
-async function executeOne(tools: ToolDefinition[], tc: ToolCall, context?: ToolUseContext): Promise<ToolResult> {
-  const tool = tools.find((t) => t.name === tc.name);
+async function executeOne(toolMap: Map<string, ToolDefinition>, tc: ToolCall, context?: ToolUseContext): Promise<ToolResult> {
+  const tool = toolMap.get(tc.name);
   if (!tool) {
     return { callId: tc.id, name: tc.name, output: `Unknown tool: ${tc.name}`, isError: true };
   }
