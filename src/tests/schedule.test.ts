@@ -54,5 +54,22 @@ describe("computeNextRunAtMs", () => {
       // anchor=0, everyMs=1000, now=2500 → steps=3, next=3000
       expect(result).toBe(3000);
     });
+
+    it("returns boundary value when now is exactly on a tick", () => {
+      const result = computeNextRunAtMs(
+        { kind: "every", everyMs: 1000, anchorMs: 0 },
+        3000,
+      );
+      // now=3000 is exactly on tick — returns current tick value
+      expect(result).toBe(3000);
+    });
+
+    it("handles very small everyMs", () => {
+      const result = computeNextRunAtMs(
+        { kind: "every", everyMs: 1, anchorMs: 0 },
+        100,
+      );
+      expect(result).toBeGreaterThanOrEqual(100);
+    });
   });
 });
