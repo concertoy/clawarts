@@ -48,6 +48,9 @@ describe("sanitizeInput", () => {
   it("strips RTLO override character", () => {
     expect(sanitizeInput("file\u202Efdp.exe")).toBe("filefdp.exe");
   });
+  it("strips null bytes", () => {
+    expect(sanitizeInput("hello\x00world")).toBe("helloworld");
+  });
 });
 
 describe("stripMention", () => {

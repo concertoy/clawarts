@@ -43,7 +43,7 @@ export function chunkText(text: string, limit: number): string[] {
  * - Bidi directional isolates (U+2066-U+2069) — prevent RTLO/Trojan Source attacks
  */
 export function sanitizeInput(text: string): string {
-  return text.replace(/[\u200B-\u200F\u2028-\u202F\u2066-\u2069\uFEFF\u00AD]/g, "");
+  return text.replace(/[\x00\u200B-\u200F\u2028-\u202F\u2066-\u2069\uFEFF\u00AD]/g, "");
 }
 
 const mentionRegexCache = new Map<string, RegExp>();
