@@ -102,6 +102,8 @@ export interface ConversationSession {
   messages: ConversationMessage[];
   createdAt: number;
   updatedAt: number;
+  /** True if this session was restored from disk (after restart). */
+  restoredFromDisk?: boolean;
 }
 
 /**

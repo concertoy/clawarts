@@ -137,6 +137,14 @@ describe("SessionStore", () => {
     });
   });
 
+  describe("restoredFromDisk", () => {
+    it("new sessions are not marked as restored", () => {
+      const store = new SessionStore(60_000);
+      const s = store.get("fresh");
+      expect(s.restoredFromDisk).toBeUndefined();
+    });
+  });
+
   describe("destroy", () => {
     it("clears sessions and timer", () => {
       const store = new SessionStore(60_000);
