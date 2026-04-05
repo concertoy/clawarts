@@ -94,10 +94,22 @@ program
   .description("Validate config.json and environment variables without starting the bot")
   .action(async () => {
     const { loadAllAgentConfigs } = await import("../config.js");
+    const { loadSkills } = await import("../skills.js");
+    const { loadWorkspaceFiles } = await import("../workspace.js");
     const { runDiagnostics, checkProviderHealth, checkSlackTokens } = await import("../diagnostics.js");
     try {
       const configs = loadAllAgentConfigs();
       console.log(`Config loaded: ${configs.length} agent(s) — ${configs.map((a) => a.id).join(", ")}`);
+      for (const c of configs) {
+        const skills = loadSkills({ ...c.skillSources, legacyDirs: c.skillsDirs });
+        const wFiles = loadWorkspaceFiles(c.workspaceDir);
+        const parts = [
+          `  ${c.id}: ${c.provider}/${c.model}`,
+          wFiles.length > 0 ? `workspace: ${wFiles.map((f) => f.name).join(", ")}` : "no workspace files",
+          skills.length > 0 ? `skills: ${skills.map((s) => s.name).join(", ")}` : "no skills",
+        ];
+        console.log(parts.join(" | "));
+      }
       runDiagnostics(configs);
       const results = await Promise.allSettled([checkProviderHealth(configs), checkSlackTokens(configs)]);
       let hasErrors = false;

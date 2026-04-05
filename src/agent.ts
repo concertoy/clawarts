@@ -112,7 +112,9 @@ export class Agent {
     // Quiet hours: return canned message without calling the API
     if (this.config.quietHours && isQuietHours(this.config.quietHours, this.config.quietHoursTimezone)) {
       touchAgent(this.config.id);
-      return "I'm currently offline during quiet hours. Please try again later, or save your question and I'll be available during regular hours.";
+      const endTime = this.config.quietHours.split("-")[1];
+      const tzNote = this.config.quietHoursTimezone ? ` (${this.config.quietHoursTimezone})` : "";
+      return `I'm currently offline during quiet hours (${this.config.quietHours}${tzNote}). I'll be back at ${endTime}. Save your question and I'll help you then!`;
     }
 
     // Rate limit: prevent runaway API calls (ported from openclaw's fixed-window limiter)
