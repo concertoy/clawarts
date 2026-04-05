@@ -13,7 +13,7 @@ const dmCache = new BoundedMap<string, string>(500);
 export async function openDmChannel(client: WebClient, userId: string): Promise<string> {
   // Use the client's token (first 10 chars) as part of the cache key
   // to differentiate between different bot tokens
-  const tokenKey = (client as any).token?.slice(0, 10) ?? "default";
+  const tokenKey = client.token?.slice(0, 10) ?? "default";
   const cacheKey = `${tokenKey}:${userId}`;
   const cached = dmCache.get(cacheKey);
   if (cached) return cached;

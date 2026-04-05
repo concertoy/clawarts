@@ -27,6 +27,21 @@ const SOCKET_PING_TIMEOUT_MS = 30_000;
 /** Slack DM channels start with "D". */
 const isDirectMessage = (channel: string): boolean => channel.startsWith("D");
 
+/**
+ * Access the Bolt Socket Mode receiver's internal client.
+ * Bolt doesn't expose this in its public API, so we access it carefully.
+ * Returns null if the internals have changed (forward-compatible).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getBoltSocketClient(app: App): Record<string, any> | null {
+  try {
+    const receiver = (app as any).receiver;
+    return receiver?.client ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function createSlackApp(config: AgentConfig, agent: Agent, sessions: SessionStore): App {
   const alog = createLogger(`slack:${config.id}`);
 
@@ -37,14 +52,9 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   });
 
   // Increase ping timeout from default 5s to 30s to avoid constant reconnections.
-  // This accesses Bolt internals — wrapped in try/catch for forward compatibility.
-  try {
-    const receiver = (app as any).receiver;
-    if (receiver?.client) {
-      receiver.client.clientPingTimeoutMS = SOCKET_PING_TIMEOUT_MS;
-    }
-  } catch {
-    // Bolt internals may change — non-fatal
+  const socketClient = getBoltSocketClient(app);
+  if (socketClient) {
+    socketClient.clientPingTimeoutMS = SOCKET_PING_TIMEOUT_MS;
   }
 
   const allowedUsers = config.allowedUsers ? new Set(config.allowedUsers) : null;
@@ -286,15 +296,10 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   });
 
   // Log Socket Mode connection lifecycle for debugging WiFi/network issues
-  try {
-    const receiver = (app as unknown as { receiver?: { client?: { on?: (e: string, cb: () => void) => void } } }).receiver;
-    if (receiver?.client?.on) {
-      receiver.client.on("connected", () => log.info("Socket Mode connected"));
-      receiver.client.on("reconnecting", () => log.warn("Socket Mode reconnecting..."));
-      receiver.client.on("disconnected", () => log.warn("Socket Mode disconnected"));
-    }
-  } catch {
-    // Bolt internals may change — non-fatal
+  if (socketClient?.on) {
+    socketClient.on("connected", () => log.info("Socket Mode connected"));
+    socketClient.on("reconnecting", () => log.warn("Socket Mode reconnecting..."));
+    socketClient.on("disconnected", () => log.warn("Socket Mode disconnected"));
   }
 
   return app;
