@@ -159,12 +159,25 @@ export class Agent {
     contextParts.push(`Current time: ${new Date().toISOString()}`);
     const systemPromptWithContext = this.systemPrompt + "\n" + contextParts.join("\n");
 
-    // Build conversation messages from session history + new user message
+    // Build conversation messages from session history + new user message.
+    // Recovery: filter empty messages, drop trailing whitespace-only assistant
+    // messages (from crash mid-response), and inject context note if session
+    // was restored from disk. Ported from claude-code's conversationRecovery.ts.
     const userContent = `[From: <@${userId}>]\n${userMessage}`;
+    const restored = session.messages
+      .filter((m) => m.content?.trim()) // skip empty/corrupted messages
+      .map((m) => ({ role: m.role, content: m.content }));
+    // Drop trailing assistant message if it looks like an interrupted response
+    // (very short or just whitespace) — the model will re-generate naturally.
+    if (restored.length > 0) {
+      const last = restored[restored.length - 1];
+      if (last.role === "assistant" && last.content.trim().length < 20) {
+        this.log.debug(`Dropping truncated assistant message from restored session: "${last.content.trim().slice(0, 30)}"`);
+        restored.pop();
+      }
+    }
     const messages: ProviderMessage[] = [
-      ...session.messages
-        .filter((m) => m.content) // skip empty/corrupted messages from disk restore
-        .map((m) => ({ role: m.role, content: m.content })),
+      ...restored,
       { role: "user" as const, content: userContent, ...(images?.length ? { images } : {}) },
     ];
 
@@ -307,18 +320,28 @@ export class Agent {
         }
 
         toolErrorCount += results.filter((r) => r.isError).length;
-        this.log.debug(`Turn ${turnCount}: ${results.map((r) => r.name).join(", ")}`);
+        const turnTokens = response.usage ? ` (${response.usage.inputTokens}in/${response.usage.outputTokens}out)` : "";
+        this.log.debug(`Turn ${turnCount}: ${results.map((r) => r.name).join(", ")}${turnTokens}`);
       }
     } catch (err) {
       // Re-throw abort errors (handled by caller in slack.ts)
       if (isAbortError(err)) {
         throw err;
       }
-      // Log unexpected errors but still save partial response
+      // Classify error for better user-facing messages
+      const msg = errMsg(err);
       this.log.error(`Error in agent loop (turn ${turnCount}):`, err);
-      recordAgentError(this.config.id, errMsg(err));
+      recordAgentError(this.config.id, msg);
       if (!lastText) {
-        lastText = "[Something went wrong processing your request. Try a simpler message, or ask again in a moment. If the problem persists, contact your instructor.]";
+        if (/\b401\b|unauthorized|invalid.*key/i.test(msg)) {
+          lastText = "[The AI service rejected the API key. Please notify your instructor.]";
+        } else if (/\b429\b|rate.?limit|too many/i.test(msg)) {
+          lastText = "[The AI service is rate-limited right now. Please wait a minute and try again.]";
+        } else if (/\b529\b|overloaded/i.test(msg)) {
+          lastText = "[The AI service is temporarily overloaded. Please try again in a few minutes.]";
+        } else {
+          lastText = "[Something went wrong processing your request. Try a simpler message, or ask again in a moment. If the problem persists, contact your instructor.]";
+        }
       }
     } finally {
       clearTimeout(loopTimeout);
