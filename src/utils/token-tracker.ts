@@ -120,3 +120,20 @@ export function getToolUsage(agentId: string): { name: string; count: number }[]
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count);
 }
+
+// ─── Compaction tracking ────────────────────────────────────────────
+
+const compactionStats = new Map<string, { successes: number; failures: number }>();
+
+/** Record a compaction attempt (success or failure). */
+export function recordCompaction(agentId: string, success: boolean): void {
+  const prev = compactionStats.get(agentId) ?? { successes: 0, failures: 0 };
+  if (success) prev.successes++;
+  else prev.failures++;
+  compactionStats.set(agentId, prev);
+}
+
+/** Get compaction stats for an agent. */
+export function getCompactionStats(agentId: string): { successes: number; failures: number } | undefined {
+  return compactionStats.get(agentId);
+}

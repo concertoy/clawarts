@@ -7,7 +7,7 @@ import { runToolBatch } from "./tool-runner.js";
 import { touchAgent, recordAgentError } from "./relay.js";
 import { errMsg, isAbortError } from "./utils/errors.js";
 import { createRateLimiter, type RateLimiter } from "./utils/rate-limit.js";
-import { recordTokenUsage } from "./utils/token-tracker.js";
+import { recordTokenUsage, recordCompaction } from "./utils/token-tracker.js";
 import { createLogger } from "./utils/logger.js";
 
 const DEFAULT_MAX_TOOL_ITERATIONS = 10;
@@ -318,7 +318,7 @@ export class Agent {
       this.log.error(`Error in agent loop (turn ${turnCount}):`, err);
       recordAgentError(this.config.id, errMsg(err));
       if (!lastText) {
-        lastText = "[Something went wrong processing your request. Try a simpler message, or ask again in a moment.]";
+        lastText = "[Something went wrong processing your request. Try a simpler message, or ask again in a moment. If the problem persists, contact your instructor.]";
       }
     } finally {
       clearTimeout(loopTimeout);
@@ -411,8 +411,10 @@ export class Agent {
       }
       messages.push(...toKeep.slice(startIdx));
 
+      recordCompaction(this.config.id, true);
       this.log.info(`Compacted ${sessionKey ?? "?"}: ${toSummarize.length + toKeep.length} → ${messages.length} messages (${totalChars} → ~${summary.length} chars)`);
     } catch (err) {
+      recordCompaction(this.config.id, false);
       // Non-fatal — if compaction fails, just continue with full history
       this.log.warn("Compaction failed, continuing with full history:", errMsg(err));
     }
