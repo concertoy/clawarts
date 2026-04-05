@@ -51,6 +51,8 @@ export function createAgentTools(
     allTools.push(createAssignmentTool(assignmentStore, submissionStore, cronService, config.id));
 
     const checkinStore = new CheckinStore(dataDir);
+    // Sweep stale open windows on startup (may remain if process crashed before cron auto-close fired)
+    checkinStore.closeExpiredWindows().catch(() => {});
     allTools.push(createCheckinTool(checkinStore, cronService, config.id));
     allTools.push(createStatusTool(cronService));
     allTools.push(createExportTool());

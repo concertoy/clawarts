@@ -74,6 +74,13 @@ export function runDiagnostics(configs: AgentConfig[]): void {
       warnings.push(`${label}: no allowedUsers configured — any Slack user can interact with this agent`);
     }
 
+    // Check configured skills directories exist
+    for (const dir of config.skillsDirs ?? []) {
+      try { fs.accessSync(dir, fs.constants.R_OK); } catch {
+        warnings.push(`${label}: skills directory "${dir}" not found — no skills will be loaded from it`);
+      }
+    }
+
     // Duplicate Slack tokens (bot or app) — each agent should have its own
     for (const [tokenField, reason] of [
       ["slackBotToken", "each agent should have its own Slack app"] as const,

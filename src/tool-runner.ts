@@ -130,7 +130,9 @@ async function executeOne(tools: ToolDefinition[], tc: ToolCall, context?: ToolU
   } catch (err) {
     const elapsed = Date.now() - startMs;
     const msg = errMsg(err);
-    log.error(`${tc.name} failed after ${(elapsed / 1000).toFixed(1)}s: ${msg.slice(0, 100)}`);
+    // Include truncated args summary for debugging (e.g. which file, which command)
+    const argsSummary = tc.arguments.length > 120 ? tc.arguments.slice(0, 120) + "..." : tc.arguments;
+    log.error(`${tc.name} failed after ${(elapsed / 1000).toFixed(1)}s: ${msg.slice(0, 200)} | args: ${argsSummary}`);
     return { callId: tc.id, name: tc.name, output: `Tool execution error: ${sanitizeForUser(msg)}`, isError: true };
   }
 }

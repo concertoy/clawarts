@@ -123,7 +123,7 @@ export class SessionStore {
     // Hash long keys to avoid exceeding filesystem path limits.
     let safe = key.replace(/[/:]/g, "_");
     if (safe.length > 100) {
-      safe = createHash("sha256").update(key).digest("hex").slice(0, 32);
+      safe = createHash("sha256").update(key).digest("hex"); // full 64-char hex — no collision risk
     }
     return path.join(this.persistDir, `${safe}.json`);
   }
