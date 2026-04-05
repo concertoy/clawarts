@@ -1,10 +1,10 @@
 /**
  * Structured logger with levels.
- * Controlled via LOG_LEVEL env var: debug, info, warn, error.
- * Default: info. Each logger instance carries a prefix (usually agent ID).
+ * Controlled via LOG_LEVEL env var: debug, info, warn, error, silent.
+ * Default: info. "silent" suppresses all output. Each logger instance carries a prefix (usually agent ID).
  */
 
-const LEVELS = { debug: 0, info: 1, warn: 2, error: 3 } as const;
+const LEVELS = { debug: 0, info: 1, warn: 2, error: 3, silent: 4 } as const;
 type Level = keyof typeof LEVELS;
 
 const globalLevel: Level = (() => {
@@ -34,7 +34,9 @@ export class Logger {
   }
 
   error(...args: unknown[]): void {
-    console.error(`[${this.prefix}]`, ...args);
+    if (LEVELS[globalLevel] <= LEVELS.error) {
+      console.error(`[${this.prefix}]`, ...args);
+    }
   }
 
   /** Create a child logger with a sub-prefix. */

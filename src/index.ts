@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { loadAllAgentConfigs } from "./config.js";
 import { TokenProvider } from "./auth.js";
@@ -21,6 +20,7 @@ import { registerAgent } from "./relay.js";
 import { errMsg } from "./utils/errors.js";
 import { createAgentTools } from "./agent-tools.js";
 import { createLogger } from "./utils/logger.js";
+import { clawHome } from "./utils/paths.js";
 
 const log = createLogger("clawarts");
 
@@ -99,7 +99,7 @@ async function main() {
     const slackClient = new WebClient(config.slackBotToken);
 
     // Create cron service per agent
-    const cronStorePath = path.join(os.homedir(), ".clawarts", "agents", config.id, "cron", "jobs.json");
+    const cronStorePath = clawHome("agents", config.id, "cron", "jobs.json");
     const cronService = new CronService({
       agentId: config.id,
       storePath: cronStorePath,
@@ -117,7 +117,7 @@ async function main() {
     }
 
     const sessions = new SessionStore(config.sessionTtlMinutes * 60 * 1000);
-    sessions.enablePersistence(path.join(os.homedir(), ".clawarts", "agents", config.id, "sessions"));
+    sessions.enablePersistence(clawHome("agents", config.id, "sessions"));
     const provider = await createProvider(config);
     const agent = new Agent(config, provider, sessions, skills, tools, workspaceFiles);
     const extras = [

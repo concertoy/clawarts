@@ -2,7 +2,6 @@
  * Per-agent tool wiring — extracted from index.ts for readability.
  * Creates the full tool set for a tutor or student agent.
  */
-import os from "node:os";
 import path from "node:path";
 import type { AgentConfig, ToolDefinition } from "./types.js";
 import type { CronService } from "./cron/service.js";
@@ -24,6 +23,7 @@ import { createResetTool } from "./tools/reset-tool.js";
 import { createHelpTool } from "./tools/help-tool.js";
 import { createGradesTool } from "./tools/grades-tool.js";
 import type { WebClient } from "@slack/web-api";
+import { clawHome } from "./utils/paths.js";
 
 export interface AgentToolsResult {
   tools: ToolDefinition[];
@@ -45,7 +45,7 @@ export function createAgentTools(
     allTools.push(createRelayTool());
     allTools.push(createListStudentsTool());
 
-    const dataDir = path.join(os.homedir(), ".clawarts", "agents", config.id, "data");
+    const dataDir = clawHome("agents", config.id, "data");
     const assignmentStore = new AssignmentStore(path.join(dataDir, "assignments.json"));
     // Sweep overdue assignments on startup (may remain if process crashed before cron auto-close fired)
     assignmentStore.closeExpired().catch(() => {});
@@ -89,7 +89,7 @@ export function createAgentTools(
       return false;
     };
   } else if (config.linkedTutor) {
-    const tutorDataDir = path.join(os.homedir(), ".clawarts", "agents", config.linkedTutor, "data");
+    const tutorDataDir = clawHome("agents", config.linkedTutor, "data");
     const assignmentStore = new AssignmentStore(path.join(tutorDataDir, "assignments.json"));
     const submissionStore = new SubmissionStore(path.join(tutorDataDir, "submissions.json"));
     allTools.push(createSubmitTool(assignmentStore, submissionStore));

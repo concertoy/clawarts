@@ -122,19 +122,21 @@ export class CheckinStore {
     agentId: string;
     content: string;
   }): Promise<CheckinResponse | { error: string }> {
-    // Validate window before acquiring lock (read-only check)
     const GRACE_PERIOD_MS = 60_000; // 60s grace period — responses accepted but marked late
-    const window = await this.getWindow(data.windowId);
-    if (!window) return { error: "Check-in window not found." };
-    const now = Date.now();
-    const isLate = now > window.closesAt;
-    const pastGrace = now > window.closesAt + GRACE_PERIOD_MS;
-    if (window.status !== "open" && !isLate) return { error: "Check-in window is closed." };
-    if (pastGrace) return { error: "Check-in window has expired (grace period ended)." };
 
     // Lock the responses file to prevent concurrent read-modify-write races
-    // (multiple students may submit simultaneously during a check-in window)
+    // (multiple students may submit simultaneously during a check-in window).
+    // Window validation is inside the lock to prevent TOCTOU: window could close
+    // between an outside check and the lock acquisition.
     return withStoreLock(this.responsesPath, async () => {
+      const window = await this.getWindow(data.windowId);
+      if (!window) return { error: "Check-in window not found." };
+      const now = Date.now();
+      const isLate = now > window.closesAt;
+      const pastGrace = now > window.closesAt + GRACE_PERIOD_MS;
+      if (window.status !== "open" && !isLate) return { error: "Check-in window is closed." };
+      if (pastGrace) return { error: "Check-in window has expired (grace period ended)." };
+
       const store = await loadStore<CheckinResponse>(this.responsesPath);
 
       // Overwrite previous response from same user for same window
