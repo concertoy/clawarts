@@ -103,4 +103,47 @@ describe("SessionStore", () => {
       expect(store.getMessages("unknown")).toEqual([]);
     });
   });
+
+  describe("truncate", () => {
+    it("removes excess messages from the front", () => {
+      const store = new SessionStore(60_000);
+      const s = store.get("trunc");
+      // Add 105 messages (exceeds MAX_MESSAGES_PER_SESSION = 100)
+      for (let i = 0; i < 105; i++) {
+        s.messages.push({ role: i % 2 === 0 ? "user" : "assistant", content: `msg ${i}` });
+      }
+      store.truncate(s);
+      expect(s.messages.length).toBeLessThanOrEqual(100);
+    });
+
+    it("does not truncate when under limit", () => {
+      const store = new SessionStore(60_000);
+      const s = store.get("short");
+      s.messages.push({ role: "user", content: "hello" });
+      s.messages.push({ role: "assistant", content: "hi" });
+      store.truncate(s);
+      expect(s.messages.length).toBe(2);
+    });
+
+    it("ensures first message after truncation is from user", () => {
+      const store = new SessionStore(60_000);
+      const s = store.get("role-fix");
+      // Start with assistant, then alternate — after truncation, first should be user
+      for (let i = 0; i < 110; i++) {
+        s.messages.push({ role: i % 2 === 0 ? "assistant" : "user", content: `msg ${i}` });
+      }
+      store.truncate(s);
+      expect(s.messages[0].role).toBe("user");
+    });
+  });
+
+  describe("destroy", () => {
+    it("clears sessions and timer", () => {
+      const store = new SessionStore(60_000);
+      store.get("a");
+      store.get("b");
+      store.destroy();
+      expect(store.size).toBe(0);
+    });
+  });
 });
