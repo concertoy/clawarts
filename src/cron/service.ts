@@ -109,7 +109,7 @@ export class CronService {
         (j) => j.name === input.name && j.enabled && j.channelId === input.channelId,
       );
       if (existing) {
-        this.log.debug(`Idempotent skip: job "${input.name}" already exists (${existing.id})`);
+        this.log.info(`Idempotent skip: job "${input.name}" already exists (${existing.id}), next: ${existing.state.nextRunAtMs ? new Date(existing.state.nextRunAtMs).toISOString() : "never"}`);
         return existing;
       }
     }

@@ -264,6 +264,17 @@ export function loadAllAgentConfigs(): AgentConfig[] {
     const configs = file.agents.map((entry) => resolveAgentConfig(entry, defaults, file.agents));
     for (const config of configs) validateAgentConfig(config);
     validateCrossReferences(configs);
+    // Warn on missing workspace or SOUL.md — helps professors catch setup issues early
+    for (const config of configs) {
+      if (!fs.existsSync(config.workspaceDir)) {
+        log.warn(`${config.id}: workspaceDir "${config.workspaceDir}" does not exist — will be created on first use`);
+      } else {
+        const soulPath = path.join(config.workspaceDir, "SOUL.md");
+        if (!fs.existsSync(soulPath)) {
+          log.warn(`${config.id}: no SOUL.md found in workspace "${config.workspaceDir}" — agent will use generic persona`);
+        }
+      }
+    }
     return configs;
   }
 

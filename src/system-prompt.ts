@@ -119,7 +119,10 @@ export function buildSystemPrompt(params: {
     const toolLines = params.tools.map((t) => {
       const cat = t.category ? ` [${t.category}]` : "";
       const desc = t.description ?? "";
-      return `- \`${t.name}\`${cat}: ${desc.split(".")[0] || desc}.`;
+      // Use first sentence (up to 120 chars) — split at ". " not "." to avoid cutting "e.g." or "v1.2"
+      const firstSentence = desc.includes(". ") ? desc.slice(0, desc.indexOf(". ") + 1) : desc;
+      const brief = firstSentence.length > 120 ? firstSentence.slice(0, 117) + "..." : firstSentence;
+      return `- \`${t.name}\`${cat}: ${brief || "(no description)"}`;
     });
     sections.push(
       ["## Available tools", "", ...toolLines].join("\n"),

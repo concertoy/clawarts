@@ -85,6 +85,17 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("`bash` [shell]");
   });
 
+  it("does not truncate tool descriptions at version-like periods", () => {
+    const prompt = buildSystemPrompt({
+      ...baseParams,
+      tools: [
+        { name: "web_fetch", description: "Fetch a URL (max 5.0 MB). Returns markdown content.", isReadOnly: true, parameters: { type: "object", properties: {} }, execute: async () => "" },
+      ],
+    });
+    // Should split at ". R" (sentence boundary), not at "5.0"
+    expect(prompt).toContain("Fetch a URL (max 5.0 MB).");
+  });
+
   it("includes skills section when skills provided", () => {
     const prompt = buildSystemPrompt({
       ...baseParams,

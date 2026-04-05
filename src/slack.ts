@@ -373,13 +373,15 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
     // Streaming state: accumulate text deltas and throttle Slack edits
     let streamedText = "";
     let lastEditAt = 0;
+    let editInFlight = false; // Prevent concurrent chat.update calls
 
     const flushEdit = async () => {
-      if (!placeholderTs || !streamedText) return;
+      if (!placeholderTs || !streamedText || editInFlight) return;
       const now = Date.now();
       // Only edit if we have text and enough time has passed
       if (now - lastEditAt < STREAM_UPDATE_INTERVAL_MS) return;
       lastEditAt = now;
+      editInFlight = true;
       const slackText = markdownToSlack(streamedText);
       const displayText = slackText.length > SLACK_TEXT_LIMIT
         ? slackText.slice(0, SLACK_TEXT_LIMIT) + "\n\n_(truncated — see thread for full response)_"
@@ -388,6 +390,8 @@ async function handleMessage(params: HandleMessageParams): Promise<void> {
         await client.chat.update({ channel, ts: placeholderTs, text: displayText });
       } catch (err) {
         log.debug(`Stream edit failed (rate limit?): ${errMsg(err)}`);
+      } finally {
+        editInFlight = false;
       }
     };
 
