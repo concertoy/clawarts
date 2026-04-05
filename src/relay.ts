@@ -192,6 +192,9 @@ export function createRelayTool(): ToolDefinition {
     category: "communication",
     async execute(input: Record<string, unknown>, context?: ToolUseContext): Promise<string> {
       const action = (input.action as string) || "send";
+      if (action !== "send" && action !== "broadcast") {
+        return `Error: unknown action "${action}". Use "send" or "broadcast".`;
+      }
       const message = (input.message as string)?.trim();
       if (!message) return "Error: message is required.";
       if (message.length > MAX_RELAY_MESSAGE_LENGTH) {
@@ -241,6 +244,9 @@ export function createRelayTool(): ToolDefinition {
       const userId = input.userId as string;
       if (!targetId || !userId) {
         return "Error: send action requires targetAgentId and userId. Use action=broadcast to reach all students.";
+      }
+      if (!/^U[A-Z0-9]{8,12}$/.test(userId)) {
+        return `Error: userId "${userId}" doesn't look like a Slack user ID (expected U + 8-12 alphanumeric chars).`;
       }
 
       const target = getRegisteredAgent(targetId);

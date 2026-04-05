@@ -77,6 +77,11 @@ describe("SubmissionStore", () => {
     expect(graded?.gradedAt).toBeGreaterThan(0);
   });
 
+  it("rejects invalid deadline timestamps", async () => {
+    await expect(store.submit(baseData, 0)).rejects.toThrow("Invalid deadline timestamp");
+    await expect(store.submit(baseData, 999999999)).rejects.toThrow("Invalid deadline timestamp"); // seconds, not ms
+  });
+
   it("counts by assignment", async () => {
     await store.submit(baseData, Date.now() + 86400000);
     await store.submit({ ...baseData, userId: "U456" }, Date.now() - 1000); // late

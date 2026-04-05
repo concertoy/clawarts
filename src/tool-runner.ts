@@ -107,6 +107,7 @@ function partitionToolCalls(toolMap: Map<string, ToolDefinition>, toolCalls: Too
 async function executeOne(toolMap: Map<string, ToolDefinition>, tc: ToolCall, context?: ToolUseContext): Promise<ToolResult> {
   const tool = toolMap.get(tc.name);
   if (!tool) {
+    log.warn(`Model called unknown tool "${tc.name}" — available: ${[...toolMap.keys()].join(", ")}`);
     return { callId: tc.id, name: tc.name, output: `Unknown tool: ${tc.name}`, isError: true };
   }
   const startMs = Date.now();
