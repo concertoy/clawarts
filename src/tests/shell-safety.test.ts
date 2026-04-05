@@ -111,4 +111,12 @@ describe("isDangerousCommand", () => {
     // e.g., "pseudocode" or a variable named "sudo_path"
     expect(isDangerousCommand("echo pseudocode")).toBeNull();
   });
+
+  it("blocks eval", () => {
+    expect(isDangerousCommand("eval 'rm -rf /'")).not.toBeNull();
+  });
+
+  it("blocks process substitution", () => {
+    expect(isDangerousCommand("cat > (bash)")).not.toBeNull();
+  });
 });

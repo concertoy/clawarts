@@ -35,6 +35,8 @@ const DANGEROUS_PATTERNS: readonly RegExp[] = Object.freeze([
   /\bkillall\b/,                                    // killall
   /\bxargs\s+.*\brm\b/,                             // xargs rm
   /^\s*sudo\b/,                                      // sudo (students shouldn't need elevated privileges)
+  /\beval\b/,                                        // eval (arbitrary code execution)
+  />\s*\(/,                                          // >(...) process substitution (shell escape vector)
 ]);
 
 /** Exported for testing. Returns a block reason or null if safe. */

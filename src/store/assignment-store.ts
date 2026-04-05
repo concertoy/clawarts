@@ -6,7 +6,13 @@ export class AssignmentStore {
   constructor(private readonly storePath: string) {}
 
   private async load() {
-    return loadStore<Assignment>(this.storePath);
+    const store = await loadStore<Assignment>(this.storePath);
+    // Filter out corrupted entries — defensive against hand-edited or partially-written files
+    const validStatuses = new Set(["open", "closed"]);
+    store.items = store.items.filter(
+      (a) => a && typeof a.id === "string" && typeof a.title === "string" && validStatuses.has(a.status),
+    );
+    return store;
   }
 
   private async save(items: Assignment[]) {
