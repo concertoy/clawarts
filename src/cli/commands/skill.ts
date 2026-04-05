@@ -1,10 +1,10 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import type { WizardPrompter } from "../prompter.js";
 import { readConfig, findAgent, resolveWorkspaceDir } from "../config-io.js";
 import { buildSkillSources } from "../../config.js";
 import { loadSkills } from "../../skills.js";
+import { clawHome } from "../../utils/paths.js";
 
 /** Quote a YAML value if it contains special characters (colons, quotes, etc.). */
 function yamlQuote(value: string): string {
@@ -114,7 +114,7 @@ export function skillListCommand(agentId?: string): void {
 }
 
 function listSkillsForAgent(agentId: string, workspaceDir: string): void {
-  const agentBase = path.join(os.homedir(), ".clawarts", "agents", agentId);
+  const agentBase = clawHome("agents", agentId);
   const sources = buildSkillSources(agentBase, workspaceDir);
 
   const skills = loadSkills({
@@ -149,7 +149,7 @@ export async function skillRemoveCommand(
   }
 
   const workspaceDir = resolveWorkspaceDir(agent, config);
-  const agentBase = path.join(os.homedir(), ".clawarts", "agents", agentId);
+  const agentBase = clawHome("agents", agentId);
   const sources = buildSkillSources(agentBase, workspaceDir);
 
   const skills = loadSkills({
