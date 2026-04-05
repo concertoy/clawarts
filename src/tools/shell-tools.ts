@@ -34,6 +34,7 @@ const DANGEROUS_PATTERNS: readonly RegExp[] = Object.freeze([
   /\bpkill\s+-9\b/,                                 // pkill -9
   /\bkillall\b/,                                    // killall
   /\bxargs\s+.*\brm\b/,                             // xargs rm
+  /^\s*sudo\b/,                                      // sudo (students shouldn't need elevated privileges)
 ]);
 
 /** Exported for testing. Returns a block reason or null if safe. */
