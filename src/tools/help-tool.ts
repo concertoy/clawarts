@@ -30,10 +30,11 @@ export function createHelpTool(tools: ToolDefinition[]): ToolDefinition {
 
       const lines = filtered.map((t) => {
         const desc = t.description || "No description";
-        const firstSentence = desc.split(".")[0];
+        // Split at ". " (sentence boundary) not "." to avoid cutting "e.g." or "v1.2"
+        const firstSentence = desc.includes(". ") ? desc.slice(0, desc.indexOf(". ") + 1) : desc;
         const truncated = firstSentence.length > 120 ? firstSentence.slice(0, 117) + "..." : firstSentence;
         const cat = t.category ? ` [${t.category}]` : "";
-        return `- **${t.name}**${cat}: ${truncated}.`;
+        return `- **${t.name}**${cat}: ${truncated}`;
       });
 
       // Show available categories as a hint

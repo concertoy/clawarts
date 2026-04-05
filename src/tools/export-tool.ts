@@ -37,7 +37,8 @@ export function createExportTool(): ToolDefinition {
 
     async execute(input: Record<string, unknown>, context?: ToolUseContext): Promise<string> {
       const tutorId = context?.agentId ?? "unknown";
-      const studentId = input.studentAgentId as string;
+      const studentId = (input.studentAgentId as string)?.trim();
+      if (!studentId) return "Error: studentAgentId is required.";
       const sessionKey = input.sessionKey as string | undefined;
       const maxMessages = Math.min(50, Math.max(1, (input.maxMessages as number) || 30));
 
