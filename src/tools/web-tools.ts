@@ -9,6 +9,29 @@ import { TTLMap } from "../utils/ttl-map.js";
 
 const log = createLogger("web-tools");
 
+/** Check if a hostname resolves to a private/internal/metadata address (SSRF guard). */
+export function isInternalHost(host: string): boolean {
+  // Exact matches
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1" ||
+      host === "0.0.0.0" || host === "169.254.169.254" ||
+      host === "metadata.google.internal") {
+    return true;
+  }
+  // Domain-based blocks
+  if (host.endsWith(".internal") || host.endsWith(".local")) return true;
+  // IPv4 private ranges: 10.x.x.x, 172.16-31.x.x, 192.168.x.x
+  const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4) {
+    const [, a, b] = ipv4.map(Number);
+    if (a === 10) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 169 && b === 254) return true; // link-local
+    if (a === 0) return true; // 0.0.0.0/8
+  }
+  return false;
+}
+
 // ─── web_search (DuckDuckGo) ──────────────────────────────────────────
 
 const DDG_URL = "https://html.duckduckgo.com/html";
@@ -33,10 +56,12 @@ const webSearchTool: ToolDefinition = {
   isReadOnly: true,
   category: "web",
   async execute(input) {
-    const query = input.query as string;
+    const query = (input.query as string)?.trim();
+    if (!query) return "Error: query is required.";
+    if (query.length > 500) return "Error: query too long (max 500 characters). Use a shorter search term.";
     const count = Math.min(Math.max((input.count as number) ?? 5, 1), 10);
 
-    const cacheKey = `${query.trim().toLowerCase()}:${count}`;
+    const cacheKey = `${query.toLowerCase()}:${count}`;
     const cached = ddgCache.get(cacheKey);
     if (cached) return cached;
 
@@ -218,9 +243,7 @@ const webFetchTool: ToolDefinition = {
       return `Error: Only http and https URLs are allowed.`;
     }
     const host = parsed.hostname.toLowerCase();
-    if (host === "localhost" || host === "127.0.0.1" || host === "::1" ||
-        host === "0.0.0.0" || host.endsWith(".internal") ||
-        host === "169.254.169.254" || host === "metadata.google.internal") {
+    if (isInternalHost(host)) {
       return `Error: Cannot fetch internal or metadata URLs.`;
     }
 
