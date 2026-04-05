@@ -58,4 +58,25 @@ describe("markdownToSlack", () => {
   it("collapses excess blank lines", () => {
     expect(markdownToSlack("a\n\n\n\nb")).toBe("a\n\nb");
   });
+
+  it("converts __underscore bold__ to Slack bold", () => {
+    expect(markdownToSlack("__hello__")).toBe("*hello*");
+  });
+
+  it("handles underscore bold with inner underscores", () => {
+    expect(markdownToSlack("__my_var__")).toBe("*my_var*");
+  });
+
+  it("preserves blockquotes", () => {
+    expect(markdownToSlack("> quoted text")).toBe("> quoted text");
+  });
+
+  it("handles mixed bold and italic in same line", () => {
+    expect(markdownToSlack("**bold** and *italic*")).toBe("*bold* and _italic_");
+  });
+
+  it("handles nested emphasis edge case", () => {
+    // Bold wrapping italic: **_word_** → *_word_*
+    expect(markdownToSlack("**_word_**")).toBe("*_word_*");
+  });
 });
