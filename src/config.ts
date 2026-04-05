@@ -1,10 +1,9 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import dotenv from "dotenv";
 import type { AgentConfig, AgentEntry, AgentDefaults, Provider, SkillSources } from "./types.js";
 import { errMsg, isFileNotFound } from "./utils/errors.js";
-import { expandTilde } from "./utils/paths.js";
+import { expandTilde, clawHome } from "./utils/paths.js";
 import { createLogger } from "./utils/logger.js";
 
 const log = createLogger("clawarts");
@@ -31,7 +30,7 @@ function resolveConfigPath(): string {
     fs.accessSync(cwdPath, fs.constants.R_OK);
     return cwdPath;
   } catch {
-    return path.join(os.homedir(), ".clawarts", "config.json");
+    return clawHome("config.json");
   }
 }
 
@@ -174,14 +173,14 @@ function validateCrossReferences(configs: AgentConfig[]): void {
 export function buildSkillSources(agentBase: string, workspaceDir: string): SkillSources {
   return {
     bundledDir: path.resolve("skills"),
-    userGlobalDir: path.join(os.homedir(), ".clawarts", "skills"),
+    userGlobalDir: clawHome("skills"),
     agentDir: path.join(agentBase, "skills"),
     workspaceDir: path.join(workspaceDir, "skills"),
   };
 }
 
 function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults, allEntries?: AgentEntry[]): AgentConfig {
-  const agentBase = path.join(os.homedir(), ".clawarts", "agents", entry.id);
+  const agentBase = clawHome("agents", entry.id);
 
   // Resolve workspace: explicit > linked tutor nested > default
   let workspaceDir: string;
@@ -190,7 +189,7 @@ function resolveAgentConfig(entry: AgentEntry, defaults: AgentDefaults, allEntri
   } else if (entry.linkedTutor && allEntries) {
     const tutor = allEntries.find((e) => e.id === entry.linkedTutor);
     if (tutor) {
-      const tutorBase = path.join(os.homedir(), ".clawarts", "agents", tutor.id);
+      const tutorBase = clawHome("agents", tutor.id);
       const tutorWorkspace = expandTilde(tutor.workspaceDir ?? defaults.workspaceDir ?? path.join(tutorBase, "workspace"));
       workspaceDir = path.join(tutorWorkspace, "students", entry.id);
     } else {
@@ -259,7 +258,7 @@ export function loadAllAgentConfigs(): AgentConfig[] {
     throw new Error("Missing SLACK_BOT_TOKEN or SLACK_APP_TOKEN. Set them in .env or use multi-agent config.");
   }
 
-  const agentBase = path.join(os.homedir(), ".clawarts", "agents", "default");
+  const agentBase = clawHome("agents", "default");
   const workspaceDir = expandTilde(file.workspaceDir ?? path.join(agentBase, "workspace"));
   const defaultSkillsDirs = [path.join(workspaceDir, "skills")];
 

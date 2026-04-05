@@ -1,11 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import http from "node:http";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import type { Provider } from "./types.js";
 import { errMsg, isFileNotFound } from "./utils/errors.js";
 import { createLogger } from "./utils/logger.js";
+import { clawHome } from "./utils/paths.js";
 
 // --- OpenAI Codex OAuth constants (from pi-ai/oauth/openai-codex.js) ---
 const OPENAI_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
@@ -15,8 +15,7 @@ const OPENAI_REDIRECT_URI = "http://localhost:1455/auth/callback";
 const OPENAI_SCOPE = "openid profile email offline_access";
 const OPENAI_JWT_CLAIM_PATH = "https://api.openai.com/auth";
 
-
-const AUTH_DIR = path.join(os.homedir(), ".clawarts", "auth");
+const AUTH_DIR = clawHome("auth");
 const EXPIRY_BUFFER_MS = 5 * 60 * 1000;
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 

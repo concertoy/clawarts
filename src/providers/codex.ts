@@ -83,7 +83,7 @@ export class CodexProvider implements ModelProvider {
         if (!resp.ok) {
           const text = await resp.text();
           const requestId = resp.headers.get("x-request-id") ?? "unknown";
-          throw new Error(`Codex API error (${resp.status}, req=${requestId}): ${text}`);
+          throw new Error(`Codex API error (${resp.status}, model=${params.model}, req=${requestId}): ${text}`);
         }
 
         // If onText callback is provided, stream incrementally for progressive updates

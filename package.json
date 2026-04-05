@@ -12,7 +12,9 @@
     "dev": "tsx watch src/index.ts",
     "cli": "tsx src/cli/index.ts",
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check": "tsx src/cli/index.ts check",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
