@@ -289,7 +289,10 @@ export class Agent {
         // Safety limit
         const maxIterations = this.config.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
         if (turnCount >= maxIterations) {
-          this.log.info(`Hit max tool iterations (${maxIterations})`);
+          this.log.warn(`Hit max tool iterations (${maxIterations}) — forcing stop`);
+          if (!lastText) {
+            lastText = "[I reached the maximum number of steps for this request. Please break your task into smaller pieces, or ask your instructor to adjust the limit.]";
+          }
           break;
         }
 
