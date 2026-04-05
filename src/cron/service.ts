@@ -26,6 +26,7 @@ export class CronService {
   private timer: NodeJS.Timeout | null = null;
   private readonly retryTimers = new Set<NodeJS.Timeout>();
   private running = false;
+  private stopped = false;
   private lastCleanupMs = 0;
 
   private systemHandler?: (tag: string, params: Record<string, string>, job: CronJob) => Promise<boolean>;
@@ -75,6 +76,7 @@ export class CronService {
   }
 
   async stop(): Promise<void> {
+    this.stopped = true;
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
@@ -283,9 +285,10 @@ export class CronService {
         job.state.retryCount = retryCount + 1;
         this.log.warn(`Job "${job.name}" failed (retry ${retryCount + 1}/${MAX_RETRIES} in ${RETRY_DELAY_MS / 1000}s): ${msg}`);
         // Schedule a retry — tracked so stop() can cancel it
+        if (this.stopped) return; // Don't schedule retries after stop()
         const retryTimer = setTimeout(() => {
           this.retryTimers.delete(retryTimer);
-          void this.retryJob(job);
+          if (!this.stopped) void this.retryJob(job);
         }, RETRY_DELAY_MS);
         if (retryTimer.unref) retryTimer.unref();
         this.retryTimers.add(retryTimer);
