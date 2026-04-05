@@ -64,6 +64,8 @@ export function createAssignmentTool(
           if (!title || !description || !deadlineStr) {
             return "Error: title, description, and deadline are required.";
           }
+          if (title.length > 200) return "Error: title too long (max 200 characters).";
+          if (description.length > 10_000) return "Error: description too long (max 10K characters).";
 
           const deadline = new Date(deadlineStr).getTime();
           if (!Number.isFinite(deadline)) return "Error: invalid deadline format. Use ISO 8601 (e.g. '2026-04-10T23:59:00Z').";

@@ -69,6 +69,9 @@ describe("formatTimeAgo", () => {
   it("handles days ago", () => {
     expect(formatTimeAgo(Date.now() - 2 * 86_400_000)).toBe("2.0d ago");
   });
+  it("handles future timestamps gracefully", () => {
+    expect(formatTimeAgo(Date.now() + 60_000)).toBe("just now");
+  });
 });
 
 describe("formatTokenCount edge cases", () => {
