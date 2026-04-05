@@ -95,6 +95,9 @@ export class CronService {
   // ─── CRUD ─────────────────────────────────────────────────────────────
 
   async add(input: CronJobCreate): Promise<CronJob> {
+    if (input.message.length > 4000) {
+      throw new Error(`Cron job message too long (${input.message.length} chars, max 4000)`);
+    }
     await this.ensureLoaded();
     const now = this.now();
 

@@ -215,9 +215,9 @@ async function main() {
     process.exit(0);
   };
 
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
-  process.on("SIGHUP", () => {
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
+  process.once("SIGHUP", () => {
     log.info("SIGHUP received — config reload not supported, please restart the process.");
   });
 }
