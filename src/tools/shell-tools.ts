@@ -29,6 +29,8 @@ const DANGEROUS_PATTERNS: readonly RegExp[] = Object.freeze([
   /\bcurl\b.*\|\s*(sudo\s+)?(\/\w+\/)*(ba)?sh/,     // curl | sh (including /bin/sh)
   /\bwget\b.*\|\s*(sudo\s+)?(\/\w+\/)*(ba)?sh/,    // wget | sh
   /\bgit\s+push\s+.*(-f\b|--force\b)/,               // git push --force / -f
+  /\bgit\s+reset\s+--hard\b/,                        // git reset --hard
+  /\bgit\s+clean\s+.*-f/,                            // git clean -f (removes untracked files)
   /\bpkill\s+-9\b/,                                 // pkill -9
   /\bkillall\b/,                                    // killall
   /\bxargs\s+.*\brm\b/,                             // xargs rm

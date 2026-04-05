@@ -90,4 +90,16 @@ describe("isDangerousCommand", () => {
   it("allows git diff -f flag (not push)", () => {
     expect(isDangerousCommand("git diff -f")).toBeNull();
   });
+
+  it("blocks git reset --hard", () => {
+    expect(isDangerousCommand("git reset --hard HEAD~1")).not.toBeNull();
+  });
+
+  it("blocks git clean -f", () => {
+    expect(isDangerousCommand("git clean -fd")).not.toBeNull();
+  });
+
+  it("allows git reset (without --hard)", () => {
+    expect(isDangerousCommand("git reset HEAD file.txt")).toBeNull();
+  });
 });

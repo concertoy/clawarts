@@ -10,6 +10,10 @@ describe("sanitizeForUser", () => {
     expect(sanitizeForUser("xapp-1-A1234567890-1234567890")).toBe("[REDACTED]");
   });
 
+  it("redacts OpenAI API keys", () => {
+    expect(sanitizeForUser("key=sk-proj-abc123def456ghi789jkl")).toBe("key=[REDACTED]");
+  });
+
   it("redacts Anthropic API keys", () => {
     expect(sanitizeForUser("key=sk-ant-abc123def456ghi789jkl")).toBe("key=[REDACTED]");
   });
