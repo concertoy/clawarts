@@ -1,5 +1,7 @@
 node_modules/
 dist/
+release/
 .env
+config.json
 *.tsbuildinfo
 third_party/

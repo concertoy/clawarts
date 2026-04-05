@@ -1,0 +1,29 @@
+{
+  "defaults": {
+    "model": "gpt-5.4",
+    "sessionTtlMinutes": 120,
+    "provider": "openai-codex"
+  },
+  "agents": [
+    {
+      "id": "tutor",
+      "slackBotToken": "$TUTOR_SLACK_BOT_TOKEN",
+      "slackAppToken": "$TUTOR_SLACK_APP_TOKEN",
+      "systemPrompt": "You are a course tutor assistant managing students.",
+      "allowedUsers": ["U_YOUR_USER_ID"]
+    },
+    {
+      "id": "student-1",
+      "slackBotToken": "$STUDENT_SLACK_BOT_TOKEN",
+      "slackAppToken": "$STUDENT_SLACK_APP_TOKEN",
+      "provider": "openai-codex",
+      "model": "gpt-5.4",
+      "maxTokens": 4096,
+      "sessionTtlMinutes": 60,
+      "systemPrompt": "You are a student learning assistant in a Slack workspace.",
+      "disallowedTools": ["bash", "write_file", "edit", "multi_edit"],
+      "linkedTutor": "tutor",
+      "allowedUsers": ["U_YOUR_USER_ID"]
+    }
+  ]
+}
