@@ -52,6 +52,13 @@ describe("ensureAlternatingRoles", () => {
     expect(msgs).toHaveLength(1);
   });
 
+  it("merges consecutive assistant messages", () => {
+    const msgs: ProviderMessage[] = [user("a"), assistant("b"), assistant("c"), user("d")];
+    ensureAlternatingRoles(msgs);
+    expect(msgs).toHaveLength(3);
+    expect(msgs[1]).toEqual({ role: "assistant", content: "b\n\nc" });
+  });
+
   it("does not merge tool_result with user", () => {
     const msgs: ProviderMessage[] = [
       user("call tool"),
