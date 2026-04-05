@@ -124,7 +124,10 @@ async function executeOne(toolMap: Map<string, ToolDefinition>, tc: ToolCall, co
     const timeout = tool.timeoutMs ?? TOOL_EXECUTION_TIMEOUT_MS;
     let output = await withTimeout(tool.execute(args, context), timeout, tc.name);
     const elapsed = Date.now() - startMs;
-    if (elapsed > SLOW_TOOL_LOG_THRESHOLD_MS) log.debug(`${tc.name} took ${(elapsed / 1000).toFixed(1)}s`);
+    if (elapsed > SLOW_TOOL_LOG_THRESHOLD_MS) {
+      const argHint = tc.arguments.length > 80 ? tc.arguments.slice(0, 80) + "..." : tc.arguments;
+      log.debug(`${tc.name} took ${(elapsed / 1000).toFixed(1)}s | args: ${argHint}`);
+    }
     // Detect tool-level errors (tools return error strings rather than throwing).
     // Ported from claude-code's tool error detection pattern.
     const isError = /^(error\s*:|error\s|blocked:|\[error\])/i.test(output);

@@ -207,10 +207,21 @@ const webFetchTool: ToolDefinition = {
     const extractMode = (input.extractMode as string) ?? "markdown";
     const maxChars = Math.max((input.maxChars as number) ?? WEB_FETCH_MAX_CHARS, 100);
 
+    let parsed: URL;
     try {
-      new URL(url);
+      parsed = new URL(url);
     } catch {
       return `Error: Invalid URL — must be http or https: ${url}`;
+    }
+    // Basic SSRF guard: only allow http/https and reject internal/metadata addresses
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return `Error: Only http and https URLs are allowed.`;
+    }
+    const host = parsed.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1" ||
+        host === "0.0.0.0" || host.endsWith(".internal") ||
+        host === "169.254.169.254" || host === "metadata.google.internal") {
+      return `Error: Cannot fetch internal or metadata URLs.`;
     }
 
     const rawKey = `${url}:${extractMode}:${maxChars}`.toLowerCase();
