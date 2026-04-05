@@ -34,6 +34,17 @@ export function chunkText(text: string, limit: number): string[] {
   return chunks;
 }
 
+/**
+ * Strip invisible Unicode characters that can confuse parsing.
+ * Preserves normal whitespace (space, tab, newline) but removes:
+ * - Zero-width spaces (U+200B), joiners (U+200C/D), no-break hints
+ * - Byte-order marks (U+FEFF)
+ * - Various Unicode format/control characters
+ */
+export function sanitizeInput(text: string): string {
+  return text.replace(/[\u200B-\u200F\u2028-\u202F\uFEFF\u00AD]/g, "");
+}
+
 const mentionRegexCache = new Map<string, RegExp>();
 
 /** Strip @bot mentions from message text. */

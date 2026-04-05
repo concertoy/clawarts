@@ -8,7 +8,7 @@ import { errMsg, isAbortError } from "./utils/errors.js";
 import { markdownToSlack } from "./utils/slack-markdown.js";
 import { downloadSlackImages } from "./utils/slack-images.js";
 import { downloadSlackFiles, formatFileAttachments } from "./utils/slack-files.js";
-import { chunkText, stripMention } from "./utils/slack-text.js";
+import { chunkText, stripMention, sanitizeInput } from "./utils/slack-text.js";
 import { hydrateFromDM, hydrateFromThread } from "./utils/slack-hydrate.js";
 import type { SlackFile } from "./utils/slack-types.js";
 import { KeyedAsyncQueue } from "./queue/keyed-async-queue.js";
@@ -216,7 +216,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     if (allowedUsers && event.user && !allowedUsers.has(event.user)) return;
 
     const myId = await resolveBotId(client);
-    const text = stripMention(event.text, myId);
+    const text = sanitizeInput(stripMention(event.text, myId));
     if (!text.trim()) return;
 
     await hydrateAndDispatch({
@@ -274,7 +274,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     // messages this handler skips, blocking the app_mention handler.
     if (isDuplicate(channel, ts)) return;
 
-    const text = isDM ? text_raw : stripMention(text_raw, myId);
+    const text = sanitizeInput(isDM ? text_raw : stripMention(text_raw, myId));
 
     await hydrateAndDispatch({
       client,
