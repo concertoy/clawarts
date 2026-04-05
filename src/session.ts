@@ -170,7 +170,7 @@ export class SessionStore {
     } catch (err) {
       // Clean up orphan temp file on failure
       try { fs.unlinkSync(tmp); } catch { /* already gone */ }
-      log.warn(`Failed to persist ${session.key}:`, errMsg(err));
+      log.warn(`Failed to persist session ${session.key} (will be lost on restart):`, errMsg(err));
     }
   }
 
