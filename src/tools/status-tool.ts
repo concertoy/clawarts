@@ -51,7 +51,9 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
           const sTokens = getTokenUsage(s.id);
           const sTokenInfo = sTokens ? `, ${formatTokenCount(sTokens.inputTokens)}in/${formatTokenCount(sTokens.outputTokens)}out (~${formatUsd(estimateCost(sTokens))})` : "";
           const errRate = sTokens && sTokens.requestCount > 0 ? `, ${sTokens.errorCount}/${sTokens.requestCount} errors` : "";
-          lines.push(`  ${s.id}: last active ${ago}, ${sessionCount} session(s), users: ${users}${sTokenInfo}${errRate}${errNote}`);
+          const rlStats = reg?.agent.rateLimitStats;
+          const rlNote = rlStats && rlStats.rejected > 0 ? `, ${rlStats.rejected} rate-limited` : "";
+          lines.push(`  ${s.id}: last active ${ago}, ${sessionCount} session(s), users: ${users}${sTokenInfo}${errRate}${rlNote}${errNote}`);
         }
       } else {
         lines.push("\nNo student agents linked.");
