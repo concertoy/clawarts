@@ -171,6 +171,11 @@ export function loadSkills(options: SkillLoadOptions): Skill[] {
 
 // ─── Prompt formatting ──────────────────────────────────────────────
 
+/** Escape XML special characters to prevent prompt injection via skill metadata. */
+function escapeXml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 export function formatSkillsForPrompt(skills: Skill[]): string {
   if (skills.length === 0) return "";
 
@@ -178,13 +183,13 @@ export function formatSkillsForPrompt(skills: Skill[]): string {
     .map((s) => {
       const lines = [
         "<skill>",
-        `<name>${s.name}</name>`,
-        `<description>${s.description}</description>`,
-        `<location>${s.filePath}</location>`,
+        `<name>${escapeXml(s.name)}</name>`,
+        `<description>${escapeXml(s.description)}</description>`,
+        `<location>${escapeXml(s.filePath)}</location>`,
       ];
-      if (s.whenToUse) lines.push(`<when_to_use>${s.whenToUse}</when_to_use>`);
-      if (s.arguments) lines.push(`<arguments>${s.arguments}</arguments>`);
-      if (s.allowedTools?.length) lines.push(`<allowed_tools>${s.allowedTools.join(", ")}</allowed_tools>`);
+      if (s.whenToUse) lines.push(`<when_to_use>${escapeXml(s.whenToUse)}</when_to_use>`);
+      if (s.arguments) lines.push(`<arguments>${escapeXml(s.arguments)}</arguments>`);
+      if (s.allowedTools?.length) lines.push(`<allowed_tools>${escapeXml(s.allowedTools.join(", "))}</allowed_tools>`);
       lines.push("</skill>");
       return lines.join("\n");
     })

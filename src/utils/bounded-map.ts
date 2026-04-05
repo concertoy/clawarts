@@ -6,6 +6,7 @@
 export class BoundedMap<K, V> extends Map<K, V> {
   constructor(private readonly maxSize: number) {
     super();
+    if (maxSize < 1) throw new RangeError(`BoundedMap maxSize must be >= 1, got ${maxSize}`);
   }
 
   override set(key: K, value: V): this {
