@@ -84,7 +84,8 @@ export function createGradesTool(
       }
 
       if (format === "csv") {
-        const csvLines = [headers.join(","), ...rows.map((r) => r.join(","))];
+        const escapeCell = (s: string) => /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        const csvLines = [headers.map(escapeCell).join(","), ...rows.map((r) => r.map(escapeCell).join(","))];
         return csvLines.join("\n");
       }
 

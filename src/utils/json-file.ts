@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { isFileNotFound } from "./errors.js";
 
+let writeSeq = 0; // monotonic counter for unique temp filenames
+
 /**
  * Atomic JSON write: serialize to temp file then rename.
  * rename() is atomic on POSIX — prevents corruption from crashes or concurrent writes.
@@ -10,7 +12,7 @@ import { isFileNotFound } from "./errors.js";
 export async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
   const dir = path.dirname(filePath);
   await fs.promises.mkdir(dir, { recursive: true });
-  const tmp = filePath + `.tmp.${process.pid}`;
+  const tmp = filePath + `.tmp.${process.pid}.${writeSeq++}`;
   try {
     await fs.promises.writeFile(tmp, JSON.stringify(data, null, 2), "utf-8");
     await fs.promises.rename(tmp, filePath);

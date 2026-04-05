@@ -15,7 +15,12 @@ export function createHelpTool(tools: ToolDefinition[]): ToolDefinition {
     async execute(_input: Record<string, unknown>, _context?: ToolUseContext): Promise<string> {
       const lines = tools
         .filter((t) => t.name !== "help") // don't list ourselves
-        .map((t) => `- **${t.name}**: ${t.description.split(".")[0]}.`);
+        .map((t) => {
+          const desc = t.description || "No description";
+          const firstSentence = desc.split(".")[0];
+          const truncated = firstSentence.length > 120 ? firstSentence.slice(0, 117) + "..." : firstSentence;
+          return `- **${t.name}**: ${truncated}.`;
+        });
 
       return `Available tools (${lines.length}):\n${lines.join("\n")}`;
     },
