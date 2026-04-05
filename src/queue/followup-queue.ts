@@ -126,7 +126,7 @@ function scheduleDrain(sessionKey: string): void {
           const notice: FollowupItem = {
             text: `[${q.droppedCount} earlier message(s) were dropped while agent was busy]`,
             userId: "system",
-            ts: "0",
+            ts: `system-${Date.now()}`,
             enqueuedAt: Date.now(),
           };
           batch.unshift(notice);
