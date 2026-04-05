@@ -186,6 +186,7 @@ export class SessionStore {
         data.messages = data.messages.filter(
           (m) => m && validRoles.has(m.role) && typeof m.content === "string",
         );
+        data.restoredFromDisk = true;
         log.debug(`Restored ${data.messages.length} messages from disk for ${key}`);
         return data;
       }

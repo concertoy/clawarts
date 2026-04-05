@@ -165,6 +165,21 @@ function validateCrossReferences(configs: AgentConfig[]): void {
       errors.push(`Agent "${c.id}" references linkedTutor "${c.linkedTutor}" which does not exist`);
     }
   }
+  // Detect circular linkedTutor chains (A→B→A)
+  for (const c of configs) {
+    if (!c.linkedTutor) continue;
+    const visited = new Set<string>();
+    let current: string | undefined = c.id;
+    while (current) {
+      if (visited.has(current)) {
+        errors.push(`Circular linkedTutor chain detected involving "${c.id}"`);
+        break;
+      }
+      visited.add(current);
+      current = configs.find((x) => x.id === current)?.linkedTutor;
+    }
+  }
+
   // Warn on overlapping allowedUsers across agents (same user assigned to multiple agents)
   const userToAgents = new Map<string, string[]>();
   for (const c of configs) {

@@ -73,6 +73,11 @@ export class CronService {
     this.armTimer();
     const enabled = this.store.jobs.filter((j) => j.enabled);
     if (enabled.length > 0) {
+      const now = this.now();
+      const pastDue = enabled.filter((j) => j.state.nextRunAtMs != null && j.state.nextRunAtMs < now);
+      if (pastDue.length > 0) {
+        this.log.warn(`${pastDue.length} job(s) past due at startup: ${pastDue.map((j) => j.name || j.id).join(", ")} — will fire shortly`);
+      }
       const nextMs = Math.min(...enabled.map((j) => j.state.nextRunAtMs ?? Infinity));
       const nextStr = nextMs < Infinity ? new Date(nextMs).toISOString() : "none";
       this.log.info(`Started with ${enabled.length} active job(s), next fire: ${nextStr}`);
