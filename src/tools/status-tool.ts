@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import type { ToolDefinition, ToolUseContext } from "../types.js";
 import { getStudentsForTutor, getAgentLastActive, getAgentLastError, getRegisteredAgent, getAgentStartedAt } from "../relay.js";
 import { getLaneDepth, getQueueStats } from "../queue/command-queue.js";
@@ -6,6 +5,7 @@ import { CommandLane } from "../queue/lanes.js";
 import type { CronService } from "../cron/service.js";
 import { getTokenUsage, estimateCost, formatLatencyStats, getToolUsage } from "../utils/token-tracker.js";
 import { formatTokenCount, formatUsd, formatTimeAgo, formatDuration } from "../utils/format.js";
+import { getVersion } from "../utils/version.js";
 
 /**
  * Status tool for tutors — quick overview of student agents and scheduled jobs.
@@ -24,12 +24,7 @@ export function createStatusTool(cronService: CronService): ToolDefinition {
       const uptimeMin = Math.round(process.uptime() / 60);
       const memMB = Math.round(process.memoryUsage.rss() / 1024 / 1024);
 
-      // Read version from package.json
-      let version = "?";
-      try {
-        const pkg = JSON.parse(fs.readFileSync(new URL("../../package.json", import.meta.url), "utf-8"));
-        version = pkg.version ?? "?";
-      } catch { /* non-fatal */ }
+      const version = getVersion();
       const tutorStarted = getAgentStartedAt(tutorId);
       const uptimeStr = tutorStarted ? formatDuration(Date.now() - tutorStarted) : `${uptimeMin}m`;
       const tutorReg = getRegisteredAgent(tutorId);
