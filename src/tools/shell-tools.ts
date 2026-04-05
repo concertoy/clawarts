@@ -14,7 +14,7 @@ function shellQuote(s: string): string {
  * Dangerous command patterns — ported from claude-code's bashSecurity.ts.
  * These patterns are blocked to prevent catastrophic operations.
  */
-const DANGEROUS_PATTERNS: RegExp[] = [
+const DANGEROUS_PATTERNS: readonly RegExp[] = Object.freeze([
   /\brm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?\/\s*$/,     // rm -rf /
   /\brm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?(\/|~\/)\*/, // rm -rf /* or ~/*
   /\bmkfs\b/,                                       // mkfs (format disk)
@@ -32,7 +32,7 @@ const DANGEROUS_PATTERNS: RegExp[] = [
   /\bpkill\s+-9\b/,                                 // pkill -9
   /\bkillall\b/,                                    // killall
   /\bxargs\s+.*\brm\b/,                             // xargs rm
-];
+]);
 
 /** Exported for testing. Returns a block reason or null if safe. */
 export function isDangerousCommand(command: string): string | null {
