@@ -116,7 +116,7 @@ export class ClaudeProvider implements ModelProvider {
           const text = await resp.text();
           // Include request ID for debugging — ported from claude-code's error handling
           const requestId = resp.headers.get("request-id") ?? "unknown";
-          throw new Error(`Anthropic API error (${resp.status}, req=${requestId}): ${text}`);
+          throw new Error(`Anthropic API error (${resp.status}, model=${params.model}, req=${requestId}): ${text}`);
         }
 
         let response: ProviderResponse;

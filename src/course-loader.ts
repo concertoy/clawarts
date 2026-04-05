@@ -33,6 +33,7 @@ export interface CourseSchedule {
   title: string;
   homeworks: CourseHomework[];
   checkins: CourseCheckin[];
+  warnings: string[];
 }
 
 const VALID_CHECKIN_MODES = new Set<CheckinMode>(["passphrase", "quiz", "pulse", "reflect"]);
@@ -47,6 +48,7 @@ export function parseCourseSchedule(markdown: string): CourseSchedule {
 
   const homeworks: CourseHomework[] = [];
   const checkins: CourseCheckin[] = [];
+  const warnings: string[] = [];
   let currentWeekDate = "";
 
   for (let i = 0; i < lines.length; i++) {
@@ -72,6 +74,10 @@ export function parseCourseSchedule(markdown: string): CourseSchedule {
         descLines.push(lines[i].replace(/^\s*>\s*/, ""));
       }
 
+      if (!currentWeekDate) warnings.push(`Homework "${hwTitle}" has no week context (add a ## Week heading above it)`);
+      const deadlineDate = new Date(deadline + "T23:59:00Z");
+      if (isNaN(deadlineDate.getTime())) warnings.push(`Homework "${hwTitle}" has invalid deadline: ${deadline}`);
+
       homeworks.push({
         title: hwTitle,
         description: descLines.join("\n").trim(),
@@ -85,6 +91,9 @@ export function parseCourseSchedule(markdown: string): CourseSchedule {
     const ciMatch = line.match(/^-\s+checkin:\s+(\w+)\s*(.*)/);
     if (ciMatch) {
       const rawMode = ciMatch[1];
+      if (!VALID_CHECKIN_MODES.has(rawMode as CheckinMode)) {
+        warnings.push(`Line ${i + 1}: unknown check-in mode "${rawMode}", defaulting to "reflect"`);
+      }
       const mode: CheckinMode = VALID_CHECKIN_MODES.has(rawMode as CheckinMode) ? (rawMode as CheckinMode) : "reflect";
       const rest = ciMatch[2] || "";
 
@@ -105,5 +114,9 @@ export function parseCourseSchedule(markdown: string): CourseSchedule {
     }
   }
 
-  return { title, homeworks, checkins };
+  if (homeworks.length === 0 && checkins.length === 0) {
+    warnings.push("No homework or check-in entries found. Check the COURSE.md format.");
+  }
+
+  return { title, homeworks, checkins, warnings };
 }
