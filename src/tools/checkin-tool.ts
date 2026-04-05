@@ -412,11 +412,12 @@ export function createCheckinTool(
             return csvLines.join("\n");
           }
 
-          const statusCounts = {
-            checked_in: responses.filter((r) => r.status === "checked_in").length,
-            needs_review: responses.filter((r) => r.status === "needs_review").length,
-            late: responses.filter((r) => r.status === "late").length,
-          };
+          const statusCounts = { checked_in: 0, needs_review: 0, late: 0 };
+          for (const r of responses) {
+            if (r.status === "checked_in") statusCounts.checked_in++;
+            else if (r.status === "needs_review") statusCounts.needs_review++;
+            else if (r.status === "late") statusCounts.late++;
+          }
 
           const studentLines = responses.map((r) => {
             const scoreStr = r.score != null ? `score: ${r.score}` : "not evaluated";

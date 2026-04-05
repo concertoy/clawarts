@@ -62,7 +62,7 @@ async function main() {
   const agentConfigs = loadAllAgentConfigs();
   log.info(`${agentConfigs.length} agent(s): ${agentConfigs.map((a) => a.id).join(", ")}`);
   runDiagnostics(agentConfigs);
-  await Promise.all([checkProviderHealth(agentConfigs), checkSlackTokens(agentConfigs)]);
+  await Promise.allSettled([checkProviderHealth(agentConfigs), checkSlackTokens(agentConfigs)]);
 
   const apps: App[] = [];
   const allSessions: SessionStore[] = [];

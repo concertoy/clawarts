@@ -434,12 +434,8 @@ function ensureAlternatingRoles(messages: ProviderMessage[]): void {
     const curr = messages[i];
     const next = messages[i + 1];
 
-    // tool_result is a "user" role message for Claude
-    const currRole = curr.role === "tool_result" ? "user" : curr.role;
-    const nextRole = next.role === "tool_result" ? "user" : next.role;
-
     if (curr.role === "user" && next.role === "user") {
-      // Merge consecutive user messages
+      // Merge consecutive user messages (tool_result has different shape, skip)
       curr.content = curr.content + "\n\n" + next.content;
       messages.splice(i + 1, 1);
     } else {
