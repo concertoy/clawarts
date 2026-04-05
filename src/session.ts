@@ -25,10 +25,35 @@ export class SessionStore {
     if (this.cleanupTimer.unref) this.cleanupTimer.unref();
   }
 
-  /** Enable disk persistence for sessions. */
+  /** Enable disk persistence for sessions. Cleans up files older than TTL. */
   enablePersistence(dir: string): void {
     this.persistDir = dir;
     fs.mkdirSync(dir, { recursive: true });
+    this.cleanupStaleFiles();
+  }
+
+  /** Remove session files older than TTL on startup. */
+  private cleanupStaleFiles(): void {
+    if (!this.persistDir) return;
+    try {
+      const files = fs.readdirSync(this.persistDir);
+      const cutoff = Date.now() - this.ttlMs;
+      let removed = 0;
+      for (const file of files) {
+        if (!file.endsWith(".json")) continue;
+        const filePath = path.join(this.persistDir, file);
+        try {
+          const stat = fs.statSync(filePath);
+          if (stat.mtimeMs < cutoff) {
+            fs.unlinkSync(filePath);
+            removed++;
+          }
+        } catch { /* skip individual file errors */ }
+      }
+      if (removed > 0) log.info(`Cleaned up ${removed} stale session file(s)`);
+    } catch (err) {
+      log.warn("Failed to clean up stale session files:", errMsg(err));
+    }
   }
 
   static deriveKey(channel: string, ts: string, threadTs?: string): string {

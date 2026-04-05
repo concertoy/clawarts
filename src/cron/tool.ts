@@ -51,6 +51,7 @@ export function createCronTool(cronService: CronService, agentId: string): ToolD
           // Auto-inject channelId from ToolUseContext if LLM didn't supply it
           const channelId = ((input.channelId as string) || "").trim() || context?.channelId || "";
           if (!channelId) return "Error: channelId is required to schedule a reminder.";
+          if (!/^[CDG][A-Z0-9]{8,12}$/.test(channelId)) return `Error: "${channelId}" doesn't look like a valid Slack channel ID (expected C/D/G + 8-12 alphanumeric chars).`;
 
           const scheduleKind = (input.scheduleKind as string) ?? "every";
           let schedule: CronSchedule;
