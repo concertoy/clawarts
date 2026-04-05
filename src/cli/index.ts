@@ -1,14 +1,22 @@
 #!/usr/bin/env node
+import fs from "node:fs";
 import { Command } from "commander";
 import { createClackPrompter, WizardCancelledError } from "./prompter.js";
 import { setupWizardCommand } from "./commands/setup.js";
 import { agentAddCommand, agentListCommand, agentRemoveCommand } from "./commands/agent.js";
 import { skillAddCommand, skillListCommand, skillRemoveCommand } from "./commands/skill.js";
 
+// Read version from package.json (single source of truth)
+let version = "0.0.0";
+try {
+  const pkg = JSON.parse(fs.readFileSync(new URL("../../package.json", import.meta.url), "utf-8"));
+  version = pkg.version ?? version;
+} catch { /* fallback to 0.0.0 */ }
+
 const program = new Command()
   .name("clawarts")
   .description("Configure and manage clawarts Slack agents")
-  .version("0.1.0");
+  .version(version);
 
 // ─── clawarts setup ──────────────────────────────────────────────────
 

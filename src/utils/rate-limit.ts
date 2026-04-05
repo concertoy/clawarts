@@ -9,9 +9,15 @@ export interface RateLimitResult {
   remaining: number;
 }
 
+export interface RateLimitStats {
+  rejected: number;
+  accepted: number;
+}
+
 export interface RateLimiter {
   consume: () => RateLimitResult;
   reset: () => void;
+  stats: () => RateLimitStats;
 }
 
 export function createRateLimiter(params: {
@@ -25,6 +31,8 @@ export function createRateLimiter(params: {
 
   let count = 0;
   let windowStartMs = 0;
+  let totalAccepted = 0;
+  let totalRejected = 0;
 
   return {
     consume() {
@@ -34,6 +42,7 @@ export function createRateLimiter(params: {
         count = 0;
       }
       if (count >= maxRequests) {
+        totalRejected++;
         return {
           allowed: false,
           retryAfterMs: Math.max(0, windowStartMs + windowMs - nowMs),
@@ -41,6 +50,7 @@ export function createRateLimiter(params: {
         };
       }
       count += 1;
+      totalAccepted++;
       return {
         allowed: true,
         retryAfterMs: 0,
@@ -50,6 +60,9 @@ export function createRateLimiter(params: {
     reset() {
       count = 0;
       windowStartMs = 0;
+    },
+    stats() {
+      return { rejected: totalRejected, accepted: totalAccepted };
     },
   };
 }

@@ -47,6 +47,8 @@ export function createAgentTools(
 
     const dataDir = path.join(os.homedir(), ".clawarts", "agents", config.id, "data");
     const assignmentStore = new AssignmentStore(path.join(dataDir, "assignments.json"));
+    // Sweep overdue assignments on startup (may remain if process crashed before cron auto-close fired)
+    assignmentStore.closeExpired().catch(() => {});
     const submissionStore = new SubmissionStore(path.join(dataDir, "submissions.json"));
     allTools.push(createAssignmentTool(assignmentStore, submissionStore, cronService, config.id));
 
