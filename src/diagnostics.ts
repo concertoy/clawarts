@@ -135,6 +135,7 @@ export async function checkProviderHealth(configs: AgentConfig[]): Promise<void>
         case "anthropic-claude": {
           const key = process.env.ANTHROPIC_API_KEY;
           if (!key) { healthLog.warn("anthropic-claude: ANTHROPIC_API_KEY not set"); return; }
+          const healthStart = Date.now();
           const resp = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
@@ -143,13 +144,14 @@ export async function checkProviderHealth(configs: AgentConfig[]): Promise<void>
               "content-type": "application/json",
             },
             body: JSON.stringify({ model: HEALTH_CHECK_MODEL, max_tokens: 1, messages: [{ role: "user", content: "hi" }] }),
-            signal: AbortSignal.timeout(10_000),
+            signal: AbortSignal.timeout(5_000),
           });
+          const healthMs = Date.now() - healthStart;
           if (resp.ok) {
-            healthLog.info("anthropic-claude: OK");
+            healthLog.info(`anthropic-claude: OK (${healthMs}ms)`);
           } else {
             const body = await resp.text().catch(() => "");
-            healthLog.warn(`anthropic-claude: HTTP ${resp.status} — ${body.slice(0, 200)}`);
+            healthLog.warn(`anthropic-claude: HTTP ${resp.status} (${healthMs}ms) — ${body.slice(0, 200)}`);
           }
           break;
         }

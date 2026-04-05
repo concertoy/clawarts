@@ -181,11 +181,14 @@ export class SessionStore {
       const raw = fs.readFileSync(filePath, "utf-8");
       const data = JSON.parse(raw) as ConversationSession;
       if (data.key === key && Array.isArray(data.messages)) {
-        // Validate message structure — filter out corrupted entries
+        // Validate message structure — filter out corrupted entries (ported from claude-code's malformed-line recovery)
         const validRoles = new Set(["user", "assistant"]);
+        const originalCount = data.messages.length;
         data.messages = data.messages.filter(
           (m) => m && validRoles.has(m.role) && typeof m.content === "string",
         );
+        const skipped = originalCount - data.messages.length;
+        if (skipped > 0) log.warn(`Skipped ${skipped} corrupted message(s) when restoring ${key}`);
         data.restoredFromDisk = true;
         log.debug(`Restored ${data.messages.length} messages from disk for ${key}`);
         return data;
