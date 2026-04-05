@@ -14,6 +14,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "check": "tsx src/cli/index.ts check",
+    "test": "vitest run",
     "prepack": "npm run build"
   },
   "dependencies": {
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
   }
 }
