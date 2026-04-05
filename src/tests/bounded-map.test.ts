@@ -51,6 +51,11 @@ describe("BoundedMap", () => {
     expect(map.size).toBe(0);
   });
 
+  it("throws on maxSize < 1", () => {
+    expect(() => new BoundedMap<string, number>(0)).toThrow("maxSize must be >= 1");
+    expect(() => new BoundedMap<string, number>(-5)).toThrow("maxSize must be >= 1");
+  });
+
   it("iteration order matches insertion order", () => {
     const map = new BoundedMap<string, number>(5);
     map.set("c", 3);
