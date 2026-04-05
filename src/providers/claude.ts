@@ -167,6 +167,7 @@ export class ClaudeProvider implements ModelProvider {
     const activeBlocks = new Map<number, { type: string; id?: string; name?: string; inputJson: string }>();
 
     let buffer = "";
+    let sseParseErrors = 0;
 
     try {
     while (true) {
@@ -278,9 +279,13 @@ export class ClaudeProvider implements ModelProvider {
             }
           }
         } catch (err) {
-          log.debug(`Skipping malformed SSE frame: ${String(err)}`);
+          sseParseErrors++;
+          log.debug(`Skipping malformed SSE frame (${sseParseErrors}): ${String(err)}`);
         }
       }
+    }
+    if (sseParseErrors > 0) {
+      log.warn(`${sseParseErrors} SSE parse error(s) during streaming — some data may have been lost`);
     }
     } finally {
       // Release the reader to prevent connection leaks.
