@@ -118,6 +118,8 @@ export function createAssignmentTool(
         }
 
         case "list": {
+          // Auto-close overdue assignments before listing
+          await assignmentStore.closeExpired();
           const statusFilter = input.status as Assignment["status"] | undefined;
           const assignments = await assignmentStore.list(statusFilter ? { status: statusFilter } : undefined);
           if (assignments.length === 0) return "No assignments found.";
@@ -151,6 +153,7 @@ export function createAssignmentTool(
         }
 
         case "get": {
+          await assignmentStore.closeExpired();
           const id = input.assignmentId as string;
           if (!id) return "Error: assignmentId is required.";
 

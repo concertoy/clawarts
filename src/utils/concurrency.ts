@@ -16,6 +16,9 @@ export async function runWithConcurrency<T, R>(
   const results: PromiseSettledResult<R>[] = new Array(items.length);
   let next = 0;
 
+  // Workers share a `next` counter. This is safe because JavaScript is
+  // single-threaded: the read-increment `const i = next++` completes
+  // atomically before any other worker can execute.
   const workers = Array.from({ length: cap }, async () => {
     while (next < items.length) {
       const i = next++;
