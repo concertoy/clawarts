@@ -37,6 +37,15 @@ const lastActiveAt = new Map<string, number>(); // agent ID → epoch ms
 const lastErrors = new Map<string, string>(); // agent ID → last error message
 const recentBroadcasts = new BoundedMap<string, number>(100); // hash → timestamp
 
+// Periodic sweep to expire stale broadcast dedup entries (runs even when no broadcasts happen)
+const broadcastSweepTimer = setInterval(() => {
+  const cutoff = Date.now() - BROADCAST_DEDUP_MS * 2;
+  for (const [k, t] of recentBroadcasts) {
+    if (t < cutoff) recentBroadcasts.delete(k);
+  }
+}, BROADCAST_DEDUP_MS * 2);
+if (broadcastSweepTimer.unref) broadcastSweepTimer.unref();
+
 export function registerAgent(entry: RegisteredAgent): void {
   registry.set(entry.id, entry);
   agentStartedAt.set(entry.id, Date.now());
@@ -203,10 +212,6 @@ export function createRelayTool(): ToolDefinition {
           return `Broadcast skipped — same message was sent ${Math.round((Date.now() - lastSent) / 1000)}s ago. Wait ${Math.ceil(BROADCAST_DEDUP_MS / 1000)}s to re-send.`;
         }
         recentBroadcasts.set(dedupKey, Date.now());
-        // Expire stale entries (older than 2x dedup window)
-        for (const [k, t] of recentBroadcasts) {
-          if (Date.now() - t > BROADCAST_DEDUP_MS * 2) recentBroadcasts.delete(k);
-        }
 
         // Fan out with bounded concurrency (5 at a time) to prevent resource spikes
         const pairs = students.flatMap((s) =>

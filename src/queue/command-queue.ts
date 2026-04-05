@@ -31,8 +31,10 @@ interface LaneState {
 // ─── State ───────────────────────────────────────────────────────────
 
 const STALE_TASK_MS = 5 * 60 * 1000; // 5 minutes — tasks queued longer are evicted
+const QUEUE_DEPTH_WARN_THRESHOLD = 20; // Log warning when queue depth exceeds this
 
 const lanes = new Map<string, LaneState>();
+let totalEvictions = 0;
 
 function getLaneState(lane: string): LaneState {
   let state = lanes.get(lane);
@@ -63,7 +65,8 @@ function drainLane(lane: string): void {
         if (!entry) break;
         // Evict stale tasks — prevents pileup when the bot is slow
         if (Date.now() - entry.enqueuedAt > STALE_TASK_MS) {
-          log.warn(`Evicting stale task in lane "${lane}" (queued ${Math.round((Date.now() - entry.enqueuedAt) / 1000)}s ago)`);
+          totalEvictions++;
+          log.warn(`Evicting stale task in lane "${lane}" (queued ${Math.round((Date.now() - entry.enqueuedAt) / 1000)}s ago, total evictions: ${totalEvictions})`);
           entry.reject(new Error(`Task evicted: queued for ${Math.round((Date.now() - entry.enqueuedAt) / 1000)}s (limit: ${STALE_TASK_MS / 1000}s)`));
           continue;
         }
@@ -108,6 +111,10 @@ export function enqueueCommand<T>(
       reject,
       enqueuedAt: Date.now(),
     });
+    const depth = state.activeCount + state.queue.length;
+    if (depth >= QUEUE_DEPTH_WARN_THRESHOLD) {
+      log.warn(`Lane "${lane}" depth is ${depth} (active: ${state.activeCount}, queued: ${state.queue.length})`);
+    }
     drainLane(lane);
   });
 }
@@ -139,6 +146,18 @@ export function clearLane(lane: CommandLaneType | string): number {
 export function getLaneDepth(lane: CommandLaneType | string): number {
   const state = getLaneState(lane);
   return state.activeCount + state.queue.length;
+}
+
+/**
+ * Get queue stats for observability.
+ */
+export function getQueueStats(): { evictions: number; lanes: { lane: string; active: number; queued: number }[] } {
+  const laneStats = [...lanes.values()].map((s) => ({
+    lane: s.lane,
+    active: s.activeCount,
+    queued: s.queue.length,
+  }));
+  return { evictions: totalEvictions, lanes: laneStats };
 }
 
 // Set default concurrencies

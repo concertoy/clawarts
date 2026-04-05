@@ -51,7 +51,7 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
   const sessionQueue = new KeyedAsyncQueue();
 
   let botUserIdPromise: Promise<string> | undefined;
-  const botDmChannels = new BoundedMap<string, true>(500); // DM channels confirmed to be with the bot
+  const botDmChannels = new BoundedMap<string, boolean>(500); // true = confirmed bot DM, false = confirmed NOT bot DM
 
   // Message deduplication: Slack can deliver duplicate events.
   // Track recently processed message timestamps to avoid double-processing.
@@ -87,16 +87,15 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
     return botUserIdPromise;
   }
 
-  /** Check if a DM channel is a 1:1 conversation with this bot. */
+  /** Check if a DM channel is a 1:1 conversation with this bot. Caches both positive and negative results. */
   async function isBotDM(client: WebClient, channel: string, myId: string): Promise<boolean> {
-    if (botDmChannels.has(channel)) return true;
+    const cached = botDmChannels.get(channel);
+    if (cached !== undefined) return cached;
     try {
       const resp = await client.conversations.members({ channel, limit: 10 });
-      if (resp.members?.includes(myId)) {
-        botDmChannels.set(channel, true);
-        return true;
-      }
-      return false;
+      const isMember = resp.members?.includes(myId) ?? false;
+      botDmChannels.set(channel, isMember);
+      return isMember;
     } catch (err) {
       alog.warn(`isBotDM check failed for ${channel}:`, errMsg(err));
       return false;
@@ -180,10 +179,14 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       const restored = sessions.get(sessionKey);
       if (restored.messages.length === 0) {
         isNewSession = true;
-        if (isDM) {
-          await hydrateFromDM(client, sessions, sessionKey, channel, myId);
-        } else if (threadTs) {
-          await hydrateFromThread(client, sessions, sessionKey, channel, threadTs, myId);
+        try {
+          if (isDM) {
+            await hydrateFromDM(client, sessions, sessionKey, channel, myId);
+          } else if (threadTs) {
+            await hydrateFromThread(client, sessions, sessionKey, channel, threadTs, myId);
+          }
+        } catch (err) {
+          alog.warn(`Session hydration failed for ${sessionKey}:`, errMsg(err));
         }
       }
     }
