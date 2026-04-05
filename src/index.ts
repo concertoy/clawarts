@@ -57,10 +57,17 @@ async function main() {
 
   log.info(`v${getVersion()} starting (node ${process.version}, pid ${process.pid})`);
 
+  const phase = (label: string) => {
+    const ms = Date.now() - ((globalThis as Record<string, unknown>).__clawarts_start_ms as number);
+    log.debug(`[${(ms / 1000).toFixed(1)}s] ${label}`);
+  };
+
   const agentConfigs = loadAllAgentConfigs();
   log.info(`${agentConfigs.length} agent(s): ${agentConfigs.map((a) => a.id).join(", ")}`);
   runDiagnostics(agentConfigs);
+  phase("config loaded");
   await Promise.allSettled([checkProviderHealth(agentConfigs), checkSlackTokens(agentConfigs)]);
+  phase("health checks done");
 
   const apps: App[] = [];
   const allSessions: SessionStore[] = [];
@@ -145,6 +152,7 @@ async function main() {
     });
   }
   log.info(`Relay registry: ${entries.map((e) => e.config.id).join(", ")}`);
+  phase("agents initialized");
 
   // ─── Phase 3: Start Slack apps and cron services ───────────────────
   for (const entry of entries) {
