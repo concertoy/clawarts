@@ -21,6 +21,7 @@ import { errMsg } from "./utils/errors.js";
 import { createAgentTools } from "./agent-tools.js";
 import { createLogger } from "./utils/logger.js";
 import { clawHome } from "./utils/paths.js";
+import { getVersion } from "./utils/version.js";
 
 const log = createLogger("clawarts");
 
@@ -54,10 +55,7 @@ async function createProvider(config: AgentConfig): Promise<ModelProvider> {
 async function main() {
   (globalThis as Record<string, unknown>).__clawarts_start_ms = Date.now();
 
-  // Read version from package.json for startup banner
-  const pkgPath = new URL("../package.json", import.meta.url);
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-  log.info(`v${pkg.version} starting (node ${process.version}, pid ${process.pid})`);
+  log.info(`v${getVersion()} starting (node ${process.version}, pid ${process.pid})`);
 
   const agentConfigs = loadAllAgentConfigs();
   log.info(`${agentConfigs.length} agent(s): ${agentConfigs.map((a) => a.id).join(", ")}`);
