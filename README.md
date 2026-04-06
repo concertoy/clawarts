@@ -1,25 +1,17 @@
-# clawarts
+<p align="center">
+  <strong>clawarts</strong><br>
+  Multi-agent Slack bot for course management.
+</p>
 
-Multi-agent Slack bot for course management. Tutor and student agents run independent AI loops, communicate via relay, and connect to Slack through Socket Mode.
+<p align="center">
+  <a href="https://www.npmjs.com/package/clawarts"><img src="https://img.shields.io/npm/v/clawarts?style=for-the-badge" alt="npm"></a>
+  <a href="https://github.com/concertoy/clawarts/releases"><img src="https://img.shields.io/github/v/release/concertoy/clawarts?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
+</p>
 
-## Quick start
+---
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/concertoy/clawarts/main/install.sh | bash
-clawarts setup
-clawarts-server
-```
-
-Or from source:
-
-```bash
-git clone https://github.com/concertoy/clawarts.git && cd clawarts
-npm install
-npm run cli setup
-npm run dev
-```
-
-## Architecture
+Tutor and student agents run independent AI loops, communicate via relay, and connect to Slack through Socket Mode.
 
 ```
 Tutor Agent ──relay/broadcast──> Student Agent(s)
@@ -29,10 +21,26 @@ Tutor Agent ──relay/broadcast──> Student Agent(s)
      '-- full tool access             '-- restricted tools
 ```
 
+## Getting Started
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/concertoy/clawarts/main/install.sh | bash
+clawarts setup
+clawarts
+```
+
+Or with npm:
+
+```bash
+npm install -g clawarts
+clawarts setup
+clawarts
+```
+
 ## Documentation
 
 | Topic | Description |
-|-------|-------------|
+|---|---|
 | [Installation](docs/installation.mdx) | curl, npm, or from source |
 | [Quick Start](docs/quickstart.mdx) | Setup wizard walkthrough |
 | [Configuration](docs/configuration.mdx) | config.json and all settings |
@@ -50,4 +58,4 @@ Tutor Agent ──relay/broadcast──> Student Agent(s)
 
 ## License
 
-MIT
+MIT License &copy; 2026 [Tianzhe Chu](https://tianzhechu.com)
