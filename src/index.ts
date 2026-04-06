@@ -237,7 +237,15 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
-main().catch((err) => {
-  log.error("Fatal error:", err);
-  process.exit(1);
-});
+export { main };
+
+// Auto-start when run directly (not imported)
+const isDirectRun =
+  process.argv[1] &&
+  import.meta.url.endsWith(process.argv[1].replace(/\\/g, "/"));
+if (isDirectRun) {
+  main().catch((err) => {
+    log.error("Fatal error:", err);
+    process.exit(1);
+  });
+}

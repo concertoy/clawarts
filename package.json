@@ -8,8 +8,8 @@
     "clawarts": "dist/cli/index.js"
   },
   "scripts": {
-    "start": "tsx src/index.ts",
-    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/cli/index.ts start",
+    "dev": "tsx watch src/cli/index.ts start",
     "cli": "tsx src/cli/index.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",

@@ -80,6 +80,16 @@ skill
     await skillRemoveCommand(prompter, agentId, skillName);
   });
 
+// ─── clawarts start ─────────────────────────────────────────────
+
+program
+  .command("start", { isDefault: true })
+  .description("Start the bot server")
+  .action(async () => {
+    const { main } = await import("../index.js");
+    await main();
+  });
+
 // ─── clawarts check ─────────────────────────────────────────────
 
 program

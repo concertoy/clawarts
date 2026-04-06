@@ -83,7 +83,6 @@ mkdir -p "$INSTALL_DIR" "$BIN_DIR"
 tar -xzf "$TMPDIR/$TARBALL_NAME" -C "$INSTALL_DIR" --strip-components=1
 
 ln -sf "$INSTALL_DIR/bin/clawarts" "$BIN_DIR/clawarts"
-ln -sf "$INSTALL_DIR/bin/clawarts-server" "$BIN_DIR/clawarts-server"
 
 # ── Done ─────────────────────────────────────────────────────────
 echo ""

@@ -16,30 +16,17 @@ BANNER="import{createRequire as __cr}from'module';var require=__cr(import.meta.u
 
 npx esbuild src/cli/index.ts \
   --bundle --platform=node --format=esm \
-  --target=node20 --outfile="$RELEASE_DIR/lib/cli.mjs" \
+  --target=node20 --outfile="$RELEASE_DIR/lib/clawarts.mjs" \
   --banner:js="$BANNER" \
   --define:CLAWARTS_VERSION=\""$VERSION"\"
 
-npx esbuild src/index.ts \
-  --bundle --platform=node --format=esm \
-  --target=node20 --outfile="$RELEASE_DIR/lib/server.mjs" \
-  --banner:js="$BANNER" \
-  --define:CLAWARTS_VERSION=\""$VERSION"\"
-
-# ── Wrapper scripts ───────────────────────────────────────────────
+# ── Wrapper script ────────────────────────────────────────────────
 cat > "$RELEASE_DIR/bin/clawarts" << 'EOF'
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-exec node "$SCRIPT_DIR/../lib/cli.mjs" "$@"
+exec node "$SCRIPT_DIR/../lib/clawarts.mjs" "$@"
 EOF
 chmod +x "$RELEASE_DIR/bin/clawarts"
-
-cat > "$RELEASE_DIR/bin/clawarts-server" << 'EOF'
-#!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-exec node "$SCRIPT_DIR/../lib/server.mjs" "$@"
-EOF
-chmod +x "$RELEASE_DIR/bin/clawarts-server"
 
 # ── Tarball + manifest ────────────────────────────────────────────
 TARBALL="release/clawarts-v${VERSION}-darwin.tar.gz"
