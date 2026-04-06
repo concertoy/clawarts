@@ -1,0 +1,79 @@
+---
+title: Tools
+description: Built-in tools and access control
+icon: wrench
+---
+
+Each agent has a set of tools it can invoke during conversations. Tools are organized by category and filtered per agent.
+
+## Tool reference
+
+| Tool | Category | Description | Typical access |
+|------|----------|-------------|----------------|
+| `read_file` | filesystem | Read file contents | tutor |
+| `write_file` | filesystem | Create or overwrite a file | tutor |
+| `edit` | filesystem | Replace a string in a file | tutor |
+| `multi_edit` | filesystem | Multiple edits in one call | tutor |
+| `bash` | shell | Execute a shell command | tutor |
+| `web_search` | web | Search the web | all |
+| `web_fetch` | web | Fetch a URL's content | all |
+| `relay` | communication | Send message to another agent | tutor |
+| `list_students` | communication | List linked student agents | tutor |
+| `assignment` | academic | Create, list, close, extend assignments | tutor |
+| `grades` | academic | View grades for all students | tutor |
+| `submit` | academic | Submit work for an assignment | student |
+| `my_status` | academic | View personal assignments and grades | student |
+| `checkin` | academic | Open, close, evaluate check-ins | tutor |
+| `checkin_respond` | academic | Respond to an open check-in | student |
+| `cron` | scheduling | Create and manage scheduled jobs | tutor |
+| `status` | utility | View agent status and stats | tutor |
+| `help` | utility | Show available commands and skills | all |
+| `export_session` | utility | Export conversation history | all |
+| `reset_session` | utility | Clear conversation history | all |
+
+## Access control
+
+Tool access is controlled per agent with two config fields:
+
+- **`allowedTools`** -- allowlist. If set, *only* these tools are available.
+- **`disallowedTools`** -- denylist. These tools are removed. Applied after the allowlist.
+
+### Filtering syntax
+
+Exact tool name:
+```json
+"disallowedTools": ["bash", "write_file"]
+```
+
+Category prefix (all tools in the category):
+```json
+"disallowedTools": ["category:filesystem", "category:shell"]
+```
+
+Wildcard:
+```json
+"allowedTools": ["web_*", "help", "my_status"]
+```
+
+### Pipeline
+
+The filtering pipeline runs in order:
+
+1. `isEnabled()` gate on the tool definition (runtime check)
+2. `allowedTools` filter (if set, keep only matching)
+3. `disallowedTools` filter (remove matching)
+
+<Accordion title="Recommended presets">
+**Student (restricted):**
+```json
+"disallowedTools": ["bash", "write_file", "edit", "multi_edit"]
+```
+
+**Student (minimal):**
+```json
+"allowedTools": ["web_search", "web_fetch", "submit", "checkin_respond", "my_status", "help"]
+```
+
+**Tutor (default):**
+No filtering needed -- tutors get all tools by default.
+</Accordion>

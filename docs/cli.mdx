@@ -1,0 +1,88 @@
+---
+title: CLI Reference
+description: Command-line interface for setup and management
+icon: terminal
+---
+
+The `clawarts` CLI manages configuration, agents, and skills.
+
+## Commands
+
+### clawarts setup
+
+Full interactive setup wizard. Creates `config.json` with your agents, tokens, and provider settings.
+
+```bash
+clawarts setup
+```
+
+### clawarts agent add
+
+Add a new agent interactively. Prompts for ID, Slack tokens, provider, and options.
+
+```bash
+clawarts agent add
+```
+
+### clawarts agent list
+
+List all configured agents with their provider and model.
+
+```bash
+clawarts agent list
+```
+
+### clawarts agent remove \<id\>
+
+Remove an agent by ID.
+
+```bash
+clawarts agent remove student-1
+```
+
+### clawarts skill add \<agent-id\>
+
+Create a new skill for an agent interactively.
+
+```bash
+clawarts skill add tutor
+```
+
+### clawarts skill list [agent-id]
+
+List skills. If agent ID is omitted, lists all skills across agents.
+
+```bash
+clawarts skill list
+clawarts skill list tutor
+```
+
+### clawarts skill remove \<agent-id\> \<skill-name\>
+
+Remove a skill from an agent.
+
+```bash
+clawarts skill remove tutor my_custom_skill
+```
+
+### clawarts check
+
+Validate `config.json` and environment variables without starting the bot. Runs diagnostics and provider health checks.
+
+```bash
+clawarts check
+```
+
+## Development commands
+
+When running from source:
+
+```bash
+npm run dev           # Start with auto-reload (tsx --watch)
+npm run start         # Start in production mode
+npm test              # Run tests (vitest)
+npm run test:watch    # Watch mode
+npm run typecheck     # tsc --noEmit
+npm run build         # Compile to dist/
+npm run release       # Build release tarball
+```

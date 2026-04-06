@@ -1,0 +1,54 @@
+---
+title: Cross-Agent Relay
+description: Send and broadcast messages between agents
+icon: message-circle
+---
+
+The relay system enables communication between agents. Tutors can send messages to individual students or broadcast to all linked students at once.
+
+## Actions
+
+### send (1:1)
+
+Send a message to a specific student agent. The message goes through the target agent's AI loop and is delivered via that agent's Slack bot.
+
+```
+relay action=send targetAgentId="student-1" userId="U_ALICE" message="Your submission for HW1 has been graded. Check /my_grades for details."
+```
+
+### broadcast (fan-out)
+
+Send a message to all students linked to this tutor. Executes in parallel.
+
+```
+relay action=broadcast message="Reminder: HW2 is due tomorrow at 11:59 PM."
+```
+
+## How it works
+
+1. Tutor agent calls the `relay` tool
+2. The relay system looks up the target agent(s) in the registry
+3. The message is processed through each target agent's AI loop
+4. Each target agent delivers the response via its own Slack bot token
+5. Delivery results are reported back to the tutor
+
+## list_students tool
+
+Tutors can discover their linked students:
+
+```
+list_students
+```
+
+Returns each student agent's ID, allowed users, and status.
+
+## Limits and safety
+
+| Limit | Value |
+|-------|-------|
+| Max concurrent broadcasts | 5 |
+| Broadcast dedup window | 10 seconds |
+| Max broadcast targets | 100 |
+| Max message length | 10,000 characters |
+
+The dedup window prevents accidental double-broadcasts when the agent retries a tool call.

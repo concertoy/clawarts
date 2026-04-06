@@ -1,0 +1,55 @@
+---
+title: Cron Scheduling
+description: Schedule recurring and one-shot jobs
+icon: clock
+---
+
+The cron system lets agents schedule jobs that run at specific times or intervals. Jobs execute by sending messages via the agent's Slack bot.
+
+## Schedule types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `at` | One-shot, runs once at a specific time | "Remind me at 3pm tomorrow" |
+| `every` | Recurring at a fixed interval | "Check in every 15 minutes" |
+
+## Cron tool actions
+
+| Action | Description |
+|--------|-------------|
+| `create` | Add a new scheduled job |
+| `list` | Show all jobs (pending, completed) |
+| `remove` | Delete a job |
+
+### Creating a one-shot job
+
+```
+cron action=create scheduleKind=at runAt=1717430400000 message="Homework deadline in 1 hour!" channelId="C_GENERAL"
+```
+
+### Creating a recurring job
+
+```
+cron action=create scheduleKind=every intervalMs=900000 message="Pulse check-in: are you still following along?" channelId="C_LECTURE"
+```
+
+The `intervalMs` is in milliseconds. 900000 = 15 minutes.
+
+## How it works
+
+- Uses precise `setTimeout` scheduling (not Unix cron)
+- Jobs persist to `~/.clawarts/agents/{id}/cron/jobs.json`
+- On restart, pending jobs are rescheduled
+- One-shot jobs are cleaned up 24 hours after execution
+- Failed jobs retry once after 10 seconds
+
+## Integration with check-ins
+
+The `/launch_checkin` skill uses cron to:
+- Auto-close a check-in window after a set duration
+- Schedule pulse check-ins at regular intervals
+- Send reminders before deadlines
+
+## System messages
+
+Cron jobs can include `[SYSTEM:tag]` prefixes in their messages. These are intercepted by the agent's system message handlers for special processing (e.g., triggering an evaluation after a check-in closes).

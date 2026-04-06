@@ -1,0 +1,59 @@
+---
+title: Installation
+description: Install clawarts on macOS
+icon: download
+---
+
+<Tabs>
+  <Tab title="curl (recommended)">
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/concertoy/clawarts/main/install.sh | bash
+    ```
+
+    This downloads the latest release tarball from GitHub, verifies its SHA-256 checksum, and installs to `~/.clawarts/` with a symlink at `~/.local/bin/clawarts`.
+
+    If `~/.local/bin` is not in your PATH:
+
+    ```bash
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+    source ~/.zshrc
+    ```
+  </Tab>
+  <Tab title="npm">
+    ```bash
+    npm install -g clawarts
+    ```
+  </Tab>
+  <Tab title="From source">
+    ```bash
+    git clone https://github.com/concertoy/clawarts.git
+    cd clawarts
+    npm install
+    ```
+
+    Run directly with `npm run dev` or build with `npm run build`.
+  </Tab>
+</Tabs>
+
+## Verify
+
+```bash
+clawarts --version
+```
+
+## Install a specific version
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/concertoy/clawarts/main/install.sh | bash -s -- 0.1.0
+```
+
+## Prerequisites
+
+<Callout type="info">
+  You'll need **Node.js 20+** and a **macOS** machine. Linux and Windows are not currently supported.
+</Callout>
+
+Before running `clawarts setup`, have these ready:
+
+- **Slack app tokens** -- one Bot Token (`xoxb-`) and one App-Level Token (`xapp-`) per agent. Enable Socket Mode in your Slack app settings.
+- **Provider API key** -- `ANTHROPIC_API_KEY` for Claude or an OpenAI key for Codex.

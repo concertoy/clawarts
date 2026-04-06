@@ -1,0 +1,51 @@
+---
+title: Introduction
+description: Multi-agent Slack bot for course management
+icon: book-open
+---
+
+# clawarts
+
+Multi-agent Slack bot for course management. Tutor and student agents run independent AI loops, communicate via relay, and connect to Slack through Socket Mode.
+
+```
+Tutor Agent ──relay/broadcast──> Student Agent(s)
+     |                                |
+     |-- assignments, check-ins       |-- submissions, responses
+     |-- announcements, grades        |-- guided learning (helpLevel)
+     '-- full tool access             '-- restricted tools
+```
+
+**Tutor agents** manage assignments, run check-ins, broadcast announcements, and have full tool access. **Student agents** submit work, respond to check-ins, and get AI tutoring with configurable guardrails.
+
+All data is stored as JSON files in `~/.clawarts/` -- no database required.
+
+## Key capabilities
+
+<CardGroup cols={2}>
+  <Card title="Assignments & Grading" icon="graduation-cap" href="/assignments">
+    Create homework, collect submissions, track grades
+  </Card>
+  <Card title="Check-ins" icon="clipboard-check" href="/check-ins">
+    Attendance via passphrase, quiz, pulse, or reflection
+  </Card>
+  <Card title="Cross-Agent Relay" icon="message-circle" href="/relay">
+    Send messages between agents or broadcast to all students
+  </Card>
+  <Card title="Skills" icon="wand" href="/skills">
+    Prompt-driven workflows like /new_homework and /launch_checkin
+  </Card>
+  <Card title="Scheduling" icon="clock" href="/scheduling">
+    Cron jobs for reminders, recurring check-ins, deadlines
+  </Card>
+  <Card title="Workspace Files" icon="file-text" href="/workspace-files">
+    Hot-reloadable markdown files that shape agent behavior
+  </Card>
+</CardGroup>
+
+## Requirements
+
+- macOS
+- Node.js 20+
+- Slack app with Socket Mode enabled (one per agent)
+- API key for your chosen provider (OpenAI or Anthropic)

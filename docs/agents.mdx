@@ -1,0 +1,106 @@
+---
+title: Agents
+description: Tutor and student agent roles
+icon: users
+---
+
+clawarts supports two agent roles: **tutor** and **student**. Each agent is an independent AI loop with its own Slack app, tool set, and conversation history.
+
+## Tutor agents
+
+Tutors have full tool access by default: filesystem, shell, web, assignments, check-ins, relay, and cron. They manage the class.
+
+```json
+{
+  "id": "tutor",
+  "slackBotToken": "$TUTOR_SLACK_BOT_TOKEN",
+  "slackAppToken": "$TUTOR_SLACK_APP_TOKEN",
+  "systemPrompt": "You are a course tutor assistant managing students."
+}
+```
+
+## Student agents
+
+Students have restricted tools and are linked to a tutor via `linkedTutor`. Their workspace is nested under the tutor's workspace at `tutor/workspace/students/{student-id}/`.
+
+```json
+{
+  "id": "student-1",
+  "linkedTutor": "tutor",
+  "slackBotToken": "$STUDENT_SLACK_BOT_TOKEN",
+  "slackAppToken": "$STUDENT_SLACK_APP_TOKEN",
+  "helpLevel": "guided",
+  "disallowedTools": ["bash", "write_file", "edit", "multi_edit"]
+}
+```
+
+## helpLevel
+
+Controls how much academic help the agent provides. This injects a constraint into the system prompt.
+
+| Level | Behavior |
+|-------|----------|
+| `hints` | Ask guiding questions only. Never provide solutions or direct answers. |
+| `guided` | Explain the approach and reasoning but don't give the final answer. |
+| `full` | No restriction. Provide complete solutions when asked. |
+
+If omitted, no academic constraint is injected.
+
+## allowedUsers
+
+Restricts which Slack users can interact with the agent. Users not in the list are silently ignored.
+
+```json
+"allowedUsers": ["U07ABCD1234", "U07EFGH5678"]
+```
+
+User IDs must match the format `U` followed by 8-12 alphanumeric characters. Find Slack user IDs in the user's profile (click the "..." menu > "Copy member ID").
+
+## Multi-agent example
+
+A typical setup with one tutor and three students:
+
+```json
+{
+  "defaults": {
+    "provider": "openai-codex",
+    "rateLimitPerMinute": 20
+  },
+  "agents": [
+    {
+      "id": "tutor",
+      "slackBotToken": "$TUTOR_BOT",
+      "slackAppToken": "$TUTOR_APP",
+      "allowedUsers": ["U_INSTRUCTOR"]
+    },
+    {
+      "id": "alice",
+      "linkedTutor": "tutor",
+      "slackBotToken": "$ALICE_BOT",
+      "slackAppToken": "$ALICE_APP",
+      "helpLevel": "guided",
+      "disallowedTools": ["bash", "write_file"],
+      "allowedUsers": ["U_ALICE"]
+    },
+    {
+      "id": "bob",
+      "linkedTutor": "tutor",
+      "slackBotToken": "$BOB_BOT",
+      "slackAppToken": "$BOB_APP",
+      "helpLevel": "hints",
+      "disallowedTools": ["bash", "write_file"],
+      "allowedUsers": ["U_BOB"]
+    },
+    {
+      "id": "carol",
+      "linkedTutor": "tutor",
+      "slackBotToken": "$CAROL_BOT",
+      "slackAppToken": "$CAROL_APP",
+      "helpLevel": "full",
+      "allowedUsers": ["U_CAROL"]
+    }
+  ]
+}
+```
+
+Each student gets a different `helpLevel` based on the instructor's preference.

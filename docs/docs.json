@@ -1,0 +1,49 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "clawarts",
+  "colors": {
+    "primary": "#6D28D9",
+    "light": "#A78BFA",
+    "dark": "#4C1D95"
+  },
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": [
+        "introduction",
+        "installation",
+        "quickstart"
+      ]
+    },
+    {
+      "group": "Configuration",
+      "pages": [
+        "configuration",
+        "agents",
+        "providers"
+      ]
+    },
+    {
+      "group": "Features",
+      "pages": [
+        "tools",
+        "skills",
+        "workspace-files",
+        "check-ins",
+        "assignments",
+        "relay",
+        "scheduling"
+      ]
+    },
+    {
+      "group": "Reference",
+      "pages": [
+        "cli",
+        "architecture"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/concertoy/clawarts"
+  }
+}

@@ -1,0 +1,80 @@
+---
+title: Providers
+description: LLM provider configuration
+icon: cpu
+---
+
+clawarts supports two LLM providers. Set the provider in `defaults` or per-agent.
+
+## openai-codex (default)
+
+| Setting | Value |
+|---------|-------|
+| Provider ID | `openai-codex` |
+| Default model | `gpt-5.4` |
+| Auth | OpenAI API key or OAuth token |
+
+```bash .env
+OPENAI_API_KEY=sk-...
+```
+
+## anthropic-claude
+
+| Setting | Value |
+|---------|-------|
+| Provider ID | `anthropic-claude` |
+| Default model | `claude-sonnet-4-20250514` |
+| Auth | Anthropic API key |
+
+```bash .env
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### Extended thinking
+
+Claude supports extended thinking, which gives the model a reasoning budget before responding. Set `thinkingBudgetTokens` in your agent config (must be less than `maxTokens`):
+
+```json
+{
+  "id": "tutor",
+  "provider": "anthropic-claude",
+  "model": "claude-sonnet-4-20250514",
+  "maxTokens": 16384,
+  "thinkingBudgetTokens": 10000
+}
+```
+
+### Prompt caching
+
+The Claude provider automatically uses Anthropic's prompt caching for the system prompt and tool definitions, reducing input token costs on subsequent requests.
+
+## Mixing providers
+
+Different agents can use different providers:
+
+```json
+{
+  "agents": [
+    {
+      "id": "tutor",
+      "provider": "anthropic-claude",
+      "model": "claude-sonnet-4-20250514"
+    },
+    {
+      "id": "student-1",
+      "provider": "openai-codex",
+      "model": "gpt-5.4"
+    }
+  ]
+}
+```
+
+Both provider API keys must be set in `.env` when mixing.
+
+## Streaming
+
+Both providers support streaming responses. Slack messages are updated in real time (every 1500ms) as the model generates output.
+
+## Token tracking
+
+Token usage (input, output, cache read, cache creation) is tracked per agent and logged. Use the `status` tool to view usage stats.

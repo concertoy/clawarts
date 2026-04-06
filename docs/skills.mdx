@@ -1,0 +1,104 @@
+---
+title: Skills
+description: Prompt-driven workflows via SKILL.md
+icon: wand
+---
+
+Skills are reusable AI workflows defined in markdown. Each skill is a `SKILL.md` file with YAML frontmatter describing when to use it and a markdown body with step-by-step instructions for the agent.
+
+## SKILL.md format
+
+```markdown
+---
+name: new_homework
+description: Create and announce a new homework assignment to all students.
+when_to_use: When the tutor says /new_homework or wants to assign homework.
+arguments: None -- the skill collects all details interactively.
+allowed-tools: assignment, relay
+---
+
+# New Homework
+
+## Step 1 -- Gather Details
+Ask the tutor for: description, deadline, submission format.
+
+## Step 2 -- Confirm
+Summarize and ask the tutor to confirm.
+
+## Step 3 -- Create Assignment
+Call the `assignment` tool with action `create`.
+
+## Step 4 -- Announce
+Call `relay` with action `broadcast` to notify all students.
+```
+
+### Frontmatter fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | yes | Skill name (used to invoke it) |
+| `description` | yes | One-line description shown in the skill list |
+| `when_to_use` | no | Trigger hint for the agent |
+| `arguments` | no | Description of expected arguments |
+| `allowed-tools` | no | Restrict which tools the skill can use |
+
+## Skill sources and precedence
+
+Skills are loaded from four directories, with later sources overriding earlier ones:
+
+1. **Bundled** (lowest) -- `examples/default_tutor/skills/` or `examples/default_student/skills/`
+2. **User-global** -- `~/.clawarts/skills/`
+3. **Agent** -- `~/.clawarts/agents/{id}/skills/`
+4. **Workspace** (highest) -- `~/.clawarts/agents/{id}/workspace/skills/`
+
+To override a bundled skill, create a `SKILL.md` with the same directory name in a higher-precedence location.
+
+## Bundled skills
+
+<Tabs>
+  <Tab title="Tutor">
+    | Skill | Description |
+    |-------|-------------|
+    | `new_homework` | Create and announce a homework assignment |
+    | `launch_checkin` | Open a check-in session |
+    | `check_submissions` | Review pending submissions |
+    | `setup_course` | Auto-create assignments and check-ins from COURSE.md |
+    | `announcement` | Broadcast a message to all students |
+    | `progress` | View student progress summary |
+    | `roster` | List all students and their status |
+    | `export` | Export course data |
+    | `office_hours` | Manage office hours |
+    | `status` | View system status |
+    | `help` | Show available commands |
+  </Tab>
+  <Tab title="Student">
+    | Skill | Description |
+    |-------|-------------|
+    | `my_assignments` | View current assignments and deadlines |
+    | `my_grades` | View personal grades |
+    | `checkin` | Respond to an open check-in |
+    | `remind` | Set a personal reminder |
+    | `office_hours` | Check office hours schedule |
+    | `slack_format` | Help with Slack message formatting |
+    | `help` | Show available commands |
+  </Tab>
+</Tabs>
+
+## Creating a custom skill
+
+1. Create a directory under your agent's skills path:
+   ```bash
+   mkdir -p ~/.clawarts/agents/tutor/workspace/skills/my_skill
+   ```
+
+2. Write a `SKILL.md` file in that directory.
+
+3. The skill is available immediately (loaded on next message).
+
+## CLI management
+
+```bash
+clawarts skill add <agent-id>       # Create a new skill interactively
+clawarts skill list [agent-id]      # List skills (all or per agent)
+clawarts skill remove <agent-id> <name>  # Remove a skill
+```

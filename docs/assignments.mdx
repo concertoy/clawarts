@@ -1,0 +1,71 @@
+---
+title: Assignments & Submissions
+description: Create, distribute, submit, and grade homework
+icon: graduation-cap
+---
+
+The assignment system lets tutors create homework, students submit work, and tutors grade submissions.
+
+## Assignment lifecycle
+
+1. **Tutor creates** an assignment with title, description, deadline, and format
+2. **Tutor broadcasts** the assignment to all students via relay
+3. **Students submit** their work before the deadline
+4. **Tutor reviews** submissions and assigns grades
+
+## Tutor: assignment tool
+
+| Action | Description |
+|--------|-------------|
+| `create` | Create a new assignment |
+| `list` | List all assignments |
+| `get` | View a specific assignment |
+| `close` | Close an assignment (no more submissions) |
+| `extend` | Extend the deadline |
+| `reopen` | Reopen a closed assignment |
+| `grade` | Grade a submission |
+
+### Creating an assignment
+
+```
+assignment action=create title="ER Diagram" description="Design an ER diagram for a library system" deadline="2026-09-14T23:59:00Z" format="individual"
+```
+
+### Grading
+
+```
+assignment action=grade assignmentId="hw-001" userId="U_ALICE" score=85 feedback="Good work on the relationships. Missing one weak entity."
+```
+
+## Student: submit tool
+
+| Action | Description |
+|--------|-------------|
+| `submit` | Submit work for an assignment |
+| `list` | List own submissions |
+| `view` | View a specific submission |
+
+### Submitting work
+
+```
+submit action=submit assignmentId="hw-001" content="Here is my ER diagram..." attachments=["diagram.png"]
+```
+
+## Student: my_status tool
+
+Shows the student their current assignments, submission status, and grades in one view.
+
+## Skills integration
+
+The `/new_homework` skill automates the create-and-broadcast flow:
+1. Collects details from the tutor interactively
+2. Creates the assignment via the tool
+3. Broadcasts the announcement to all linked students
+
+The `/check_submissions` skill shows the tutor all pending submissions for review.
+
+## Storage
+
+Assignments and submissions are stored as JSON files:
+- `~/.clawarts/agents/{tutor-id}/data/assignments.json`
+- `~/.clawarts/agents/{tutor-id}/data/submissions.json`

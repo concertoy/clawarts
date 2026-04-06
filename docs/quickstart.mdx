@@ -1,0 +1,77 @@
+---
+title: Quick Start
+description: Set up your first tutor and student in 5 minutes
+icon: rocket
+---
+
+<Steps>
+  <Step title="Create Slack apps">
+    Create one Slack app per agent at [api.slack.com/apps](https://api.slack.com/apps).
+
+    Each app needs:
+    - **Socket Mode** enabled (Settings > Socket Mode)
+    - **Event Subscriptions**: `message.im`, `app_mention`, `message.channels`
+    - **Bot Token Scopes**: `chat:write`, `channels:history`, `im:history`, `files:read`, `users:read`
+    - An **App-Level Token** with `connections:write` scope
+
+    Note the Bot Token (`xoxb-...`) and App-Level Token (`xapp-...`) for each.
+  </Step>
+
+  <Step title="Run the setup wizard">
+    ```bash
+    clawarts setup
+    ```
+
+    The wizard walks you through creating `config.json` with your agents, tokens, and provider settings. It will ask for agent IDs, Slack tokens (as `$ENV_VAR` references), provider choice, and system prompts.
+
+    If you installed from source:
+    ```bash
+    npm run cli setup
+    ```
+  </Step>
+
+  <Step title="Create your .env file">
+    Create a `.env` file in your project root with the real token values:
+
+    ```bash .env
+    TUTOR_SLACK_BOT_TOKEN=xoxb-...
+    TUTOR_SLACK_APP_TOKEN=xapp-...
+    STUDENT_SLACK_BOT_TOKEN=xoxb-...
+    STUDENT_SLACK_APP_TOKEN=xapp-...
+    ANTHROPIC_API_KEY=sk-ant-...
+    ```
+  </Step>
+
+  <Step title="Start the bot">
+    ```bash
+    clawarts-server
+    ```
+
+    Or from source:
+    ```bash
+    npm run dev
+    ```
+
+    You should see logs for each agent connecting to Slack.
+  </Step>
+
+  <Step title="Test in Slack">
+    - Send a DM to your tutor bot -- it should respond
+    - Try asking the tutor to "use the new_homework skill"
+    - Send a DM to your student bot -- it should respond within its helpLevel constraints
+  </Step>
+</Steps>
+
+## What's next?
+
+<CardGroup cols={3}>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    All config options
+  </Card>
+  <Card title="Tools" icon="wrench" href="/tools">
+    Built-in tools reference
+  </Card>
+  <Card title="Check-ins" icon="clipboard-check" href="/check-ins">
+    Set up attendance tracking
+  </Card>
+</CardGroup>

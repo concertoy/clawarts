@@ -1,0 +1,94 @@
+---
+title: Architecture
+description: Internals, agent loop, sessions, and data layout
+icon: layers
+---
+
+## Source structure
+
+```
+src/
+  index.ts          # Entrypoint: load config, create agents, start Slack apps
+  agent.ts          # Agent class: AI loop, tool execution, compaction
+  slack.ts          # Slack event handlers, session hydration, message dispatch
+  relay.ts          # Cross-agent messaging with broadcast
+  config.ts         # Config loading and validation
+  types.ts          # Core type definitions
+  provider.ts       # Provider abstraction (ModelProvider interface)
+  system-prompt.ts  # System prompt builder
+  skills.ts         # Multi-source skill loader with precedence
+  session.ts        # Conversation persistence
+  tools/            # Per-category tool files
+  providers/        # Claude and Codex implementations
+  cron/             # Scheduled job service
+  store/            # JSON file stores (assignments, submissions, check-ins)
+  utils/            # Helpers (rate limiting, retries, Slack formatting, etc.)
+  cli/              # CLI commands and setup wizard
+```
+
+## Agent loop
+
+1. Message arrives via Slack (DM, mention, or thread reply)
+2. Session is loaded or created (keyed by `channel:user` or `channel:thread`)
+3. System prompt is built from: config `systemPrompt` + workspace files + skills + helpLevel constraint + tool definitions
+4. Provider is called with the conversation history
+5. If the response contains tool calls, they are executed (up to `maxToolIterations`)
+6. Final text response is posted back to Slack
+
+### Compaction
+
+When conversation history exceeds `compactionThreshold` (default 80,000 characters), older messages are summarized by the AI and replaced with a compact summary. This keeps context within model limits while preserving important information.
+
+### Rate limiting
+
+Per-user rate limiting prevents runaway API costs. Default: 30 requests per user per minute. Configurable via `rateLimitPerMinute`.
+
+### Quiet hours
+
+When `quietHours` is set (e.g., `"23:00-07:00"`), the agent returns a canned message instead of calling the LLM. Timezone-aware via `quietHoursTimezone`.
+
+## Session management
+
+- Sessions persist to disk at `~/.clawarts/agents/{id}/sessions/`
+- On restart, sessions are restored from disk
+- Sessions expire after `sessionTtlMinutes` (default 120)
+- Per-session message ordering via `KeyedAsyncQueue` (same session is sequential, different sessions run in parallel)
+
+## Slack integration
+
+- Socket Mode (no public URL needed)
+- Message dedup via TTL map (60s window)
+- Streaming responses update every 1500ms
+- Text chunked at 4000 chars per Slack message
+- File uploads and image attachments supported (multi-modal with Claude)
+
+## Data layout
+
+```
+~/.clawarts/
+  config.json                     # User config
+  skills/                         # User-global skills
+  agents/{id}/
+    workspace/                    # SOUL.md, TOOLS.md, skills/, ...
+      students/{student-id}/      # Nested student workspaces
+    data/
+      assignments.json
+      submissions.json
+      checkins/                   # Per-window check-in data
+    cron/
+      jobs.json                   # Persisted scheduled jobs
+    sessions/                     # Conversation history
+```
+
+## Startup sequence
+
+1. Load all agent configs (with validation and diagnostics)
+2. Run health checks (provider connectivity, Slack token validity)
+3. Create provider instances per agent
+4. Initialize session stores
+5. Build tool sets with filtering (allowedTools/disallowedTools)
+6. Load skills and workspace files
+7. Create Agent instances and register with the relay system
+8. Start CronService per agent
+9. Start Slack apps (Socket Mode)
+10. Register graceful shutdown handlers

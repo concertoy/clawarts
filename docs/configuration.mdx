@@ -1,0 +1,116 @@
+---
+title: Configuration
+description: config.json structure and all settings
+icon: gear
+---
+
+clawarts is configured via a `config.json` file. The config defines shared defaults and per-agent overrides.
+
+## Config resolution order
+
+1. `CLAWARTS_CONFIG` environment variable (path to config file)
+2. `./config.json` (current directory)
+3. `~/.clawarts/config.json`
+
+## Example
+
+<CodeGroup>
+```json Minimal
+{
+  "defaults": {
+    "provider": "openai-codex"
+  },
+  "agents": [
+    {
+      "id": "tutor",
+      "slackBotToken": "$TUTOR_SLACK_BOT_TOKEN",
+      "slackAppToken": "$TUTOR_SLACK_APP_TOKEN"
+    }
+  ]
+}
+```
+
+```json Full
+{
+  "defaults": {
+    "provider": "openai-codex",
+    "model": "gpt-5.4",
+    "maxTokens": 8192,
+    "sessionTtlMinutes": 120,
+    "rateLimitPerMinute": 30
+  },
+  "agents": [
+    {
+      "id": "tutor",
+      "slackBotToken": "$TUTOR_SLACK_BOT_TOKEN",
+      "slackAppToken": "$TUTOR_SLACK_APP_TOKEN",
+      "systemPrompt": "You are a course tutor assistant.",
+      "allowedUsers": ["U_TUTOR_USER_ID"],
+      "quietHours": "23:00-07:00",
+      "quietHoursTimezone": "Asia/Hong_Kong"
+    },
+    {
+      "id": "student-1",
+      "slackBotToken": "$STUDENT_SLACK_BOT_TOKEN",
+      "slackAppToken": "$STUDENT_SLACK_APP_TOKEN",
+      "linkedTutor": "tutor",
+      "helpLevel": "guided",
+      "maxTokens": 4096,
+      "sessionTtlMinutes": 60,
+      "disallowedTools": ["bash", "write_file", "edit", "multi_edit"],
+      "allowedUsers": ["U_STUDENT_USER_ID"]
+    }
+  ]
+}
+```
+</CodeGroup>
+
+## Environment variable references
+
+Token values support `$VAR` and `${VAR}` syntax. These are resolved at startup from the process environment (loaded from `.env`).
+
+```json
+"slackBotToken": "$TUTOR_SLACK_BOT_TOKEN"
+```
+
+## All config fields
+
+Fields in `defaults` apply to all agents. Per-agent entries override defaults. Only `id`, `slackBotToken`, and `slackAppToken` are required per agent.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `id` | string | *required* | Unique agent identifier |
+| `provider` | `"openai-codex"` \| `"anthropic-claude"` | `"openai-codex"` | LLM provider |
+| `model` | string | `"gpt-5.4"` / `"claude-sonnet-4-20250514"` | Model name (auto-set from provider) |
+| `maxTokens` | number | `8192` | Max output tokens per response |
+| `systemPrompt` | string | `"You are a helpful assistant..."` | Base system prompt |
+| `slackBotToken` | string | *required* | Slack Bot Token (`xoxb-`) |
+| `slackAppToken` | string | *required* | Slack App-Level Token (`xapp-`) |
+| `sessionTtlMinutes` | number | `120` | Session expiry in minutes |
+| `linkedTutor` | string | -- | Tutor agent ID (student agents only) |
+| `allowedUsers` | string[] | `[]` | Slack user IDs allowed to interact |
+| `helpLevel` | `"hints"` \| `"guided"` \| `"full"` | -- | Academic integrity guardrail |
+| `allowedTools` | string[] | -- | Tool allowlist (if set, only these are available) |
+| `disallowedTools` | string[] | -- | Tool denylist (applied after allowlist) |
+| `maxToolIterations` | number | `10` | Max tool-use turns per reply |
+| `rateLimitPerMinute` | number | `30` | Max requests per user per minute |
+| `thinkingBudgetTokens` | number | -- | Claude extended thinking budget |
+| `quietHours` | string | -- | Suppress responses during this range (`"HH:MM-HH:MM"`) |
+| `quietHoursTimezone` | string | system local | IANA timezone for quiet hours |
+| `compactionThreshold` | number | `80000` | Character count triggering conversation compaction |
+| `welcomeMessage` | string | -- | Greeting on first conversation (empty string to disable) |
+| `skillsDirs` | string[] | -- | Legacy skill directories |
+| `workspaceDir` | string | auto | Workspace directory path |
+
+## Validation
+
+The config loader validates:
+
+- Provider is a known value
+- Slack tokens resolve to non-empty strings
+- `linkedTutor` references an existing agent ID (no circular chains)
+- `allowedUsers` entries look like Slack user IDs (`U` + 8-12 alphanumeric chars)
+- `rateLimitPerMinute` is a positive number
+- `quietHoursTimezone` is a valid IANA timezone
+- No duplicate agent IDs
+- Warnings for overlapping `allowedUsers` across agents

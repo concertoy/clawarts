@@ -1,0 +1,91 @@
+---
+title: Check-ins
+description: Attendance and engagement tracking with 4 modes
+icon: clipboard-check
+---
+
+Check-ins let tutors track attendance and engagement. Students respond via their agent, and responses are auto-evaluated or AI-evaluated depending on the mode.
+
+## Modes
+
+<Tabs>
+  <Tab title="Passphrase">
+    The tutor sets a secret phrase. Students must enter it exactly to check in. Auto-evaluated (exact match).
+
+    <Callout type="warning">
+      The tutor agent will not relay the passphrase to student agents -- students must hear it in class. This prevents trivial cheating via the AI.
+    </Callout>
+  </Tab>
+  <Tab title="Quiz">
+    The tutor specifies a topic. Each student receives a unique AI-generated question. Responses are AI-evaluated for correctness.
+  </Tab>
+  <Tab title="Pulse">
+    Repeated micro-checks at intervals (e.g., every 15 minutes during a lecture). Uses cron to send periodic prompts. Results are aggregated in a report.
+  </Tab>
+  <Tab title="Reflect">
+    Open-ended reflection prompts (e.g., "What was the most confusing concept today?"). No right/wrong answer -- used for qualitative feedback.
+  </Tab>
+</Tabs>
+
+## Lifecycle
+
+<Steps>
+  <Step title="Open">
+    Tutor opens a check-in window with a mode and optional parameters (topic, passphrase, duration).
+
+    ```
+    checkin action=open mode=quiz topic="SQL joins"
+    ```
+  </Step>
+  <Step title="Students respond">
+    Students see the check-in via their agent and respond using `checkin_respond`.
+  </Step>
+  <Step title="Close">
+    Tutor closes the window (manually or auto-close via cron deadline).
+
+    ```
+    checkin action=close
+    ```
+  </Step>
+  <Step title="Evaluate">
+    For quiz and reflect modes, the tutor triggers AI evaluation of responses.
+
+    ```
+    checkin action=evaluate
+    ```
+  </Step>
+  <Step title="Report">
+    Generate an attendance/score report (text or CSV).
+
+    ```
+    checkin action=report format=csv
+    ```
+  </Step>
+</Steps>
+
+## Tutor tool actions
+
+| Action | Description |
+|--------|-------------|
+| `open` | Open a check-in window |
+| `close` | Close the current window |
+| `close_all` | Close all open windows |
+| `evaluate` | AI-evaluate student responses |
+| `report` | Generate attendance/score report |
+
+## Student tool actions
+
+| Action | Description |
+|--------|-------------|
+| `view` | See the current check-in prompt |
+| `respond` | Submit a response |
+
+## Scheduling check-ins
+
+Use the cron system or `COURSE.md` to schedule recurring check-ins:
+
+```
+checkin action=open mode=pulse interval=15m duration=1h
+```
+
+Or define them in `COURSE.md` and run the `/setup_course` skill to auto-create.

@@ -1,0 +1,65 @@
+---
+title: Workspace Files
+description: Hot-reloadable markdown files that shape agent behavior
+icon: file-text
+---
+
+Each agent has a workspace directory containing optional markdown files that are injected into the system prompt. These files shape the agent's persona, knowledge, and behavior.
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| `SOUL.md` | Agent persona and behavior guidelines |
+| `IDENTITY.md` | Agent identity details (name, role, department) |
+| `AGENTS.md` | Multi-agent context (who else exists, how to interact) |
+| `TOOLS.md` | Tool usage guidance (when to use which tool) |
+| `USER.md` | User-facing information (office hours, contact info) |
+| `COURSE.md` | Course schedule, homework deadlines, check-in plan |
+
+All files are optional. Only files that exist are included in the prompt.
+
+## Hot reload
+
+Workspace files are re-read on every request and cached by modification time. Edit a file and the agent picks up the change on the next message -- no restart needed.
+
+## Example: SOUL.md
+
+```markdown
+You are a knowledgeable and approachable tutor for COMP3278.
+
+**Personality:**
+- Patient and encouraging
+- Break complex topics into digestible pieces
+- Use analogies and real-world examples
+
+**Behavior:**
+- Always greet students warmly
+- When a student is stuck, ask what they've tried first
+- Never give answers directly -- guide them to discover it
+```
+
+## Example: COURSE.md
+
+`COURSE.md` has a special structured format used by the `/setup_course` skill to auto-create assignments and check-ins:
+
+```markdown
+## Week 1: Introduction to Databases
+- Homework: ER Diagram Exercise (due 2026-09-14)
+- Check-in: passphrase (Monday lecture)
+
+## Week 2: SQL Basics
+- Homework: SQL Query Practice (due 2026-09-21)
+- Check-in: quiz on normalization (Wednesday lab)
+```
+
+## Workspace location
+
+- **Tutor**: `~/.clawarts/agents/{tutor-id}/workspace/`
+- **Student**: `~/.clawarts/agents/{tutor-id}/workspace/students/{student-id}/`
+
+Default templates from `examples/default_tutor/` and `examples/default_student/` are copied to the workspace on first startup.
+
+## File size limit
+
+Each workspace file is truncated to 20,000 characters. If truncated, the first 75% and last 25% are kept to preserve both the opening context and recent content.
