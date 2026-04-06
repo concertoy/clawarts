@@ -1,0 +1,17 @@
+src/
+docs/
+examples/
+scripts/
+release/
+third_party/
+.claude/
+.env
+.env.example
+.DS_Store
+config.json
+config.example.json
+vitest.config.ts
+tsconfig.json
+CLAUDE.md
+*.tsbuildinfo
+src/tests/
