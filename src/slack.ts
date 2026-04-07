@@ -104,8 +104,12 @@ export function createSlackApp(config: AgentConfig, agent: Agent, sessions: Sess
       botDmChannels.set(channel, isMember);
       return isMember;
     } catch (err) {
-      alog.warn(`isBotDM check failed for ${channel}:`, errMsg(err));
-      return false;
+      // If conversations.members fails (missing im:read scope, etc.),
+      // assume it IS a bot DM — we're receiving the event via Socket Mode,
+      // so the bot is a member of this conversation.
+      alog.debug(`isBotDM check failed for ${channel} (assuming true):`, errMsg(err));
+      botDmChannels.set(channel, true);
+      return true;
     }
   }
 
