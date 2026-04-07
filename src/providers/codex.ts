@@ -3,6 +3,9 @@ import type { ToolDefinition } from "../types.js";
 import type { TokenProvider } from "../auth.js";
 import type { ModelProvider, ProviderCallParams, ProviderMessage, ProviderResponse, TokenUsage, ToolCall } from "../provider.js";
 import { withRetry } from "../utils/retry.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("codex");
 
 const CODEX_BASE_URL = "https://chatgpt.com/backend-api/codex/responses";
 
@@ -91,9 +94,13 @@ export class CodexProvider implements ModelProvider {
           return this.consumeStream(resp, params.onText);
         }
 
-        // Non-streaming: read full response
+        // Non-streaming: read full SSE body and reconstruct from events
+        // (response.completed.output is often empty — text/tool_calls
+        //  are only in delta / output_item.done events)
         const text = await resp.text();
         let result: CodexResponse | null = null;
+        const doneItems: CodexResponseItem[] = [];
+        let accumulatedText = "";
 
         for (const line of text.split("\n")) {
           if (!line.startsWith("data: ")) continue;
@@ -101,7 +108,11 @@ export class CodexProvider implements ModelProvider {
           if (data === "[DONE]") break;
           try {
             const event = JSON.parse(data);
-            if (event.type === "response.completed" && event.response) {
+            if (event.type === "response.output_text.delta" && event.delta) {
+              accumulatedText += event.delta;
+            } else if (event.type === "response.output_item.done" && event.item) {
+              doneItems.push(event.item as CodexResponseItem);
+            } else if (event.type === "response.completed" && event.response) {
               result = event.response as CodexResponse;
             }
           } catch {
@@ -110,7 +121,18 @@ export class CodexProvider implements ModelProvider {
         }
 
         if (!result) throw new Error("No response.completed event from Codex API");
-        return parseCodexResponse(result);
+
+        // Prefer reconstructed output from output_item.done events
+        if (doneItems.length > 0) {
+          result.output = doneItems;
+        }
+        const parsed = parseCodexResponse(result);
+
+        // Final fallback: use accumulated delta text
+        if (!parsed.text && accumulatedText) {
+          parsed.text = accumulatedText;
+        }
+        return parsed;
       },
       { maxRetries: 5 },
     );
@@ -133,6 +155,8 @@ export class CodexProvider implements ModelProvider {
 
     let result: CodexResponse | null = null;
     let buffer = "";
+    let streamedText = "";
+    const doneItems: CodexResponseItem[] = [];
 
     try {
       while (true) {
@@ -157,7 +181,10 @@ export class CodexProvider implements ModelProvider {
             const event = JSON.parse(data);
 
             if (event.type === "response.output_text.delta" && event.delta) {
+              streamedText += event.delta;
               onText(event.delta);
+            } else if (event.type === "response.output_item.done" && event.item) {
+              doneItems.push(event.item as CodexResponseItem);
             } else if (event.type === "response.completed" && event.response) {
               result = event.response as CodexResponse;
             }
@@ -171,7 +198,21 @@ export class CodexProvider implements ModelProvider {
     }
 
     if (!result) throw new Error("No response.completed event from Codex API");
-    return parseCodexResponse(result);
+
+    // Prefer reconstructed output from output_item.done events
+    // (response.completed.output is often empty)
+    if (doneItems.length > 0) {
+      result.output = doneItems;
+    }
+    const parsed = parseCodexResponse(result);
+
+    // Final fallback: use accumulated delta text
+    if (!parsed.text && streamedText) {
+      log.debug(`Using streamed text fallback (${streamedText.length} chars)`);
+      parsed.text = streamedText;
+    }
+
+    return parsed;
   }
 }
 
@@ -238,8 +279,15 @@ function parseCodexResponse(result: CodexResponse): ProviderResponse {
     };
   }
 
+  const text = textParts.join("");
+
+  // Debug: log raw output items when tokens were produced but no text extracted
+  if (!text && !hasToolCalls && (result.usage?.output_tokens ?? 0) > 0) {
+    log.warn(`Empty text with ${result.usage?.output_tokens} output tokens. Raw output items: ${JSON.stringify(result.output, null, 2)}`);
+  }
+
   return {
-    text: textParts.join(""),
+    text,
     toolCalls,
     stopReason: hasToolCalls ? "tool_use" : "end_turn",
     usage,
